@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+*.egg
+
+# 虚拟环境
+ukmp_env/
+venv/
+.env
+
+# 大文件/数据
+*.zip
+*.pt
+*.pth
+*.bin
+datasets/
+
+# 本地/自动
+.autodl/
+.idea/
+.vscode/
+*.log
