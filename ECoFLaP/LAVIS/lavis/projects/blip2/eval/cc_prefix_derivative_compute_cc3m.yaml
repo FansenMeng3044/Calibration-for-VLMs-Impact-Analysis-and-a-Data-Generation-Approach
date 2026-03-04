@@ -1,10 +1,12 @@
-# 【原配置】带文件名标注的副本: cc_prefix_derivative_compute_cc3m.yaml
-# 当前脚本若用 OK-VQA calibration，请使用: cc_prefix_derivative_compute_okvqa.yaml
 # =============================================================================
- # Copyright (c) 2022, salesforce.com, inc.
- # All rights reserved.
- # SPDX-License-Identifier: BSD-3-Clause
- # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+# 【原配置 / 旧】CC3M calibration 剪枝用
+# 文件名标注: cc_prefix_derivative_compute_cc3m.yaml
+# 用途: 使用 Conceptual Caption 3M 的 train 作为 calibration 数据做剪枝
+# =============================================================================
+# Copyright (c) 2022, salesforce.com, inc.
+# All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 
 model:
   arch: blip2_t5

@@ -43,6 +43,8 @@ def set_random_seed(seed):
 def main(args):
     set_random_seed(args.seed)
     cfg = Config(args)
+    if hasattr(cfg, 'run_cfg') and getattr(cfg.run_cfg, 'num_examples', None) is not None:
+        args.num_examples = cfg.run_cfg.num_examples
     init_distributed_mode(cfg.run_cfg)
     logger = LoggerWithDepth(
         env_name="{}".format(args.save_ckpt_log_name), 

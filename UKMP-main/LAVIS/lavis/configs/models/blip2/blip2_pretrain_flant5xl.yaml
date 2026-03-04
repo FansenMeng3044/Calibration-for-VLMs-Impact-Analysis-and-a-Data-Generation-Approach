@@ -7,8 +7,9 @@ model:
   arch: pretrain_flant5xl
   load_finetuned: False
 
-  # pretrained: "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xl.pth"
-  pretrained: "/{dir_path}/models/blip2/blip2_pretrained_flant5xl.pth"
+  # pretrained: 原本地占位路径；新：用 URL，复用 ECoFLaP 已下载的 blip2_pretrained_flant5xl.pth
+  # pretrained: "/{dir_path}/models/blip2/blip2_pretrained_flant5xl.pth"
+  pretrained: "https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xl.pth"
   finetuned: ""
 
   # vit encoder
@@ -21,8 +22,9 @@ model:
   # Q-Former
   num_query_token: 32
 
-  # T5
-  t5_model: "/{dir_path}/models/google/flan-t5-xl"
+  # T5: 原本地路径；新：HF 模型 ID，复用 ~/.cache/huggingface 中的 flan-t5-xl
+  # t5_model: "/{dir_path}/models/google/flan-t5-xl"
+  t5_model: "google/flan-t5-xl"
 
   # generation configs
   prompt: ""

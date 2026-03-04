@@ -49,7 +49,7 @@ class Blip2T5(Blip2Base):
         vit_precision="fp16",
         freeze_vit=True,
         num_query_token=32,
-        t5_model="/{dir_path}/models/google/flan-t5-xl",
+        t5_model="google/flan-t5-xl",
         prompt="",
         max_txt_len=32,
         apply_lemmatizer=False,

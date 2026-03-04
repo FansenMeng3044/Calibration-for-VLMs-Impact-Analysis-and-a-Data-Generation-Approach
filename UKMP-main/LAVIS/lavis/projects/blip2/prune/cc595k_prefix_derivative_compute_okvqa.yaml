@@ -1,55 +1,44 @@
 # =============================================================================
-# 【原配置】带文件名标注的副本: cc595k_prefix_derivative_compute_cc595k.yaml
-# 若用 OK-VQA calibration，请使用: cc595k_prefix_derivative_compute_okvqa.yaml
+# 【新配置 / 当前使用】UKMP 剪枝用 OK-VQA calibration
+# 文件名标注: cc595k_prefix_derivative_compute_okvqa.yaml
+# 用途: 使用 OK-VQA train 作为 calibration 数据（与 ECoFLaP 同逻辑）
+# 数据路径: lavis/configs/datasets/okvqa/calibration.yaml 中改 storage / url
 # =============================================================================
- # Copyright (c) 2022, salesforce.com, inc.
- # All rights reserved.
- # SPDX-License-Identifier: BSD-3-Clause
- # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
-
 model:
   arch: blip2_t5
   model_type: pretrain_flant5xl
-  use_grad_checkpoint: False
+  use_grad_checkpoint: False   # 省显存，避免 knowledge importance 阶段 OOM（24GB 卡）
 
 datasets:
-  prefix_conceptual_caption_595k:
+  prefix_okvqa_calibration:
     vis_processor:
         train:
           name: "blip2_image_train"
           image_size: 224
     text_processor:
         train:
-          name: "blip_caption"
+          name: "blip_question"
 
 run:
   task: image_text_pretrain
-  # optimizer
   lr_sched: "linear_warmup_cosine_lr"
-  # init_lr: 1e-4
-  # min_lr: 1e-5
-  # warmup_lr: 1e-6
   init_lr: 5e-5
   min_lr: 2.5e-6
   warmup_lr: 5e-7
-
   weight_decay: 0.05
   max_epoch: 1
   batch_size_train: 40
   batch_size_eval: 40
+  num_examples: 128   # calibration 样本数（脚本会优先读此值，覆盖默认 1000）
   num_workers: 4
-  # warmup_steps: 1000
   warmup_steps: 50
-
   seed: 42
-  output_dir: "output/BLIP2/Pretrain_stage2"
-
+  output_dir: "output/BLIP2/OKVQA_calibration"
   amp: True
   resume_ckpt_path: null
-
   evaluate: False
+  train_splits: ["train"]
   test_splits: ["train"]
-
   device: "cuda"
   world_size: 1
   dist_url: "env://"

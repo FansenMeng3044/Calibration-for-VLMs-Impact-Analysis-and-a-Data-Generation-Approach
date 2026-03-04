@@ -1,50 +1,41 @@
-# 【原配置】带文件名标注的副本: cc_prefix_derivative_compute_cc3m.yaml
-# 当前脚本若用 OK-VQA calibration，请使用: cc_prefix_derivative_compute_okvqa.yaml
+# 【OK-VQA calibration 配置】带文件名标注的副本: cc_prefix_derivative_compute_okvqa.yaml
+# 当前入口脚本 ecoflap_zeroth.py 使用 _okvqa 版本
 # =============================================================================
- # Copyright (c) 2022, salesforce.com, inc.
- # All rights reserved.
- # SPDX-License-Identifier: BSD-3-Clause
- # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
-
+# Use OK-VQA train as calibration for pruning (same task/model as CC3M, different data).
+# Requires: LAVIS-format okvqa_train.json and COCO images (see configs/datasets/okvqa/calibration.yaml).
 model:
   arch: blip2_t5
   model_type: pretrain_flant5xl
   use_grad_checkpoint: False
 
 datasets:
-  prefix_conceptual_caption_3m:
+  prefix_okvqa_calibration:
     vis_processor:
         train:
           name: "blip2_image_train"
           image_size: 224
     text_processor:
         train:
-          name: "blip_caption"
+          name: "blip_question"
 
 run:
   task: image_text_pretrain
-  # optimizer
   lr_sched: "linear_warmup_cosine_lr"
   init_lr: 1e-4
   min_lr: 1e-5
   warmup_lr: 1e-6
-
   weight_decay: 0.05
   max_epoch: 1
   batch_size_train: 40
   batch_size_eval: 40
   num_workers: 4
   warmup_steps: 1000
-
   seed: 42
-  output_dir: "output/BLIP2/Pretrain_stage2"
-
+  output_dir: "output/BLIP2/OKVQA_calibration"
   amp: True
   resume_ckpt_path: null
-
   evaluate: False
   test_splits: ["train"]
-
   device: "cuda"
   world_size: 1
   dist_url: "env://"

@@ -25,8 +25,8 @@ from lavis.models.eva_vit import create_eva_vit_g
 from lavis.models.clip_vit import create_clip_vit_L
 from transformers import BertTokenizer
 
-BERT_BASE_UNCASED = "/{dir_path}/models/bert-base-uncased"
-# BERT_BASE_UNCASED = "bert-base-uncased"
+BERT_BASE_UNCASED = "bert-base-uncased"  # 使用 HF 名称，复用 ~/.cache/huggingface 中 ECoFLaP 已下载的缓存
+# BERT_BASE_UNCASED = "/{dir_path}/models/bert-base-uncased"
 
 class Blip2Base(BaseModel):
     @classmethod
