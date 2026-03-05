@@ -85,11 +85,18 @@ class Blip2T5(Blip2Base):
             layer.output = None
             layer.intermediate = None
 
+        import os
+        _t5_load_path = os.environ.get("FLAN_T5_XL_SNAPSHOT")
+        if _t5_load_path and os.path.isdir(_t5_load_path):
+            t5_model = _t5_load_path
+            _local_only = True
+        else:
+            _local_only = False
         self.t5_tokenizer = T5TokenizerFast.from_pretrained(t5_model)
         t5_config = T5Config.from_pretrained(t5_model)
         t5_config.dense_act_fn = "gelu"
         self.t5_model = T5ForConditionalGeneration.from_pretrained(
-            t5_model, config=t5_config
+            t5_model, config=t5_config, local_files_only=_local_only
         )
 
         for name, param in self.t5_model.named_parameters():
