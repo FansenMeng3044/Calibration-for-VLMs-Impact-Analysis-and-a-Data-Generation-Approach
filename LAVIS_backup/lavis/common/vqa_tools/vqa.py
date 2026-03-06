@@ -178,11 +178,12 @@ class VQA:
         """
         res = VQA()
         res.questions = json.load(open(quesFile))
-        res.dataset["info"] = copy.deepcopy(self.questions["info"])
-        res.dataset["task_type"] = copy.deepcopy(self.questions["task_type"])
-        res.dataset["data_type"] = copy.deepcopy(self.questions["data_type"])
-        res.dataset["data_subtype"] = copy.deepcopy(self.questions["data_subtype"])
-        res.dataset["license"] = copy.deepcopy(self.questions["license"])
+        # 兼容 per-category 或子集 questions 缺少 license/info 等字段
+        res.dataset["info"] = copy.deepcopy(self.questions.get("info", {}))
+        res.dataset["task_type"] = copy.deepcopy(self.questions.get("task_type", "Open-Ended"))
+        res.dataset["data_type"] = copy.deepcopy(self.questions.get("data_type", ""))
+        res.dataset["data_subtype"] = copy.deepcopy(self.questions.get("data_subtype", ""))
+        res.dataset["license"] = copy.deepcopy(self.questions.get("license", []))
 
         print("Loading and preparing results...     ")
         time_t = datetime.datetime.utcnow()

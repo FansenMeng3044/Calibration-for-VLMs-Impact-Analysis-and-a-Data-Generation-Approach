@@ -1,0 +1,50 @@
+# =============================================================================
+# OK-VQA calibration 剪枝：仅用 Geography_History_Language_and_Culture 类做 calibration
+# 与 cc_prefix_derivative_compute_okvqa.yaml 相同，但 build_info 指定 GHLC 的 okvqa_train.json
+# 输出: pruned_checkpoint/okvqa_cf_0.5_Geography_History_Language_and_Culture.pth（由 job_id 决定）
+# =============================================================================
+model:
+  arch: blip2_t5
+  model_type: pretrain_flant5xl
+  use_grad_checkpoint: False
+
+datasets:
+  prefix_okvqa_calibration:
+    vis_processor:
+        train:
+          name: "blip2_image_train"
+          image_size: 224
+    text_processor:
+        train:
+          name: "blip_question"
+    build_info:
+      annotations:
+        train:
+          storage:
+              - /root/autodl-tmp/datasets/okvqa_by_category/Geography_History_Language_and_Culture/okvqa_train.json
+      images:
+          storage: /root/autodl-tmp/datasets/okvqa_official/images
+
+run:
+  task: image_text_pretrain
+  lr_sched: "linear_warmup_cosine_lr"
+  init_lr: 1e-4
+  min_lr: 1e-5
+  warmup_lr: 1e-6
+  weight_decay: 0.05
+  max_epoch: 1
+  batch_size_train: 40
+  batch_size_eval: 40
+  num_workers: 4
+  warmup_steps: 1000
+  seed: 42
+  output_dir: "output/BLIP2/OKVQA_calibration"
+  amp: True
+  resume_ckpt_path: null
+  evaluate: False
+  train_splits: ["train"]
+  test_splits: ["train"]
+  device: "cuda"
+  world_size: 1
+  dist_url: "env://"
+  distributed: True

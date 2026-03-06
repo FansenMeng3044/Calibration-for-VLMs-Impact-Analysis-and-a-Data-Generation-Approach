@@ -215,6 +215,12 @@ def parse_args():
     
     parser.add_argument(
         "--pruning_method", type=str, default="blipt5_wanda_pruner",
+        help="Pruner name: blipt5_wanda_pruner, blipt5_tamp_pruner (TAMP defaults: amia + density_sum + layer), etc.",
+    )
+    
+    parser.add_argument(
+        "--token_selection", type=str, default="naive", choices=["naive", "amia"],
+        help="Token selection for T5 encoder Wanda: naive (all tokens) or amia (adaptive multimodal). Default: naive.",
     )
     
     parser.add_argument(
@@ -225,6 +231,7 @@ def parse_args():
         "--sparsity_ratio_granularity",
         type=str,
         default=None,
+        help="Sparsity granularity for DAS: layer, block, model, or None. Required for density_sum.",
     )
     
     parser.add_argument(
@@ -235,6 +242,7 @@ def parse_args():
         "--score_method",
         type=str,
         default="obd_avg",
+        help="Importance score method: obd_avg, GradMagSquare_avg, density_sum (DAS), etc.",
     )
     
     parser.add_argument(
@@ -315,6 +323,13 @@ def main():
     # os.environ["NCCL_BLOCKING_WAIT"] = "1"
 
     args = parse_args()
+
+    # TAMP alias: one-shot BLIP-2 pruning with Wanda + DAS + AMIA (overwrites token_selection, score_method, sparsity_ratio_granularity).
+    if args.pruning_method == "blipt5_tamp_pruner":
+        args.token_selection = "amia"
+        args.score_method = "density_sum"
+        args.sparsity_ratio_granularity = "layer"
+        args.pruning_method = "blipt5_wanda_pruner"
 
     # set before init_distributed_mode() to ensure the same job_id shared across all ranks.
     if args.job_id is not None:
@@ -409,6 +424,7 @@ def main():
         "sparsity_ratio_granularity": args.sparsity_ratio_granularity,
         "max_sparsity_per_layer": args.max_sparsity_per_layer,
         "score_method": args.score_method,
+        "token_selection": args.token_selection,
         "num_data_first_stage": args.num_data_first_stage,
         "num_noise": args.num_noise,
         "noise_eps": args.noise_eps,

@@ -659,9 +659,9 @@ class LayerSparsity:
             importance_per_block[i] = (1.0 - v) + (1.0 - l) + (1.0 - vl)
 
         # 3) Map block importance to each param key in layer_to_group_mapping (same block -> same importance).
-        #    Only T5 encoder keys are filled; other keys (e.g. ViT) are not included when using density_sum
-        #    (caller should pass T5-only mapping, consistent with TAMP only pruning LLM).
-        importance_measure = {}
+        #    按 TAMP 原版：先对 layer_to_group_mapping 里所有 key 赋默认值，再只填 T5 encoder 的 density。
+        #    非 T5 的 key（如 ViT）用 1.0 而非 0：否则 prune_per_model 下 ViT 单独分配时 total_ratio=0 会得 NaN sparsity。
+        importance_measure = {name: torch.FloatTensor([1.0]) for name in layer_to_group_mapping}
         for name in layer_to_group_mapping:
             if t5_encoder_prefix not in name:
                 continue

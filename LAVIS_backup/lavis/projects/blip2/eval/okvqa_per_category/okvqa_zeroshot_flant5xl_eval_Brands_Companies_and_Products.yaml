@@ -22,9 +22,16 @@ datasets:
     text_processor:
         eval:
           name: "blip_question"
-#     build_info:
-#         images:
-#             storage: '/export/share/datasets/vision/coco/images/'
+    build_info:
+      annotations:
+        test:
+          storage:
+            - /root/autodl-tmp/datasets/okvqa_by_category/Brands_Companies_and_Products/vqa_val_eval.json
+            - /root/autodl-tmp/datasets/okvqa_by_category/Brands_Companies_and_Products/answer_list.json
+            - /root/autodl-tmp/datasets/okvqa_by_category/Brands_Companies_and_Products/OpenEnded_mscoco_val2014_questions.json
+            - /root/autodl-tmp/datasets/okvqa_by_category/Brands_Companies_and_Products/mscoco_val2014_annotations.json
+      images:
+        storage: /root/autodl-tmp/datasets/okvqa_official/images
 
 run:
   task: vqa

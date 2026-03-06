@@ -5,6 +5,7 @@ Checks:
 - Return value is 4-tuple (inps, outs, caches, image_masks) when return_image_masks=True.
 - Return value is 3-tuple when return_image_masks=False (default).
 - len(image_masks) == len(inps); image_masks[i].shape == (inps[i].shape[0], inps[i].shape[1]); dtype is bool.
+- When model has no temp_label and return_image_masks=True, RuntimeError is raised.
 
 Run from LAVIS_backup root (optional HF mirror):
   HF_ENDPOINT=https://hf-mirror.com python tests/test_step3_image_masks.py
@@ -97,6 +98,28 @@ def main():
             checks.append((f"image_masks[{i}].dtype == torch.bool", image_masks[i].dtype == torch.bool))
         if len(image_masks) > 0:
             checks.append(("image_masks elements on CPU", image_masks[0].device.type == "cpu"))
+
+    # ---- 3) model has no temp_label + return_image_masks=True => RuntimeError ----
+    original_forward = model.forward
+    def forward_then_clear_temp_label(*args, **kwargs):
+        out = original_forward(*args, **kwargs)
+        if hasattr(model, "temp_label"):
+            del model.temp_label
+        return out
+    model.forward = forward_then_clear_temp_label
+    try:
+        pruner.prepare_calibration_input_encoder(
+            model, FakeDataLoader(_make_fake_dataloader(batch_size=1, num_batches=1, device=device)),
+            device, "t5_model", n_samples=2,
+            module_to_process="t5_model.encoder.block",
+            return_image_masks=True,
+        )
+        raised = False
+    except RuntimeError as e:
+        raised = "temp_label" in str(e) or "Step 1" in str(e)
+    finally:
+        model.forward = original_forward
+    checks.append(("RuntimeError when no temp_label and return_image_masks=True", raised))
 
     all_ok = all(ok for _, ok in checks)
     print("Step 3 self-check (calibration returns image_masks):")

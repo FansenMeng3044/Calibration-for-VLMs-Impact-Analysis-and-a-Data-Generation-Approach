@@ -672,7 +672,9 @@ class RunnerBase:
         class DataLoaderWrapper:
             def __init__(self, dataloader, length):
                 self.dataloader = dataloader
-                self.dataset = dataloader.dataset
+                # some runners wrap the dataloader into an IterLoader without `.dataset`
+                # for importance computation we only need iteration and length
+                self.dataset = getattr(dataloader, "dataset", None)
                 self.length = min(length, len(dataloader))
 
             def __iter__(self):

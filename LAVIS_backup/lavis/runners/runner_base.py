@@ -668,11 +668,20 @@ class RunnerBase:
 
         self.config.run_cfg.batch_size_train = batch_size_train_record
         self.config.run_cfg.batch_size_eval = batch_size_eval_record
+
+        # Unwrap IterLoader -> PrefetchLoader -> DataLoader to get .dataset (distributed 时 train 是 IterLoader)
+        loader_for_dataset = data_loader
+        if hasattr(loader_for_dataset, "_dataloader"):
+            loader_for_dataset = loader_for_dataset._dataloader
+        if hasattr(loader_for_dataset, "loader"):
+            loader_for_dataset = loader_for_dataset.loader
+        underlying_dataset = getattr(loader_for_dataset, "dataset", None)
+        assert underlying_dataset is not None, "dataloader for importance has no .dataset (unwrap IterLoader/PrefetchLoader failed)."
         
         class DataLoaderWrapper:
-            def __init__(self, dataloader, length):
+            def __init__(self, dataloader, length, dataset):
                 self.dataloader = dataloader
-                self.dataset = dataloader.dataset
+                self.dataset = dataset
                 self.length = min(length, len(dataloader))
 
             def __iter__(self):
@@ -687,7 +696,7 @@ class RunnerBase:
             def __len__(self):
                 return self.length
             
-        data_loader = DataLoaderWrapper(data_loader, num_data//batch_size)
+        data_loader = DataLoaderWrapper(data_loader, num_data//batch_size, underlying_dataset)
 
         # get the activations by forwarding the data through the model
         return data_loader
