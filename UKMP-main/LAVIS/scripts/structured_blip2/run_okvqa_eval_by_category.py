@@ -1,26 +1,34 @@
 #!/usr/bin/env python3
 """
-Run OK-VQA evaluation per category (11 categories) for a CF-calibration pruned model.
+Run OK-VQA evaluation per category (11 categories).
 Usage:
   cd /root/autodl-tmp/UKMP-main/LAVIS
-  # Set PRUNED_CKPT to your pruned checkpoint (e.g. after CF-calibration pruning)
-  export PRUNED_CKPT=pruned_checkpoint/ukmp_prune/okvqa_CF-128data-.../pytorch_model.bin
+
+  # 全精度（不剪枝）BLIP2，按 11 类跑 eval：
+  PRUNED_CKPT= python scripts/structured_blip2/run_okvqa_eval_by_category.py
+  # 或
+  export PRUNED_CKPT=
   python scripts/structured_blip2/run_okvqa_eval_by_category.py
 
-Or override from command line:
-  PRUNED_CKPT=path/to/pytorch_model.bin python scripts/structured_blip2/run_okvqa_eval_by_category.py
+  # 指定剪枝模型跑 11 类 eval：
+  export PRUNED_CKPT=pruned_checkpoint/ukmp_prune/okvqa_CF-.../pytorch_model.bin
+  python scripts/structured_blip2/run_okvqa_eval_by_category.py
+
+  # 多组 calibration 时区分结果：用 EVAL_RUN_PREFIX 避免覆盖（如 calibVT -> okvqa_eval_calibVT_VT）
+  export PRUNED_CKPT=... EVAL_RUN_PREFIX=calibVT python scripts/structured_blip2/run_okvqa_eval_by_category.py
 """
 
 import os
 import subprocess
 import sys
 
-# Default: CF-calibration pruned checkpoint (set your job_id folder name)
-PRUNED_CKPT = os.environ.get(
-    "PRUNED_CKPT",
-    "pruned_checkpoint/ukmp_prune/okvqa_CF-128data-taylor+knowledge-param_first-param_norm-0.5-blockwise-global-select_loss-multimodal/pytorch_model.bin",
-)
+# 不设或设为空 = 全精度；否则 = 剪枝模型路径
+PRUNED_CKPT = os.environ.get("PRUNED_CKPT", "").strip() or None
+if PRUNED_CKPT is not None and PRUNED_CKPT.lower() in ("none", "full", "fullprecision", "full_precision"):
+    PRUNED_CKPT = None
 GPU = os.environ.get("CUDA_VISIBLE_DEVICES", "0")
+# 多组 calibration 时加前缀，结果目录为 okvqa_eval_<PREFIX>_<Label>，不设则 okvqa_eval_<Label>
+EVAL_RUN_PREFIX = os.environ.get("EVAL_RUN_PREFIX", "").strip() or None
 
 # 11 OK-VQA categories: (eval_yaml_basename_suffix, label for job_id)
 CATEGORIES = [
@@ -94,12 +102,16 @@ def main():
         os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
     print(f"[INFO] HF endpoint: {os.environ.get('HF_ENDPOINT', 'default')}")
 
-    if not os.path.isabs(PRUNED_CKPT) and not os.path.exists(PRUNED_CKPT):
+    if PRUNED_CKPT is not None and not os.path.isabs(PRUNED_CKPT) and not os.path.exists(PRUNED_CKPT):
         print(
             f"[ERROR] Pruned checkpoint not found: {PRUNED_CKPT}\n"
-            "Set PRUNED_CKPT to your pruned pytorch_model.bin path (e.g. pruned_checkpoint/ukmp_prune/<job_id>/pytorch_model.bin)"
+            "Set PRUNED_CKPT to your pruned pytorch_model.bin path, or leave unset for full-precision eval."
         )
         sys.exit(1)
+
+    use_fullprecision = PRUNED_CKPT is None
+    if use_fullprecision:
+        print("[INFO] Full-precision eval (no pruned checkpoint).")
 
     cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     if os.path.basename(cwd) != "LAVIS":
@@ -107,17 +119,24 @@ def main():
         sys.exit(1)
 
     eval_dir = "lavis/projects/blip2/eval"
+    job_prefix = "okvqa_fullprecision_eval" if use_fullprecision else "okvqa_eval"
+    if EVAL_RUN_PREFIX:
+        job_prefix = f"{job_prefix}_{EVAL_RUN_PREFIX}"
+    # 全精度模型显存占用大，降低 batch_size_eval 避免 OOM（24GB 卡）
+    fullprecision_options = ' --options "run.batch_size_eval=16"' if use_fullprecision else ""
     try:
         for label, job_label in CATEGORIES:
             cfg_name = f"okvqa_zeroshot_flant5xl_eval_{label}.yaml"
             cfg_path = f"{eval_dir}/{cfg_name}"
-            job_id = f"okvqa_eval_{job_label}"
+            job_id = f"{job_prefix}_{job_label}"
             cmd = (
                 f"CUDA_VISIBLE_DEVICES={GPU} python -u evaluate_blip2_pruned.py"
                 f" --cfg-path {cfg_path}"
-                f" --pruned_ckpt {PRUNED_CKPT}"
                 f" --job_id {job_id}"
+                f"{fullprecision_options}"
             )
+            if PRUNED_CKPT:
+                cmd += f" --pruned_ckpt {PRUNED_CKPT}"
             print(f"\n[RUN] OK-VQA eval category: {job_label} ({cfg_name})")
             print(cmd)
             ret = subprocess.call(cmd, shell=True, cwd=cwd)

@@ -94,6 +94,9 @@ def main(args):
             logger.info("Load from Full Param Finetuned Model: {}".format(args.full_ckpt))
             full_dict = torch.load(args.full_ckpt, map_location='cpu')
             pruned_model = full_dict['model']
+        else:
+            # Full-precision eval: no checkpoint, use model as built from config
+            pruned_model = None
     else:
         # for evaluating finetuned model
         pruned_dict = torch.load(args.pruned_ckpt, map_location='cpu')
@@ -118,22 +121,25 @@ def main(args):
                     if module.output_base_layer is not None:
                         module.output_base_layer.weight.data = full_module.weight.data[~masks[0]][:, masks[1]].clone()   
     
-    if hasattr(model, 'visual_encoder'):
-        logger.info("setting pruned visual encoder...")
-        model.visual_encoder.blocks = pruned_model.visual_encoder.blocks
-    if hasattr(model, 't5_model'):
-        logger.info("setting pruned t5 model...")
-        model.t5_model = pruned_model.t5_model
-    if hasattr(model, 'opt_model'):
-        logger.info("setting pruned opt model...")
-        model.opt_model = pruned_model.opt_model
-    if args.use_totally_loaded:
-        model.ln_vision = pruned_model.ln_vision
-        model.Qformer = pruned_model.Qformer
-        if hasattr(model, 't5_proj'):
-            model.t5_proj = pruned_model.t5_proj
-        if hasattr(model, 'opt_proj'):
-            model.opt_proj = pruned_model.opt_proj
+    if pruned_model is not None:
+        if hasattr(model, 'visual_encoder'):
+            logger.info("setting pruned visual encoder...")
+            model.visual_encoder.blocks = pruned_model.visual_encoder.blocks
+        if hasattr(model, 't5_model'):
+            logger.info("setting pruned t5 model...")
+            model.t5_model = pruned_model.t5_model
+        if hasattr(model, 'opt_model'):
+            logger.info("setting pruned opt model...")
+            model.opt_model = pruned_model.opt_model
+        if args.use_totally_loaded:
+            model.ln_vision = pruned_model.ln_vision
+            model.Qformer = pruned_model.Qformer
+            if hasattr(model, 't5_proj'):
+                model.t5_proj = pruned_model.t5_proj
+            if hasattr(model, 'opt_proj'):
+                model.opt_proj = pruned_model.opt_proj
+    else:
+        logger.info("Full-precision eval: using model from config (no pruned/full checkpoint).")
     
     model.to(device)
     runner = RunnerBase(

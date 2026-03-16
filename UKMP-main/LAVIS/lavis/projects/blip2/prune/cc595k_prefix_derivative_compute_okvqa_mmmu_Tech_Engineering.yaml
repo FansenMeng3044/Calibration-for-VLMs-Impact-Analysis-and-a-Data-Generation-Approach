@@ -1,0 +1,34 @@
+# UKMP prune: MMMU calibration Tech & Engineering only (90 samples)
+model:
+  arch: blip2_t5
+  model_type: pretrain_flant5xl
+  use_grad_checkpoint: False
+datasets:
+  prefix_okvqa_calibration:
+    type: mmmu_Tech_Engineering
+    vis_processor: { train: { name: "blip2_image_train", image_size: 224 } }
+    text_processor: { train: { name: "blip_question" } }
+run:
+  task: image_text_pretrain
+  lr_sched: "linear_warmup_cosine_lr"
+  init_lr: 5e-5
+  min_lr: 2.5e-6
+  warmup_lr: 5e-7
+  weight_decay: 0.05
+  max_epoch: 1
+  batch_size_train: 40
+  batch_size_eval: 40
+  num_examples: 90
+  num_workers: 4
+  warmup_steps: 50
+  seed: 42
+  output_dir: "output/BLIP2/MMMU_calibration_6disc"
+  amp: True
+  resume_ckpt_path: null
+  evaluate: False
+  train_splits: ["train"]
+  test_splits: ["train"]
+  device: "cuda"
+  world_size: 1
+  dist_url: "env://"
+  distributed: True

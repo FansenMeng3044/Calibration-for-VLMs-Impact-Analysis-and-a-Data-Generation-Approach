@@ -70,8 +70,9 @@ class BlipCaptionProcessor(BaseProcessor):
 
 @registry.register_processor("blip_question")
 class BlipQuestionProcessor(BaseProcessor):
-    def __init__(self, max_words=50):
+    def __init__(self, max_words=50, remove_punctuation=True):
         self.max_words = max_words
+        self.remove_punctuation = remove_punctuation
 
     def __call__(self, question):
         return self.pre_question(question)
@@ -82,16 +83,19 @@ class BlipQuestionProcessor(BaseProcessor):
             cfg = OmegaConf.create()
 
         max_words = cfg.get("max_words", 50)
+        remove_punctuation = cfg.get("remove_punctuation", True)
 
-        return cls(max_words=max_words)
+        return cls(max_words=max_words, remove_punctuation=remove_punctuation)
 
     def pre_question(self, question):
-        question = re.sub(
-            r"([.!\"()*#:;~])",
-            "",
-            question.lower(),
-        )
-        question = question.rstrip(" ")
+        question = question.lower().rstrip(" ")
+        if self.remove_punctuation:
+            question = re.sub(
+                r"([.!\"()*#:;~])",
+                "",
+                question,
+            )
+            question = question.rstrip(" ")
 
         # truncate question
         question_words = question.split(" ")
