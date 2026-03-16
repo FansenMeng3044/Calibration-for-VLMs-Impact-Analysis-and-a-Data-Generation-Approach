@@ -1,0 +1,43 @@
+ckpt,calibration_name,discipline,n,accuracy
+okvqa_mmmu_Art_Design_0.5.pth,okvqa_mmmu_Art_Design_0.5,OVERALL,9702,21.8800
+okvqa_mmmu_Art_Design_0.5.pth,okvqa_mmmu_Art_Design_0.5,Art & Design,714,21.7100
+okvqa_mmmu_Art_Design_0.5.pth,okvqa_mmmu_Art_Design_0.5,Business,1369,24.4700
+okvqa_mmmu_Art_Design_0.5.pth,okvqa_mmmu_Art_Design_0.5,Science,2891,21.3400
+okvqa_mmmu_Art_Design_0.5.pth,okvqa_mmmu_Art_Design_0.5,Health & Medicine,1634,22.4000
+okvqa_mmmu_Art_Design_0.5.pth,okvqa_mmmu_Art_Design_0.5,Humanities & Social Science,1157,20.6600
+okvqa_mmmu_Art_Design_0.5.pth,okvqa_mmmu_Art_Design_0.5,Tech & Engineering,1937,21.2200
+okvqa_mmmu_Business_0.5.pth,okvqa_mmmu_Business_0.5,OVERALL,9702,21.7300
+okvqa_mmmu_Business_0.5.pth,okvqa_mmmu_Business_0.5,Art & Design,714,22.5500
+okvqa_mmmu_Business_0.5.pth,okvqa_mmmu_Business_0.5,Business,1369,23.3000
+okvqa_mmmu_Business_0.5.pth,okvqa_mmmu_Business_0.5,Science,2891,21.1300
+okvqa_mmmu_Business_0.5.pth,okvqa_mmmu_Business_0.5,Health & Medicine,1634,22.0300
+okvqa_mmmu_Business_0.5.pth,okvqa_mmmu_Business_0.5,Humanities & Social Science,1157,21.7800
+okvqa_mmmu_Business_0.5.pth,okvqa_mmmu_Business_0.5,Tech & Engineering,1937,20.9100
+okvqa_mmmu_Health_Medicine_0.5.pth,okvqa_mmmu_Health_Medicine_0.5,OVERALL,9702,19.0000
+okvqa_mmmu_Health_Medicine_0.5.pth,okvqa_mmmu_Health_Medicine_0.5,Art & Design,714,15.2700
+okvqa_mmmu_Health_Medicine_0.5.pth,okvqa_mmmu_Health_Medicine_0.5,Business,1369,20.8200
+okvqa_mmmu_Health_Medicine_0.5.pth,okvqa_mmmu_Health_Medicine_0.5,Science,2891,18.1900
+okvqa_mmmu_Health_Medicine_0.5.pth,okvqa_mmmu_Health_Medicine_0.5,Health & Medicine,1634,20.0700
+okvqa_mmmu_Health_Medicine_0.5.pth,okvqa_mmmu_Health_Medicine_0.5,Humanities & Social Science,1157,19.7100
+okvqa_mmmu_Health_Medicine_0.5.pth,okvqa_mmmu_Health_Medicine_0.5,Tech & Engineering,1937,18.9500
+okvqa_mmmu_Humanities_Social_Science_0.5.pth,okvqa_mmmu_Humanities_Social_Science_0.5,OVERALL,9702,20.2800
+okvqa_mmmu_Humanities_Social_Science_0.5.pth,okvqa_mmmu_Humanities_Social_Science_0.5,Art & Design,714,16.8100
+okvqa_mmmu_Humanities_Social_Science_0.5.pth,okvqa_mmmu_Humanities_Social_Science_0.5,Business,1369,21.8400
+okvqa_mmmu_Humanities_Social_Science_0.5.pth,okvqa_mmmu_Humanities_Social_Science_0.5,Science,2891,19.4100
+okvqa_mmmu_Humanities_Social_Science_0.5.pth,okvqa_mmmu_Humanities_Social_Science_0.5,Health & Medicine,1634,20.8100
+okvqa_mmmu_Humanities_Social_Science_0.5.pth,okvqa_mmmu_Humanities_Social_Science_0.5,Humanities & Social Science,1157,20.4800
+okvqa_mmmu_Humanities_Social_Science_0.5.pth,okvqa_mmmu_Humanities_Social_Science_0.5,Tech & Engineering,1937,21.2200
+okvqa_mmmu_Science_0.5.pth,okvqa_mmmu_Science_0.5,OVERALL,9702,21.8700
+okvqa_mmmu_Science_0.5.pth,okvqa_mmmu_Science_0.5,Art & Design,714,25.0700
+okvqa_mmmu_Science_0.5.pth,okvqa_mmmu_Science_0.5,Business,1369,22.3500
+okvqa_mmmu_Science_0.5.pth,okvqa_mmmu_Science_0.5,Science,2891,20.2700
+okvqa_mmmu_Science_0.5.pth,okvqa_mmmu_Science_0.5,Health & Medicine,1634,23.5000
+okvqa_mmmu_Science_0.5.pth,okvqa_mmmu_Science_0.5,Humanities & Social Science,1157,23.2500
+okvqa_mmmu_Science_0.5.pth,okvqa_mmmu_Science_0.5,Tech & Engineering,1937,20.5500
+okvqa_mmmu_Tech_Engineering_0.5.pth,okvqa_mmmu_Tech_Engineering_0.5,OVERALL,9702,22.0800
+okvqa_mmmu_Tech_Engineering_0.5.pth,okvqa_mmmu_Tech_Engineering_0.5,Art & Design,714,22.9700
+okvqa_mmmu_Tech_Engineering_0.5.pth,okvqa_mmmu_Tech_Engineering_0.5,Business,1369,22.0600
+okvqa_mmmu_Tech_Engineering_0.5.pth,okvqa_mmmu_Tech_Engineering_0.5,Science,2891,20.8900
+okvqa_mmmu_Tech_Engineering_0.5.pth,okvqa_mmmu_Tech_Engineering_0.5,Health & Medicine,1634,23.1900
+okvqa_mmmu_Tech_Engineering_0.5.pth,okvqa_mmmu_Tech_Engineering_0.5,Humanities & Social Science,1157,21.9500
+okvqa_mmmu_Tech_Engineering_0.5.pth,okvqa_mmmu_Tech_Engineering_0.5,Tech & Engineering,1937,22.6600
