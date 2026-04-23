@@ -366,7 +366,16 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
         for i, batch in enumerate(dataloader):
             if total_samples >= n_samples:
                 break
-            total_samples += batch["image"].shape[0]
+            if batch.get("image") is not None:
+                bs = batch["image"].shape[0]
+            elif "text_input" in batch:
+                ti = batch["text_input"]
+                bs = len(ti) if isinstance(ti, list) else int(ti.shape[0])
+            else:
+                raise ValueError(
+                    "calibration batch must contain 'image' (multimodal) or 'text_input' (T5 text-only)."
+                )
+            total_samples += bs
             try:
                 self.forward_to_cache(model, batch)
             except ValueError:
@@ -899,6 +908,10 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         noise_eps=1e-3,
         prune_per_model=False,
         token_selection="naive",
+        prune_t5=True,
+        prune_vit=True,
+        t5_unimodal_text_skip_decoder=False,
+        importance_scope="joint",
         **kwargs,
     ):
         super().__init__(
@@ -930,6 +943,13 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         self.t5_model_prefix = t5_model_prefix
         self.vit_model_prefix = vit_model_prefix
         self.token_selection = token_selection
+        self.prune_t5 = prune_t5
+        self.prune_vit = prune_vit
+        self.t5_unimodal_text_skip_decoder = t5_unimodal_text_skip_decoder
+        assert importance_scope in ("joint", "llm_only"), (
+            f"importance_scope must be joint or llm_only (got {importance_scope})"
+        )
+        self.importance_scope = importance_scope
 
     def get_sparsity(self, original_sparsity, sparsity_ratio_granularity=None):
         if self.sparsity_dict is not None:
@@ -942,13 +962,16 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         
         else:
             def check(name, v):
-                if len(v.shape) == 2 and \
-                     ".block" in name and \
-                        "relative_attention_bias.weight" not in name and \
-                        (name.startswith(self.t5_model_prefix) or \
-                            name.startswith(self.vit_model_prefix)):
-                    return True
-                return False
+                if len(v.shape) != 2 or ".block" not in name:
+                    return False
+                if "relative_attention_bias.weight" in name:
+                    return False
+                if self.importance_scope == "llm_only":
+                    return name.startswith(self.t5_model_prefix)
+                return name.startswith(self.t5_model_prefix) or name.startswith(
+                    self.vit_model_prefix
+                )
+
             parameters_to_prune = [
                 k for k, v in self.model.named_parameters() if check(k, v)
             ]
@@ -988,9 +1011,8 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
             else:
                 raise NotImplementedError
         
-        # When score_method is density_sum, LayerSparsity.compute_density needs calibration_fn returning (inps, outs, caches, image_masks).
         calibration_fn = None
-        if self.score_method == "density_sum":
+        if self.score_method == "density_sum" and self.importance_scope in ("joint", "llm_only"):
             def calibration_fn(model, data_loader, device):
                 if getattr(self, "_cached_encoder_calib", None) is not None:
                     return self._cached_encoder_calib
@@ -999,11 +1021,18 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                     self.num_data_first_stage, module_to_process=f"{self.t5_model_prefix}.encoder.block",
                     return_image_masks=True,
                 )
-        
+
+        if self.importance_scope == "llm_only":
+            loss_fn = loss_language
+            per_model_group = [self.t5_model_prefix]
+        else:
+            loss_fn = loss_vision_language
+            per_model_group = [self.t5_model_prefix, self.vit_model_prefix]
+
         sparsity_module = LayerSparsity(
             self.model, 
             self.data_loader, 
-            loss_vision_language, 
+            loss_fn, 
             self.num_data_first_stage,
             original_sparsity,
             self.max_sparsity_per_layer,
@@ -1012,7 +1041,7 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
             self.noise_eps,
             layer_to_group_mapping,
             prune_per_model=self.prune_per_model,
-            per_model_group=[self.t5_model_prefix, self.vit_model_prefix],
+            per_model_group=per_model_group,
             calibration_fn=calibration_fn,
         )
         
@@ -1026,8 +1055,11 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         print("In: ", self.pruner_name)
         dtype_record, requires_grad_record, device = self.model_setup_and_record_attributes(self.model)
 
+        if not self.prune_vit and not self.prune_t5:
+            raise ValueError("At least one of prune_vit or prune_t5 must be True")
+
         self._cached_encoder_calib = None
-        need_calib = (
+        need_calib = self.prune_t5 and (
             (self.sparsity_ratio_granularity is not None and self.score_method == "density_sum")
             or self.token_selection == "amia"
         )
@@ -1048,21 +1080,44 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
             self._cached_encoder_calib = calib_result
 
         global_sparsity_dict = None
-        if self.sparsity_ratio_granularity is not None: 
-            _, vit_keep_ratio, _, _ = self.convert_spec_to_list(self.vit_prune_spec)
-            _, t5_keep_ratio, _, _ = self.convert_spec_to_list(self.t5_prune_spec) 
-            assert vit_keep_ratio == t5_keep_ratio
+        if self.sparsity_ratio_granularity is not None:
+            vit_kr = None
+            t5_kr = None
+            if self.vit_prune_spec is not None:
+                _, vit_kr, _, _ = self.convert_spec_to_list(self.vit_prune_spec)
+            if self.t5_prune_spec is not None:
+                _, t5_kr, _, _ = self.convert_spec_to_list(self.t5_prune_spec)
+
+            if self.prune_vit and self.prune_t5:
+                assert vit_kr is not None and t5_kr is not None, (
+                    "vit_prune_spec and t5_prune_spec required when pruning both under joint allocation"
+                )
+                assert vit_kr == t5_kr
+                budget_kr = vit_kr
+            elif self.prune_vit:
+                budget_kr = vit_kr if vit_kr is not None else t5_kr
+                assert budget_kr is not None, (
+                    "vit_prune_spec required when prune_vit with sparsity_ratio_granularity set "
+                    "(or pass t5_prune_spec to reuse its keep ratio for the global budget)."
+                )
+            else:
+                budget_kr = t5_kr if t5_kr is not None else vit_kr
+                assert budget_kr is not None, (
+                    "Pass --t5_prune_spec when pruning T5 with sparsity_ratio_granularity set, "
+                    "or add --vit_prune_spec with the same keep ratio to reuse it for the budget, "
+                    "or use --sparsity_dict / set granularity to None."
+                )
 
             global_sparsity_dict = self.get_sparsity(
-                1 - vit_keep_ratio, # same as 1 - t5_keep_ratio
-                sparsity_ratio_granularity=self.sparsity_ratio_granularity
+                1 - budget_kr,
+                sparsity_ratio_granularity=self.sparsity_ratio_granularity,
             )
-            
-        if self.vit_prune_spec is not None:
+
+        if self.prune_vit and self.vit_prune_spec is not None:
             _, keep_ratio, _, _ = self.convert_spec_to_list(self.vit_prune_spec)
-        
+
             sparsity_ratio = 1 - keep_ratio
-            
+
             if global_sparsity_dict is not None:
                 sparsity_dict = global_sparsity_dict
             else:
@@ -1070,25 +1125,25 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                     sparsity_ratio,
                     sparsity_ratio_granularity=None
                 )
-            
+
             _vit_prune = partial(VITLayerWandaPruner._prune, self)
             self.prepare_calibration_input_encoder = partial(
                 VITLayerWandaPruner.prepare_calibration_input_encoder,
                 self,
-                )
-            
+            )
+
             self.model = _vit_prune(
-                self.model, self.data_loader, device, 
+                self.model, self.data_loader, device,
                 model_prefix=self.vit_model_prefix,
                 module_to_process=f"{self.vit_model_prefix}.blocks",
                 n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
             )
-            
-        if self.t5_prune_spec is not None:
+
+        if self.prune_t5 and self.t5_prune_spec is not None:
             _, keep_ratio, _, _ = self.convert_spec_to_list(self.t5_prune_spec)
-        
+
             sparsity_ratio = 1 - keep_ratio
-            
+
             if global_sparsity_dict is not None:
                 sparsity_dict = global_sparsity_dict
             else:
@@ -1096,32 +1151,32 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                     sparsity_ratio,
                     sparsity_ratio_granularity=None
                 )
-            
+
             _t5_prune = partial(T5LayerWandaPruner._prune, self)
             self.prepare_calibration_input_encoder = partial(
                 T5LayerWandaPruner.prepare_calibration_input_encoder,
                 self,
             )
-            
+
             self.model = _t5_prune(
-                self.model, self.data_loader, device, 
+                self.model, self.data_loader, device,
                 model_prefix=self.t5_model_prefix,
                 module_to_process=f"{self.t5_model_prefix}.encoder.block",
                 n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
                 token_selection=getattr(self, "token_selection", "naive"),
                 cached_calib=self._cached_encoder_calib if need_calib else None,
             )
-            
-            self.model = _t5_prune(
-                self.model, self.data_loader, device, 
-                model_prefix=self.t5_model_prefix,
-                module_to_process=f"{self.t5_model_prefix}.decoder.block",
-                n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
-                token_selection="naive",
-            )
+
+            if not self.t5_unimodal_text_skip_decoder:
+                self.model = _t5_prune(
+                    self.model, self.data_loader, device,
+                    model_prefix=self.t5_model_prefix,
+                    module_to_process=f"{self.t5_model_prefix}.decoder.block",
+                    n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
+                    token_selection="naive",
+                )
 
         self._cached_encoder_calib = None
-        # let the pruned model has the original
         self.model_reset(self.model, dtype_record, requires_grad_record, device)
-        
+
         return self.model, global_sparsity_dict

@@ -6,8 +6,8 @@ import sys
 GPU = sys.argv[1]
 port = sys.argv[2]
 
-
-method = "blipt5_wanda_pruner"
+# LAVIS_backup：BLIP-2 剪枝统一走 TAMP（evaluate_blip 内别名 → AMIA + density_sum + layer）
+method = "blipt5_tamp_pruner"
 
 ratio = 0.5
 ratios = f"{ratio}-1.0-1.0"

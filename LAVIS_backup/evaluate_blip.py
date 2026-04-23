@@ -32,6 +32,10 @@ from lavis.runners.runner_base import RunnerBase
 from lavis.tasks import *
 
 from lavis.compression import load_pruner
+from lavis.compression.unimodal_prune import (
+    build_text_only_dataloader,
+    wrap_model_for_unimodal_prune,
+)
 
 
 def parse_args():
@@ -284,8 +288,34 @@ def parse_args():
         type=int,
         default=1,
     )
+
+    parser.add_argument(
+        "--prune_calib_mode",
+        type=str,
+        default="multimodal",
+        choices=["multimodal", "t5_c4_text"],
+        help=(
+            "multimodal: calibration dataloader from cfg (image+text). "
+            "t5_c4_text: C4 JSON lines via --c4_calib_json; Wanda on T5 only (no ViT/Q-Former forward)."
+        ),
+    )
+    parser.add_argument(
+        "--t5_c4_encoder_only",
+        action="store_true",
+        help=(
+            "Only for prune_calib_mode=t5_c4_text: encoder-only surrogate loss and skip decoder Wanda."
+        ),
+    )
+    parser.add_argument(
+        "--c4_calib_json",
+        type=str,
+        default=None,
+        help="Required when --prune_calib_mode t5_c4_text (list of strings or list of dicts with text/caption).",
+    )
     
     args = parser.parse_args()
+    if args.prune_calib_mode == "t5_c4_text" and not args.c4_calib_json:
+        parser.error("--c4_calib_json is required when --prune_calib_mode t5_c4_text")
     # if 'LOCAL_RANK' not in os.environ:
     #     os.environ['LOCAL_RANK'] = str(args.local_rank)
 
@@ -403,17 +433,56 @@ def main():
         #     del prune_state_dict[additional_key]
 
         model.visual_encoder.load_state_dict(prune_state_dict)
-        
+
+    # Pre-pruned checkpoint + eval only: skip Wanda; loaded weights are already pruned.
+    if (
+        not args.save_pruned_model
+        and (
+            args.t5_pruned_checkpoint is not None
+            or args.vit_pruned_checkpoint is not None
+        )
+    ):
+        distilled_total_size = sum(
+            (param != 0).float().sum() for param in model.parameters()
+        )
+        print(distilled_total_size / orig_total_size * 100)
+        runner = RunnerBase(
+            cfg=cfg, job_id=job_id, task=task, model=model, datasets=datasets
+        )
+        runner.orig_total_size = orig_total_size
+        runner.distilled_total_size = distilled_total_size
+        runner.evaluate(skip_reload=True)
+        return
+
     runner = RunnerBase(
         cfg=cfg, job_id=None, task=task, model=model, datasets=datasets
     )
-    data_loader = runner.get_dataloader_for_importance_computation(
-        num_data=args.num_data, power=args.power, batch_size=args.prunining_dataset_batch_size
-    )
+
+    if args.prune_calib_mode == "multimodal":
+        data_loader = runner.get_dataloader_for_importance_computation(
+            num_data=args.num_data, power=args.power, batch_size=args.prunining_dataset_batch_size
+        )
+        prune_model = runner.unwrap_dist_model(runner.model).eval()
+    elif args.prune_calib_mode == "t5_c4_text":
+        data_loader = build_text_only_dataloader(
+            args.c4_calib_json,
+            args.num_data,
+            args.prunining_dataset_batch_size,
+        )
+        base_model = runner.unwrap_dist_model(runner.model).eval()
+        prune_model, _ = wrap_model_for_unimodal_prune(
+            base_model, "t5_c4_text", t5_c4_encoder_only=args.t5_c4_encoder_only
+        )
+    else:
+        raise ValueError(args.prune_calib_mode)
+
+    vit_spec_effective = args.vit_prune_spec
+    if args.prune_calib_mode == "t5_c4_text":
+        vit_spec_effective = None
 
     config = {
         "t5_prune_spec": args.t5_prune_spec if args.t5_pruned_checkpoint is None else None,
-        "vit_prune_spec": args.vit_prune_spec if args.vit_pruned_checkpoint is None else None,
+        "vit_prune_spec": vit_spec_effective if args.vit_pruned_checkpoint is None else None,
         "t5_pruning_method": "none",
         "vit_pruning_method": "none",
         "importance_scores_cache": None,
@@ -432,16 +501,22 @@ def main():
         "prune_per_model": args.prune_per_model,
         "iteration": args.iteration,
     }
-    
+    if args.prune_calib_mode == "t5_c4_text":
+        config["prune_t5"] = True
+        config["prune_vit"] = False
+        config["importance_scope"] = "llm_only"
+        config["t5_unimodal_text_skip_decoder"] = args.t5_c4_encoder_only
+
     pruner = load_pruner(
-        args.pruning_method, runner.unwrap_dist_model(runner.model).eval(), 
-        data_loader, 
-        cfg=config
+        args.pruning_method,
+        prune_model,
+        data_loader,
+        cfg=config,
     )
-    
+
     start = time.time()
-    
-    model, sparsity_dict = pruner.prune()
+
+    _, sparsity_dict = pruner.prune()
 
     # model, _ = pruner.prune()
 

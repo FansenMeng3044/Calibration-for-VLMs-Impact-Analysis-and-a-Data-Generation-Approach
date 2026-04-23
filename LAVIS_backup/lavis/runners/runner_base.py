@@ -854,11 +854,17 @@ class RunnerBase:
                 # map-style dataset are concatenated together
                 # setup distributed sampler
                 if self.use_distributed:
+                    # 剪枝 importance 子集顺序：默认与 yaml run.seed 一致；可用环境变量单独指定
+                    if os.environ.get("LAVIS_DISTRIBUTED_SAMPLER_SEED", "").strip() != "":
+                        _dss = int(os.environ["LAVIS_DISTRIBUTED_SAMPLER_SEED"])
+                    else:
+                        _dss = int(self.config.run_cfg.get("seed", 0))
                     sampler = DistributedSampler(
                         dataset,
                         shuffle=is_train,
                         num_replicas=get_world_size(),
                         rank=get_rank(),
+                        seed=_dss,
                     )
                     if not self.use_dist_eval_sampler:
                         # e.g. retrieval evaluation

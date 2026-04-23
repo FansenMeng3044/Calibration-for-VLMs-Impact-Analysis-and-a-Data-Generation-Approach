@@ -286,9 +286,14 @@ def main():
     parser.add_argument("--mmmu_root", default="/root/autodl-tmp/MMMU_single_image", help="MMMU_single_image root")
     parser.add_argument("--split", default="test", choices=["dev", "validation", "test"], help="Split to evaluate")
     parser.add_argument("--ckpt", default=None, help="Optional: path to pruned .pth (full state_dict)")
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size for inference")
+    parser.add_argument("--batch_size", type=int, default=2, help="Batch size for inference")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--max_samples", type=int, default=None, help="Cap number of samples (for debugging)")
+    parser.add_argument(
+        "--overall_only",
+        action="store_true",
+        help="全量单遍评测，只打印 Overall（不打印按领域分解）",
+    )
     args = parser.parse_args()
 
     # 收集 test 样本
@@ -302,11 +307,58 @@ def main():
     print("Loaded %d single-image %s samples" % (len(samples), args.split))
 
     # 加载模型与处理器（与 okvqa eval 一致：blip2_t5 + blip_image_eval 224 + blip_question）
-    model = load_model(
-        "blip2_t5", "pretrain_flant5xl",
-        is_eval=True, device=args.device,
-        checkpoint=args.ckpt,
-    )
+    #
+    # UKMP 的 ukmp_prune.py 保存格式是 torch.save({"model": pruned_model_obj}, path)
+    # 其中 "model" 是一个已被剪枝过、tensor 维度已经改变的 nn.Module。
+    # 直接走 load_model(... checkpoint=...) 会把 checkpoint["model"] 当成 state_dict，
+    # 从而触发:
+    #   - Expected state_dict to be dict-like
+    # 或 size mismatch。
+    # 因此这里对 UKMP pruned .bin 做兼容加载：如果 checkpoint['model'] 是 nn.Module，
+    # 就直接使用它作为评测模型；否则退回到原始 load_model 逻辑。
+    if args.ckpt is None:
+        model = load_model(
+            "blip2_t5",
+            "pretrain_flant5xl",
+            is_eval=True,
+            device=args.device,
+        )
+    else:
+        # UKMP 的剪枝权重保存为 torch.save({"model": pruned_model_obj}, path)；
+        # pruned_model_obj 的某些生成/解码相关组件可能没有 base 模型完整初始化，
+        # 直接用它做 predict_answers 可能导致空输出，影响准确率。
+        # 因此这里采用“先构建 base 模型（带 tokenizer/生成配置），再替换剪枝后的子模块”的方式，
+        # 与 UKMP 的 evaluate_blip2_pruned.py 处理逻辑保持一致。
+        ckpt_obj = torch.load(args.ckpt, map_location="cpu")
+        if (
+            isinstance(ckpt_obj, dict)
+            and "model" in ckpt_obj
+            and isinstance(ckpt_obj["model"], torch.nn.Module)
+        ):
+            pruned_model = ckpt_obj["model"]
+            model = load_model(
+                "blip2_t5",
+                "pretrain_flant5xl",
+                is_eval=True,
+                device=args.device,
+            )
+            # 替换被剪枝的模块；pruned_model 内部维度已经变化，
+            # base_model 会因此在后续 forward/generate 走剪枝后的子模块。
+            if hasattr(model, "visual_encoder") and hasattr(pruned_model, "visual_encoder"):
+                if hasattr(pruned_model.visual_encoder, "blocks"):
+                    model.visual_encoder.blocks = pruned_model.visual_encoder.blocks
+            if hasattr(model, "t5_model") and hasattr(pruned_model, "t5_model"):
+                model.t5_model = pruned_model.t5_model
+            model.eval()
+            model.to(args.device)
+        else:
+            model = load_model(
+                "blip2_t5",
+                "pretrain_flant5xl",
+                is_eval=True,
+                device=args.device,
+                checkpoint=args.ckpt,
+            )
     # MMMU 与 TAMP 一致：题干+选项不设长度上限，由模型/encoder 自然长度限制
     # remove_punctuation=False 保留选项中的小数点和数字（如 6.33、$759,000），避免 pre_question 把 "6.33" 变成 "633"
     vis_processor = load_processor("blip_image_eval").build(image_size=224)
@@ -350,23 +402,43 @@ def main():
                 # 空 GT，跳过（不计入分母）
                 continue
             total_count += 1
-            disc = subject_to_discipline(subject)
-            total_by_disc[disc] = total_by_disc.get(disc, 0) + 1
             overall_correct += score
-            correct_by_disc[disc] = correct_by_disc.get(disc, 0) + score
+            if not args.overall_only:
+                disc = subject_to_discipline(subject)
+                total_by_disc[disc] = total_by_disc.get(disc, 0) + 1
+                correct_by_disc[disc] = correct_by_disc.get(disc, 0) + score
 
     total = total_count
     overall_acc = 100.0 * overall_correct / total if total else 0
     print("\n===== MMMU single-image %s (n=%d) =====" % (args.split, total))
     print("Overall accuracy: %.2f%%" % overall_acc)
-    print("\nBy discipline:")
-    for disc in list(DISCIPLINES.keys()) + ["Other"]:
-        n = total_by_disc.get(disc, 0)
-        if n == 0:
-            continue
-        acc = 100.0 * correct_by_disc.get(disc, 0) / n
-        print("  %s: %.2f%% (%d)" % (disc, acc, n))
+    if not args.overall_only:
+        print("\nBy discipline:")
+        for disc in list(DISCIPLINES.keys()) + ["Other"]:
+            n = total_by_disc.get(disc, 0)
+            if n == 0:
+                continue
+            acc = 100.0 * correct_by_disc.get(disc, 0) / n
+            print("  %s: %.2f%% (%d)" % (disc, acc, n))
     print("")
+
+    _mp = os.environ.get("LAVIS_METRICS_JSONL")
+    if _mp:
+        import json
+
+        _bench = os.environ.get("LAVIS_METRICS_BENCHMARK", "MMMU_parquet")
+        _calib = os.environ.get("LAVIS_EVAL_CALIB_TAG", "")
+        rec = {
+            "calib_tag": _calib,
+            "benchmark": _bench,
+            "split": args.split,
+            "metric": "overall_accuracy_percent",
+            "value": round(overall_acc, 4),
+            "n": int(total),
+            "mmmu_root": os.path.abspath(args.mmmu_root),
+        }
+        with open(_mp, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":

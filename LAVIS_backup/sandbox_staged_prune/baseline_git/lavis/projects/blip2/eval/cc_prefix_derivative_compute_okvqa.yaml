@@ -1,0 +1,43 @@
+# =============================================================================
+# OK-VQA calibration 剪枝用（参考 ECoFLaP 的 CF 类做法）
+# 用途: 使用 OK-VQA train（或某 category 如 Cooking_and_Food）作为 calibration 数据做剪枝
+# 数据路径: lavis/configs/datasets/okvqa/calibration.yaml 中的 storage（可改为 CF/GHLC 等）
+# =============================================================================
+model:
+  arch: blip2_t5
+  model_type: pretrain_flant5xl
+  use_grad_checkpoint: False
+
+datasets:
+  prefix_okvqa_calibration:
+    vis_processor:
+        train:
+          name: "blip2_image_train"
+          image_size: 224
+    text_processor:
+        train:
+          name: "blip_question"
+
+run:
+  task: image_text_pretrain
+  lr_sched: "linear_warmup_cosine_lr"
+  init_lr: 1e-4
+  min_lr: 1e-5
+  warmup_lr: 1e-6
+  weight_decay: 0.05
+  max_epoch: 1
+  batch_size_train: 40
+  batch_size_eval: 40
+  num_workers: 4
+  warmup_steps: 1000
+  seed: 42
+  output_dir: "output/BLIP2/OKVQA_calibration"
+  amp: True
+  resume_ckpt_path: null
+  evaluate: False
+  train_splits: ["train"]
+  test_splits: ["train"]
+  device: "cuda"
+  world_size: 1
+  dist_url: "env://"
+  distributed: True

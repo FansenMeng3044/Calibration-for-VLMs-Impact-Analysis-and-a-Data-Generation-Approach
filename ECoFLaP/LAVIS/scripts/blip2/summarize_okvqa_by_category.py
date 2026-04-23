@@ -5,7 +5,8 @@ import argparse
 import json
 import os
 
-DEFAULT_OUTPUT_BASE = "output/BLIP2/OKVQA"
+# 与 evaluate_blip 写入路径一致：library_root 为 lavis/，故为 lavis/output/...
+DEFAULT_OUTPUT_BASE = "lavis/output/BLIP2/OKVQA"
 DEFAULT_JOB_PREFIX = "okvqa_Weather_and_Climate_eval"
 
 
@@ -59,7 +60,7 @@ def main():
     print("-" * 55)
     if valid:
         avg = sum(valid) / len(valid)
-        print(f"{'Average (' + str(len(valid)) + ' categories)':43} | {avg:.2f}%")
+        print(f"{'Macro-average (' + str(len(valid)) + ' categories)':43} | {avg:.2f}%")
 
 
 if __name__ == "__main__":

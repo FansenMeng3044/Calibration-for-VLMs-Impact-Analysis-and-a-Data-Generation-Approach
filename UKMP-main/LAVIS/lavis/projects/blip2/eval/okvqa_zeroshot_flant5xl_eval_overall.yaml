@@ -1,0 +1,57 @@
+ # Copyright (c) 2022, salesforce.com, inc.
+ # All rights reserved.
+ # SPDX-License-Identifier: BSD-3-Clause
+ # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+
+# OK-VQA full validation split (overall accuracy only). Batch tuned for 24GB + pruned eval.
+
+model:
+  arch: blip2_t5
+  model_type: pretrain_flant5xl
+  use_grad_checkpoint: False
+
+  # for OKVQA evaluation
+  apply_lemmatizer: True
+
+datasets:
+  ok_vqa:
+    vis_processor:
+        eval:
+          name: "blip_image_eval"
+          image_size: 224
+    text_processor:
+        eval:
+          name: "blip_question"
+    build_info:
+      annotations:
+        test:
+          storage:
+            - /root/autodl-tmp/datasets/okvqa/annotations/vqa_val_eval.json
+            - /root/autodl-tmp/datasets/okvqa/annotations/answer_list.json
+            - /root/autodl-tmp/datasets/okvqa/annotations/OpenEnded_mscoco_val2014_questions.json
+            - /root/autodl-tmp/datasets/okvqa/annotations/mscoco_val2014_annotations.json
+      images:
+        storage: /root/autodl-tmp/datasets/okvqa_official/images
+
+run:
+  task: vqa
+  batch_size_train: 16
+  batch_size_eval: 2
+  num_workers: 4
+
+  max_len: 10
+  min_len: 1
+  num_beams: 5
+  inference_method: "generate"
+  prompt: "Question: {} Short answer:"
+
+  seed: 42
+  output_dir: "output/BLIP2/OKVQA"
+
+  evaluate: True
+  test_splits: ["test"]
+
+  device: "cuda"
+  world_size: 1
+  dist_url: "env://"
+  distributed: True

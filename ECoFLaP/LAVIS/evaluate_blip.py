@@ -32,6 +32,10 @@ from lavis.runners.runner_base import RunnerBase
 from lavis.tasks import *
 
 from lavis.compression import load_pruner
+from lavis.compression.unimodal_prune import (
+    build_text_only_dataloader,
+    wrap_model_for_unimodal_prune,
+)
 
 
 def parse_args():
@@ -276,8 +280,98 @@ def parse_args():
         type=int,
         default=1,
     )
-    
+
+    parser.add_argument(
+        "--prune_calib_mode",
+        type=str,
+        default="multimodal",
+        choices=["multimodal", "t5_c4_text", "vit_cc3m_image", "vit_image_only"],
+        help=(
+            "multimodal: full BLIP-2 forward for calibration. "
+            "t5_c4_text: pure-text C4 + --c4_calib_json; full T5 encoder+decoder (no ViT/Q-Former). "
+            "vit_cc3m_image: full BLIP-2 + CC3M-style loader; loss_vision_language; importance_scope=vit_only. "
+            "vit_image_only: CC3M-style loader but only ViT encode_image; LayerNorm(feature)+mean_square loss; "
+            "importance_scope=vit_only_encode."
+        ),
+    )
+    parser.add_argument(
+        "--t5_c4_encoder_only",
+        action="store_true",
+        help=(
+            "Only for prune_calib_mode=t5_c4_text: use T5 encoder forward only and skip decoder Wanda "
+            "(legacy). Default is full T5 seq2seq on text (same line as input and target)."
+        ),
+    )
+    parser.add_argument(
+        "--c4_calib_json",
+        type=str,
+        default=None,
+        help="Required for prune_calib_mode=t5_c4_text.",
+    )
+    parser.add_argument(
+        "--vit_calib_full_multimodal",
+        action="store_true",
+        help=(
+            "If set, do not auto-switch multimodal -> vit_cc3m_image when doing ViT-only pruning; "
+            "stay on prune_calib_mode=multimodal (then set --importance_scope vit_only yourself if needed)."
+        ),
+    )
+
+    parser.add_argument(
+        "--importance_scope",
+        type=str,
+        default=None,
+        choices=["joint", "llm_only", "vit_only", "vit_only_encode"],
+        help=(
+            "blipt5_wanda_pruner LayerSparsity: joint = ViT+LLM global allocation (ECoFLaP default). "
+            "llm_only / vit_only = only T5 or only ViT params; vit_only uses loss_vision_language. "
+            "vit_only_encode = only ViT params + encode_image surrogate loss (use with vit_image_only). "
+            "Default: auto — llm_only for t5_c4_text, vit_only for vit_cc3m_image, vit_only_encode for "
+            "vit_image_only, joint otherwise."
+        ),
+    )
+
+    parser.add_argument(
+        "--no_prune_t5",
+        action="store_true",
+        help=(
+            "blipt5_wanda_pruner only: when sparsity_ratio_granularity is set, still run joint "
+            "ViT+T5 importance / sparsity allocation (same as full pipeline), but skip T5 Wanda "
+            "weight pruning (only prune ViT). For identical budgeting to end-to-end prune, pass "
+            "the same t5_prune_spec as you would for full run (keep ratio must match vit)."
+        ),
+    )
+
+    parser.add_argument(
+        "--no_prune_vit",
+        action="store_true",
+        help=(
+            "Legacy: skip ViT pruning. Default is already to skip ViT; use --prune_vit to enable ViT pruning."
+        ),
+    )
+    parser.add_argument(
+        "--prune_vit",
+        action="store_true",
+        help=(
+            "Enable ViT-side pruning. Default: ViT is not pruned (only T5). "
+            "When --no_prune_t5 is set (ViT-only run), ViT is always pruned; this flag is ignored."
+        ),
+    )
+
     args = parser.parse_args()
+    if args.prune_calib_mode == "t5_c4_text" and not args.c4_calib_json:
+        parser.error("--c4_calib_json is required when --prune_calib_mode t5_c4_text")
+    if args.no_prune_t5 and args.no_prune_vit:
+        parser.error("cannot use --no_prune_t5 and --no_prune_vit together (nothing would be pruned)")
+    if args.prune_vit and args.no_prune_vit:
+        parser.error("cannot use --prune_vit and --no_prune_vit together")
+
+    if args.no_prune_t5:
+        args.no_prune_vit = False
+    elif args.prune_vit:
+        args.no_prune_vit = False
+    else:
+        args.no_prune_vit = True
     # if 'LOCAL_RANK' not in os.environ:
     #     os.environ['LOCAL_RANK'] = str(args.local_rank)
 
@@ -315,6 +409,46 @@ def main():
     # os.environ["NCCL_BLOCKING_WAIT"] = "1"
 
     args = parse_args()
+
+    if args.importance_scope is None:
+        if args.prune_calib_mode == "t5_c4_text":
+            args.importance_scope = "llm_only"
+        elif args.prune_calib_mode == "vit_cc3m_image":
+            args.importance_scope = "vit_only"
+        elif args.prune_calib_mode == "vit_image_only":
+            args.importance_scope = "vit_only_encode"
+        else:
+            args.importance_scope = "joint"
+
+    if args.prune_calib_mode == "t5_c4_text" and args.importance_scope != "llm_only":
+        print(
+            f"[prune] t5_c4_text: importance_scope must be llm_only (got {args.importance_scope}); overriding."
+        )
+        args.importance_scope = "llm_only"
+    if args.prune_calib_mode == "vit_cc3m_image" and args.importance_scope != "vit_only":
+        print(
+            f"[prune] vit_cc3m_image: importance_scope must be vit_only (got {args.importance_scope}); overriding."
+        )
+        args.importance_scope = "vit_only"
+    if args.prune_calib_mode == "vit_image_only" and args.importance_scope != "vit_only_encode":
+        print(
+            f"[prune] vit_image_only: importance_scope must be vit_only_encode (got {args.importance_scope}); overriding."
+        )
+        args.importance_scope = "vit_only_encode"
+
+    if (
+        args.prune_calib_mode == "multimodal"
+        and args.sparsity_ratio_granularity is None
+        and args.no_prune_t5
+        and not args.no_prune_vit
+        and not args.vit_calib_full_multimodal
+    ):
+        args.prune_calib_mode = "vit_cc3m_image"
+        print(
+            "[prune] ViT-only separate pruning: prune_calib_mode -> vit_cc3m_image "
+            "(full BLIP calib; LayerSparsity same as joint, scope vit_only). "
+            "Use --vit_calib_full_multimodal to keep mode=multimodal."
+        )
 
     # set before init_distributed_mode() to ensure the same job_id shared across all ranks.
     if args.job_id is not None:
@@ -388,13 +522,56 @@ def main():
         #     del prune_state_dict[additional_key]
 
         model.visual_encoder.load_state_dict(prune_state_dict)
-        
+
+    # Pre-pruned checkpoint + eval only: weights are already pruned; skip Wanda (would need
+    # t5_prune_spec / vit_prune_spec or sparsity_ratio_granularity, and re-pruning is wrong).
+    if (
+        not args.save_pruned_model
+        and (
+            args.t5_pruned_checkpoint is not None
+            or args.vit_pruned_checkpoint is not None
+        )
+    ):
+        distilled_total_size = sum(
+            (param != 0).float().sum() for param in model.parameters()
+        )
+        print(distilled_total_size / orig_total_size * 100)
+        runner = RunnerBase(
+            cfg=cfg, job_id=job_id, task=task, model=model, datasets=datasets
+        )
+        runner.orig_total_size = orig_total_size
+        runner.distilled_total_size = distilled_total_size
+        runner.evaluate(skip_reload=True)
+        return
+
     runner = RunnerBase(
         cfg=cfg, job_id=None, task=task, model=model, datasets=datasets
     )
-    data_loader = runner.get_dataloader_for_importance_computation(
-        num_data=args.num_data, power=args.power, batch_size=args.prunining_dataset_batch_size
-    )
+    if args.prune_calib_mode == "multimodal":
+        data_loader = runner.get_dataloader_for_importance_computation(
+            num_data=args.num_data, power=args.power, batch_size=args.prunining_dataset_batch_size
+        )
+    elif args.prune_calib_mode == "t5_c4_text":
+        data_loader = build_text_only_dataloader(
+            args.c4_calib_json,
+            args.num_data,
+            args.prunining_dataset_batch_size,
+        )
+    elif args.prune_calib_mode in ("vit_cc3m_image", "vit_image_only"):
+        data_loader = runner.get_dataloader_for_importance_computation(
+            num_data=args.num_data, power=args.power, batch_size=args.prunining_dataset_batch_size
+        )
+    else:
+        raise ValueError(args.prune_calib_mode)
+
+    base_model = runner.unwrap_dist_model(runner.model)
+    prune_model = base_model
+    if args.prune_calib_mode == "t5_c4_text":
+        prune_model, _ = wrap_model_for_unimodal_prune(
+            base_model, "t5_c4_text", t5_c4_encoder_only=args.t5_c4_encoder_only
+        )
+    elif args.prune_calib_mode == "vit_image_only":
+        prune_model, _ = wrap_model_for_unimodal_prune(base_model, "vit_image_only")
 
     config = {
         "t5_prune_spec": args.t5_prune_spec if args.t5_pruned_checkpoint is None else None,
@@ -415,17 +592,24 @@ def main():
         "sparsity_dict": args.sparsity_dict,
         "prune_per_model": args.prune_per_model,
         "iteration": args.iteration,
+        "prune_t5": (not args.no_prune_t5),
+        "prune_vit": (not args.no_prune_vit),
+        "t5_unimodal_text_skip_decoder": (
+            args.prune_calib_mode == "t5_c4_text" and args.t5_c4_encoder_only
+        ),
+        "importance_scope": args.importance_scope,
     }
     
     pruner = load_pruner(
-        args.pruning_method, runner.unwrap_dist_model(runner.model).eval(), 
-        data_loader, 
+        args.pruning_method,
+        prune_model.eval(),
+        data_loader,
         cfg=config
     )
     
     start = time.time()
     
-    model, sparsity_dict = pruner.prune()
+    _, sparsity_dict = pruner.prune()
 
     # model, _ = pruner.prune()
 

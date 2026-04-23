@@ -9,10 +9,10 @@ MMMU 单图 test 集上跑 BLIP2-T5 推理，并按 6 大领域汇总准确率�
     --mmmu_root /root/autodl-tmp/MMMU_single_image \\
     --split test \\
     [--ckpt pruned_checkpoint/okvqa_ghlc-xxx.pth] \\
-    [--batch_size 16] [--device cuda]
+    [--batch_size 2] [--device cuda]
 
 - 从 MMMU_single_image 读 test parquet，只评估单图题。
-- 若提供 --ckpt 则加载剪枝后的模型，否则用 LAVIS 预训练权重。
+- 若提供 --ckpt 则加载完整剪枝 state_dict；若同时提供 --vit_ckpt 与 --t5_ckpt 则从两个单侧剪枝文件分别加载 ViT / T5（组合评测）；否则用 LAVIS 预训练权重。
 - 输出：Overall 准确率 + 6 大领域各自准确率。
 """
 from __future__ import annotations
@@ -33,8 +33,13 @@ _LAVIS_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__
 if _LAVIS_ROOT not in sys.path:
     sys.path.insert(0, _LAVIS_ROOT)
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
+
 from lavis.models import load_model
 from lavis.processors import load_processor
+from load_blip2_t5_split_ckpts import load_blip2_t5_for_eval
 
 
 # 与 mmmu_to_calibration_format.py 保持一致
@@ -285,11 +290,31 @@ def main():
     parser = argparse.ArgumentParser(description="MMMU single-image test eval by 6 disciplines")
     parser.add_argument("--mmmu_root", default="/root/autodl-tmp/MMMU_single_image", help="MMMU_single_image root")
     parser.add_argument("--split", default="test", choices=["dev", "validation", "test"], help="Split to evaluate")
-    parser.add_argument("--ckpt", default=None, help="Optional: path to pruned .pth (full state_dict)")
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size for inference")
+    parser.add_argument("--ckpt", default=None, help="Optional: pruned .pth full state_dict (mutually exclusive with --vit_ckpt/--t5_ckpt)")
+    parser.add_argument(
+        "--vit_ckpt",
+        default=None,
+        help="ViT-only prune .pth; must be used with --t5_ckpt (T5 from t5-only prune)",
+    )
+    parser.add_argument(
+        "--t5_ckpt",
+        default=None,
+        help="T5-only prune .pth; must be used with --vit_ckpt",
+    )
+    parser.add_argument("--batch_size", type=int, default=2, help="Batch size for inference")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--max_samples", type=int, default=None, help="Cap number of samples (for debugging)")
+    parser.add_argument(
+        "--overall_only",
+        action="store_true",
+        help="全量单遍评测，只打印 Overall（不打印按领域分解）",
+    )
     args = parser.parse_args()
+
+    if args.ckpt and (args.vit_ckpt or args.t5_ckpt):
+        parser.error("Use either --ckpt or (--vit_ckpt and --t5_ckpt), not both")
+    if (args.vit_ckpt or args.t5_ckpt) and not (args.vit_ckpt and args.t5_ckpt):
+        parser.error("Both --vit_ckpt and --t5_ckpt are required together")
 
     # 收集 test 样本
     samples = list(load_mmmu_single_image_test(args.mmmu_root, args.split))
@@ -302,11 +327,14 @@ def main():
     print("Loaded %d single-image %s samples" % (len(samples), args.split))
 
     # 加载模型与处理器（与 okvqa eval 一致：blip2_t5 + blip_image_eval 224 + blip_question）
-    model = load_model(
-        "blip2_t5", "pretrain_flant5xl",
-        is_eval=True, device=args.device,
-        checkpoint=args.ckpt,
-    )
+    if args.vit_ckpt and args.t5_ckpt:
+        model = load_blip2_t5_for_eval(args.device, vit_ckpt=args.vit_ckpt, t5_ckpt=args.t5_ckpt)
+    else:
+        model = load_model(
+            "blip2_t5", "pretrain_flant5xl",
+            is_eval=True, device=args.device,
+            checkpoint=args.ckpt,
+        )
     # MMMU 与 TAMP 一致：题干+选项不设长度上限，由模型/encoder 自然长度限制
     # remove_punctuation=False 保留选项中的小数点和数字（如 6.33、$759,000），避免 pre_question 把 "6.33" 变成 "633"
     vis_processor = load_processor("blip_image_eval").build(image_size=224)
@@ -350,23 +378,44 @@ def main():
                 # 空 GT，跳过（不计入分母）
                 continue
             total_count += 1
-            disc = subject_to_discipline(subject)
-            total_by_disc[disc] = total_by_disc.get(disc, 0) + 1
             overall_correct += score
-            correct_by_disc[disc] = correct_by_disc.get(disc, 0) + score
+            if not args.overall_only:
+                disc = subject_to_discipline(subject)
+                total_by_disc[disc] = total_by_disc.get(disc, 0) + 1
+                correct_by_disc[disc] = correct_by_disc.get(disc, 0) + score
 
     total = total_count
     overall_acc = 100.0 * overall_correct / total if total else 0
     print("\n===== MMMU single-image %s (n=%d) =====" % (args.split, total))
     print("Overall accuracy: %.2f%%" % overall_acc)
-    print("\nBy discipline:")
-    for disc in list(DISCIPLINES.keys()) + ["Other"]:
-        n = total_by_disc.get(disc, 0)
-        if n == 0:
-            continue
-        acc = 100.0 * correct_by_disc.get(disc, 0) / n
-        print("  %s: %.2f%% (%d)" % (disc, acc, n))
+    if not args.overall_only:
+        print("\nBy discipline:")
+        for disc in list(DISCIPLINES.keys()) + ["Other"]:
+            n = total_by_disc.get(disc, 0)
+            if n == 0:
+                continue
+            acc = 100.0 * correct_by_disc.get(disc, 0) / n
+            print("  %s: %.2f%% (%d)" % (disc, acc, n))
     print("")
+
+    # 供 bash 大脚本汇总：设置 LAVIS_METRICS_JSONL + LAVIS_METRICS_BENCHMARK + LAVIS_EVAL_CALIB_TAG
+    _mp = os.environ.get("LAVIS_METRICS_JSONL")
+    if _mp:
+        import json
+
+        _bench = os.environ.get("LAVIS_METRICS_BENCHMARK", "MMMU_parquet")
+        _calib = os.environ.get("LAVIS_EVAL_CALIB_TAG", "")
+        rec = {
+            "calib_tag": _calib,
+            "benchmark": _bench,
+            "split": args.split,
+            "metric": "overall_accuracy_percent",
+            "value": round(overall_acc, 4),
+            "n": int(total),
+            "mmmu_root": os.path.abspath(args.mmmu_root),
+        }
+        with open(_mp, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":

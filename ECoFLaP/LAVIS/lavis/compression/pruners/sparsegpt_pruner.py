@@ -53,6 +53,19 @@ def find_layers(module, layers=[nn.Linear], name=''):
         ))
     return res
 
+
+def _assert_sparsegpt_nsamples_ok(wrapped_layers, subset, layer_idx):
+    """SparseGPT.add_batch accumulates the leading dim of each forward (often batch).
+    len(inps) is the number of cached forwards, so equality with nsamples only holds for batch_size=1."""
+    ns_list = [wrapped_layers[name].nsamples for name in subset]
+    assert all(ns > 0 for ns in ns_list), (
+        f"SparseGPT: no activations collected at layer {layer_idx}: {dict(zip(subset.keys(), ns_list))}"
+    )
+    assert len(set(ns_list)) == 1, (
+        f"SparseGPT: inconsistent nsamples at layer {layer_idx}: {dict(zip(subset.keys(), ns_list))}"
+    )
+
+
 class SparseGPT:
 
     def __init__(self, layer):
@@ -386,8 +399,8 @@ class T5LayerSparseGPTPruner(LayerWiseBasePruner):
             for h in handles:
                 h.remove()
 
+            _assert_sparsegpt_nsamples_ok(wrapped_layers, subset, i)
             for name in subset:
-                assert wrapped_layers[name].nsamples == len(inps)
                 print(f"pruning layer {i} name {name}")
                 
                 sparsity_key = f"{module_to_process}.{i}.{name}.weight"
@@ -642,8 +655,8 @@ class VITLayerSparseGPTPruner(LayerWiseBasePruner):
             for h in handles:
                 h.remove()
 
+            _assert_sparsegpt_nsamples_ok(wrapped_layers, subset, i)
             for name in subset:
-                assert wrapped_layers[name].nsamples == len(inps)
                 print(f"pruning layer {i} name {name}")
 
                 sparsity_key = f"{module_to_process}.{i}.{name}.weight"

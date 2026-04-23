@@ -63,7 +63,8 @@ def main():
     print("-" * 55)
     if valid:
         avg = sum(valid) / len(valid)
-        print(f"{'Average (' + str(len(valid)) + ' categories)':43} | {avg:.2f}%")
+        # 各类别等权平均，不等同于「全量 val 混在一起」的 overall accuracy
+        print(f"{'Macro-average (' + str(len(valid)) + ' categories)':43} | {avg:.2f}%")
 
 
 if __name__ == "__main__":

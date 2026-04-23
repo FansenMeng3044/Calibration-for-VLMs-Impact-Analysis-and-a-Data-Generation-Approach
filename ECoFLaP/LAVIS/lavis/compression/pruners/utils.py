@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from time import time
 from lavis.datasets.data_utils import prepare_sample
 
@@ -41,6 +42,30 @@ def loss_language(model, samples, cuda_enabled):
 
     batch_len = len(samples["text_input"])
 
+    return loss, batch_len
+
+
+def loss_vit_encode_l2(model, samples, cuda_enabled):
+    """
+    Unimodal ViT calibration: encode_image -> LayerNorm on features -> mean of squares.
+    Surrogate loss for LayerSparsity / gradients (not the multimodal caption CE).
+    """
+    samples = prepare_sample(samples, cuda_enabled=cuda_enabled)
+    if not hasattr(model, "encode_image"):
+        raise TypeError(
+            "loss_vit_encode_l2 requires model.encode_image (use VisualEncoderImageOnlyView)."
+        )
+    out = model.encode_image(samples["image"])
+    z = out.float()
+    if z.dim() == 3:
+        z = F.layer_norm(z, (z.size(-1),))
+    elif z.dim() == 4:
+        z = F.layer_norm(z, (z.size(1), z.size(2), z.size(3)))
+    else:
+        z = z - z.mean()
+        z = z / (z.std() + 1e-6)
+    loss = z.pow(2).mean()
+    batch_len = samples["image"].shape[0]
     return loss, batch_len
 
 

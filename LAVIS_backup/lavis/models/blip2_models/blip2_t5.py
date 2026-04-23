@@ -5,6 +5,7 @@
  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 """
 import logging
+import os
 import random 
 
 import torch
@@ -83,11 +84,20 @@ class Blip2T5(Blip2Base):
             layer.output = None
             layer.intermediate = None
 
-        self.t5_tokenizer = T5TokenizerFast.from_pretrained(t5_model)
-        t5_config = T5Config.from_pretrained(t5_model)
+        t5_load_path = os.environ.get("FLAN_T5_XL_SNAPSHOT")
+        if t5_load_path and os.path.isdir(t5_load_path):
+            t5_model = t5_load_path
+            local_only = True
+        else:
+            local_only = False
+
+        self.t5_tokenizer = T5TokenizerFast.from_pretrained(
+            t5_model, local_files_only=local_only
+        )
+        t5_config = T5Config.from_pretrained(t5_model, local_files_only=local_only)
         t5_config.dense_act_fn = "gelu"
         self.t5_model = T5ForConditionalGeneration.from_pretrained(
-            t5_model, config=t5_config
+            t5_model, config=t5_config, local_files_only=local_only
         )
 
         for name, param in self.t5_model.named_parameters():

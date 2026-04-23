@@ -5,6 +5,7 @@
  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 """
 import logging
+import os
 import random 
 
 import torch
@@ -15,6 +16,44 @@ from transformers import T5TokenizerFast
 from lavis.common.registry import registry
 from lavis.models.blip2_models.blip2 import Blip2Base, disabled_train
 from lavis.models.blip2_models.modeling_t5 import T5Config, T5ForConditionalGeneration
+
+
+def _flan_t5_pretrained_args(t5_model):
+    """
+    Return (path_or_id, local_files_only) for Flan-T5 loading.
+    Resolves HF hub snapshot under HF_HOME when present (offline-friendly).
+    """
+    p = os.path.expanduser(t5_model)
+    if os.path.isdir(p):
+        return p, True
+    env_snap = os.environ.get("FLAN_T5_XL_SNAPSHOT")
+    if env_snap and os.path.isdir(os.path.expanduser(env_snap)):
+        return os.path.expanduser(env_snap), True
+
+    hub_root = os.environ.get("HUGGINGFACE_HUB_CACHE")
+    if not hub_root and os.environ.get("HF_HOME"):
+        hub_root = os.path.join(os.environ["HF_HOME"], "hub")
+    if hub_root and "flan-t5-xl" in t5_model:
+        snap_root = os.path.join(hub_root, "models--google--flan-t5-xl", "snapshots")
+        if os.path.isdir(snap_root):
+            entries = [
+                os.path.join(snap_root, d)
+                for d in os.listdir(snap_root)
+                if os.path.isdir(os.path.join(snap_root, d))
+            ]
+            if entries:
+                return sorted(entries)[0], True
+
+    offline = os.environ.get("HF_HUB_OFFLINE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    ) or os.environ.get("TRANSFORMERS_OFFLINE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    return t5_model, offline
 
 
 @registry.register_model("blip2_t5")
@@ -83,11 +122,15 @@ class Blip2T5(Blip2Base):
             layer.output = None
             layer.intermediate = None
 
-        self.t5_tokenizer = T5TokenizerFast.from_pretrained(t5_model)
-        t5_config = T5Config.from_pretrained(t5_model)
+        t5_model, local_only = _flan_t5_pretrained_args(t5_model)
+
+        self.t5_tokenizer = T5TokenizerFast.from_pretrained(
+            t5_model, local_files_only=local_only
+        )
+        t5_config = T5Config.from_pretrained(t5_model, local_files_only=local_only)
         t5_config.dense_act_fn = "gelu"
         self.t5_model = T5ForConditionalGeneration.from_pretrained(
-            t5_model, config=t5_config
+            t5_model, config=t5_config, local_files_only=local_only
         )
 
         for name, param in self.t5_model.named_parameters():

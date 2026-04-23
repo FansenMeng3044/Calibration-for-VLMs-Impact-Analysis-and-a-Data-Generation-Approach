@@ -11,7 +11,11 @@ from lavis.models.blip2_models.blip2_t5 import Blip2T5
 from lavis.models.t5_models.t5 import T5
 from lavis.models.clip_models.eva_model import EVA_CLIP
 from lavis.compression.pruners.utils import (
-    loss_vision_language, loss_language, loss_vision, print_time
+    loss_vision_language,
+    loss_language,
+    loss_vision,
+    loss_vit_encode_l2,
+    print_time,
 )
 from lavis.compression.pruners.layer_single_base_pruner import LayerWiseBasePruner, LayerSparsity
 
@@ -201,7 +205,16 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
         for i, batch in enumerate(dataloader):
             if total_samples >= n_samples:
                 break
-            total_samples += batch["image"].shape[0]
+            if batch.get("image") is not None:
+                bs = batch["image"].shape[0]
+            elif "text_input" in batch:
+                ti = batch["text_input"]
+                bs = len(ti) if isinstance(ti, list) else int(ti.shape[0])
+            else:
+                raise ValueError(
+                    "calibration batch must contain 'image' (multimodal) or 'text_input' (T5 text-only)."
+                )
+            total_samples += bs
             try:
                 self.forward_to_cache(model, batch)
             except ValueError:
@@ -687,6 +700,10 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         sparsity_dict=None,
         noise_eps=1e-3,
         prune_per_model=False,
+        prune_t5=True,
+        prune_vit=True,
+        t5_unimodal_text_skip_decoder=False,
+        importance_scope="joint",
         **kwargs,
     ):
         super().__init__(
@@ -717,6 +734,16 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         
         self.t5_model_prefix = t5_model_prefix
         self.vit_model_prefix = vit_model_prefix
+        self.prune_t5 = prune_t5
+        self.prune_vit = prune_vit
+        self.t5_unimodal_text_skip_decoder = t5_unimodal_text_skip_decoder
+        assert importance_scope in (
+            "joint",
+            "llm_only",
+            "vit_only",
+            "vit_only_encode",
+        )
+        self.importance_scope = importance_scope
 
     def get_sparsity(self, original_sparsity, sparsity_ratio_granularity=None):
         if self.sparsity_dict is not None:
@@ -729,13 +756,18 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         
         else:
             def check(name, v):
-                if len(v.shape) == 2 and \
-                     ".block" in name and \
-                        "relative_attention_bias.weight" not in name and \
-                        (name.startswith(self.t5_model_prefix) or \
-                            name.startswith(self.vit_model_prefix)):
-                    return True
-                return False
+                if len(v.shape) != 2 or ".block" not in name:
+                    return False
+                if "relative_attention_bias.weight" in name:
+                    return False
+                if self.importance_scope == "llm_only":
+                    return name.startswith(self.t5_model_prefix)
+                if self.importance_scope in ("vit_only", "vit_only_encode"):
+                    return name.startswith(self.vit_model_prefix)
+                return name.startswith(self.t5_model_prefix) or name.startswith(
+                    self.vit_model_prefix
+                )
+
             parameters_to_prune = [
                 k for k, v in self.model.named_parameters() if check(k, v)
             ]
@@ -774,11 +806,26 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                 }
             else:
                 raise NotImplementedError
+
+        if self.importance_scope == "llm_only":
+            loss_fn = loss_language
+            per_model_group = [self.t5_model_prefix]
+        elif self.importance_scope == "vit_only":
+            # Multimodal CE; groups / budget only over ViT blocks.
+            loss_fn = loss_vision_language
+            per_model_group = [self.vit_model_prefix]
+        elif self.importance_scope == "vit_only_encode":
+            # Pure-ViT forward: normalized encode_image features, mean square (surrogate).
+            loss_fn = loss_vit_encode_l2
+            per_model_group = [self.vit_model_prefix]
+        else:
+            loss_fn = loss_vision_language
+            per_model_group = [self.t5_model_prefix, self.vit_model_prefix]
         
         sparsity_module = LayerSparsity(
             self.model, 
             self.data_loader, 
-            loss_vision_language, 
+            loss_fn, 
             self.num_data_first_stage,
             original_sparsity,
             self.max_sparsity_per_layer,
@@ -787,7 +834,7 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
             self.noise_eps,
             layer_to_group_mapping,
             prune_per_model=self.prune_per_model,
-            per_model_group=[self.t5_model_prefix, self.vit_model_prefix],
+            per_model_group=per_model_group,
         )
         
         return sparsity_module.return_sparsity()
@@ -800,25 +847,54 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         print("In: ", self.pruner_name)
         dtype_record, requires_grad_record, device = self.model_setup_and_record_attributes(self.model)
 
+        if not self.prune_vit and not self.prune_t5:
+            raise ValueError("At least one of prune_vit or prune_t5 must be True")
+
         global_sparsity_dict = None
-        if self.sparsity_ratio_granularity is not None: 
-            _, vit_keep_ratio, _, _ = self.convert_spec_to_list(self.vit_prune_spec)
-            _, t5_keep_ratio, _, _ = self.convert_spec_to_list(self.t5_prune_spec) 
-            assert vit_keep_ratio == t5_keep_ratio
+        if self.sparsity_ratio_granularity is not None:
+            vit_kr = None
+            t5_kr = None
+            if self.vit_prune_spec is not None:
+                _, vit_kr, _, _ = self.convert_spec_to_list(self.vit_prune_spec)
+            if self.t5_prune_spec is not None:
+                _, t5_kr, _, _ = self.convert_spec_to_list(self.t5_prune_spec)
+
+            if self.prune_vit and self.prune_t5:
+                assert vit_kr is not None and t5_kr is not None, (
+                    "vit_prune_spec and t5_prune_spec required when pruning both under joint allocation"
+                )
+                assert vit_kr == t5_kr
+                budget_kr = vit_kr
+            elif self.prune_vit:
+                budget_kr = vit_kr if vit_kr is not None else t5_kr
+                assert budget_kr is not None, (
+                    "vit_prune_spec required when prune_vit with sparsity_ratio_granularity set "
+                    "(or pass t5_prune_spec to reuse its keep ratio for the global budget)."
+                )
+            else:
+                # T5-only joint allocation: prefer t5_prune_spec; many YAMLs only define vit_prune_spec.
+                budget_kr = t5_kr if t5_kr is not None else vit_kr
+                assert budget_kr is not None, (
+                    "Pass --t5_prune_spec (e.g. 24-0.5-1.0-1.0) when pruning T5 with "
+                    "sparsity_ratio_granularity set, or add --vit_prune_spec with the same keep ratio "
+                    "to reuse it for the budget, or use --sparsity_dict / set granularity to None."
+                )
 
             global_sparsity_dict = self.get_sparsity(
-                1 - vit_keep_ratio, # same as 1 - t5_keep_ratio
-                sparsity_ratio_granularity=self.sparsity_ratio_granularity
+                1 - budget_kr,
+                sparsity_ratio_granularity=self.sparsity_ratio_granularity,
             )
-            
-        if self.vit_prune_spec is not None:
-            _, keep_ratio, _, _ = self.convert_spec_to_list(self.vit_prune_spec)
-        
-            sparsity_ratio = 1 - keep_ratio
-            
+
+        if self.prune_vit:
             if global_sparsity_dict is not None:
                 sparsity_dict = global_sparsity_dict
             else:
+                assert self.vit_prune_spec is not None, (
+                    "vit_prune_spec is required for ViT Wanda when no joint sparsity_dict was built "
+                    "(e.g. sparsity_ratio_granularity is None)."
+                )
+                _, keep_ratio, _, _ = self.convert_spec_to_list(self.vit_prune_spec)
+                sparsity_ratio = 1 - keep_ratio
                 sparsity_dict = self.get_sparsity(
                     sparsity_ratio,
                     sparsity_ratio_granularity=None
@@ -837,14 +913,16 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                 n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
             )
             
-        if self.t5_prune_spec is not None:
-            _, keep_ratio, _, _ = self.convert_spec_to_list(self.t5_prune_spec)
-        
-            sparsity_ratio = 1 - keep_ratio
-            
+        if self.prune_t5:
             if global_sparsity_dict is not None:
                 sparsity_dict = global_sparsity_dict
             else:
+                assert self.t5_prune_spec is not None, (
+                    "t5_prune_spec is required for T5 Wanda when no joint sparsity_dict was built "
+                    "(e.g. sparsity_ratio_granularity is None)."
+                )
+                _, keep_ratio, _, _ = self.convert_spec_to_list(self.t5_prune_spec)
+                sparsity_ratio = 1 - keep_ratio
                 sparsity_dict = self.get_sparsity(
                     sparsity_ratio,
                     sparsity_ratio_granularity=None
@@ -863,12 +941,13 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                 n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
             )
             
-            self.model = _t5_prune(
-                self.model, self.data_loader, device, 
-                model_prefix=self.t5_model_prefix,
-                module_to_process=f"{self.t5_model_prefix}.decoder.block",
-                n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
-            )
+            if not self.t5_unimodal_text_skip_decoder:
+                self.model = _t5_prune(
+                    self.model, self.data_loader, device, 
+                    model_prefix=self.t5_model_prefix,
+                    module_to_process=f"{self.t5_model_prefix}.decoder.block",
+                    n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
+                )
 
         # let the pruned model has the original
         self.model_reset(self.model, dtype_record, requires_grad_record, device)
