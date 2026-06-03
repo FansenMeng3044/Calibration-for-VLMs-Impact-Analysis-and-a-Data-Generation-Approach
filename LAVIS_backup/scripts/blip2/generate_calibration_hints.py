@@ -116,8 +116,8 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--max_hint_attempts",
         type=int,
-        default=5,
-        help="Regenerate a bad hint up to this many attempts. The script stops if no good hint is found.",
+        default=10,
+        help="Regenerate a bad hint up to this many attempts, then keep the original question unchanged.",
     )
     ap.add_argument("--question_field", default="question")
     ap.add_argument("--image_field", default="image")
@@ -324,6 +324,10 @@ def make_output_row(
     return out
 
 
+def make_original_output_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    return copy.deepcopy(row)
+
+
 def write_json(path: str, rows: List[Dict[str, Any]]) -> None:
     ensure_parent_dir(path)
     with open(path, "w", encoding="utf-8") as f:
@@ -379,6 +383,7 @@ def main() -> None:
     output_rows: List[Optional[Dict[str, Any]]] = [None] * len(rows)
     ok_count = 0
     retry_count = 0
+    keep_original_count = 0
 
     with open(args.out_hints_jsonl, "w", encoding="utf-8") as audit_f:
         for start in range(0, len(rows), args.batch_size):
@@ -467,15 +472,11 @@ def main() -> None:
                         last_raw[local_idx] = raw_hint
                         last_reasons[local_idx] = list(reasons)
                         if attempt >= args.max_hint_attempts:
-                            audit["status"] = "failed"
-                            audit_f.write(json.dumps(audit, ensure_ascii=False) + "\n")
-                            audit_f.flush()
-                            raise RuntimeError(
-                                "Could not generate an acceptable hint for row %d after %d attempts. "
-                                "Last hint=%r reasons=%s"
-                                % (start + local_idx, args.max_hint_attempts, clean, reasons)
-                            )
-                        still_pending.append(local_idx)
+                            keep_original_count += 1
+                            audit["status"] = "failed_keep_original"
+                            output_rows[start + local_idx] = make_original_output_row(row)
+                        else:
+                            still_pending.append(local_idx)
 
                     audit_f.write(json.dumps(audit, ensure_ascii=False) + "\n")
 
@@ -484,7 +485,10 @@ def main() -> None:
 
             done = min(start + len(batch), len(rows))
             if args.log_every > 0 and (done == len(rows) or done % args.log_every == 0):
-                print("Processed %d/%d rows (ok=%d retries=%d)" % (done, len(rows), ok_count, retry_count))
+                print(
+                    "Processed %d/%d rows (ok=%d retries=%d keep_original=%d)"
+                    % (done, len(rows), ok_count, retry_count, keep_original_count)
+                )
 
     final_rows: List[Dict[str, Any]] = []
     for idx, row in enumerate(output_rows):
@@ -495,7 +499,10 @@ def main() -> None:
     write_json(args.out_calib_json, final_rows)
     print("[OK] wrote audit hints:", os.path.abspath(args.out_hints_jsonl))
     print("[OK] wrote calibration JSON:", os.path.abspath(args.out_calib_json))
-    print("[OK] accepted hints: %d | retry attempts: %d" % (ok_count, retry_count))
+    print(
+        "[OK] accepted hints: %d | retry attempts: %d | kept original: %d"
+        % (ok_count, retry_count, keep_original_count)
+    )
 
 
 if __name__ == "__main__":
