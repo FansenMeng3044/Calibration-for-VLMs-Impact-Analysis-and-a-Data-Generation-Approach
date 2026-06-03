@@ -26,14 +26,13 @@
 
 set -euo pipefail
 
-AUTODL_TMP="${AUTODL_TMP:-/root/autodl-tmp}"
-ECOFLAP_ROOT="$AUTODL_TMP/ECoFLaP/LAVIS"
-LB_ROOT="$AUTODL_TMP/LAVIS_backup"
+AUTODL_TMP="${AUTODL_TMP:-/data/data2/mfs}"
+ECOFLAP_ROOT="$AUTODL_TMP/2/ECoFLaP/LAVIS"
+LB_ROOT="$AUTODL_TMP/2/LAVIS_backup"
 
-# 默认使用 CC3M_calib_128_seed20260411；换回旧集可 export CC3M_CFG=.../cc_prefix_derivative_compute_cc3m_calib128.yaml
-CC3M_CFG="${CC3M_CFG:-lavis/projects/blip2/eval/cc_prefix_derivative_compute_cc3m_calib128_seed20260411.yaml}"
-CC3M_CFG_ECO="$CC3M_CFG"
-CC3M_CFG_LB="$CC3M_CFG"
+# ECoFLaP 用 seed20260411 版 YAML；LAVIS_backup 没有该版本，用基础版
+CC3M_CFG_ECO="${CC3M_CFG_ECO:-lavis/projects/blip2/eval/cc_prefix_derivative_compute_cc3m_calib128_seed20260411.yaml}"
+CC3M_CFG_LB="${CC3M_CFG_LB:-lavis/projects/blip2/eval/cc_prefix_derivative_compute_cc3m_calib128.yaml}"
 
 EVAL_JSON="${EVAL_JSON:-$AUTODL_TMP/MathVista_eval_testmini_mc/mathvista_multi_choice_eval.json}"
 IMAGES_DIR="${IMAGES_DIR:-$AUTODL_TMP/MathVista_eval_testmini_mc/images}"
@@ -42,15 +41,15 @@ export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export OMP_NUM_THREADS=1
 
 export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
-export HF_HOME="${HF_HOME:-$AUTODL_TMP/cache_moved/huggingface}"
+export HF_HOME="${HF_HOME:-$AUTODL_TMP/model_cache/huggingface}"
 export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
 export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
 export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-$HF_HOME/datasets}"
 export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
 export TOKENIZERS_PARALLELISM="${TOKENIZERS_PARALLELISM:-false}"
-export BERT_BASE_UNCASED_SNAPSHOT="${BERT_BASE_UNCASED_SNAPSHOT:-$AUTODL_TMP/cache_moved/huggingface/hub/models--bert-base-uncased/snapshots/86b5e0934494bd15c9632b12f734a8a67f723594}"
-export FLAN_T5_XL_SNAPSHOT="${FLAN_T5_XL_SNAPSHOT:-$AUTODL_TMP/cache_moved/huggingface/hub/models--google--flan-t5-xl/snapshots/7d6315df2c2fb742f0f5b556879d730926ca9001}"
+export BERT_BASE_UNCASED_SNAPSHOT="${BERT_BASE_UNCASED_SNAPSHOT:-$AUTODL_TMP/model_cache/huggingface/hub/models--bert-base-uncased/snapshots/86b5e0934494bd15c9632b12f734a8a67f723594}"
+export FLAN_T5_XL_SNAPSHOT="${FLAN_T5_XL_SNAPSHOT:-$AUTODL_TMP/model_cache/huggingface/hub/models--google--flan-t5-xl/snapshots/7d6315df2c2fb742f0f5b556879d730926ca9001}"
 
 export MMBENCH_ROOT="${MMBENCH_ROOT:-$AUTODL_TMP/MMBench_eval}"
 export MMMU_ROOT="${MMMU_ROOT:-$AUTODL_TMP/MMMU_single_image}"

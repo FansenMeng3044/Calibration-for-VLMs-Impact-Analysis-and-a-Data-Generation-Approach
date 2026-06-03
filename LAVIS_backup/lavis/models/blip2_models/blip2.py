@@ -25,13 +25,55 @@ from lavis.models.eva_vit import create_eva_vit_g
 from lavis.models.clip_vit import create_clip_vit_L
 from transformers import BertTokenizer
 
-BERT_BASE_UNCASED = os.environ.get("BERT_BASE_UNCASED_SNAPSHOT", "bert-base-uncased")
+
+def _bert_pretrained_args():
+    """
+    Return (pretrained_id_or_path, local_files_only) for Q-Former BERT tokenizer/config.
+
+    Order: explicit BERT_BASE_UNCASED_SNAPSHOT dir -> auto Hub snapshot under HUGGINGFACE_HUB_CACHE / HF_HOME/hub
+    -> Hub id with offline flags (no download when cache exists).
+    """
+    explicit = os.environ.get("BERT_BASE_UNCASED_SNAPSHOT")
+    if explicit:
+        p = os.path.expanduser(explicit)
+        if os.path.isdir(p):
+            return p, True
+        return explicit, False
+
+    hub_root = os.environ.get("HUGGINGFACE_HUB_CACHE")
+    if not hub_root and os.environ.get("HF_HOME"):
+        hub_root = os.path.join(os.environ["HF_HOME"], "hub")
+    if hub_root:
+        snap_root = os.path.join(hub_root, "models--bert-base-uncased", "snapshots")
+        if os.path.isdir(snap_root):
+            entries = [
+                os.path.join(snap_root, d)
+                for d in os.listdir(snap_root)
+                if os.path.isdir(os.path.join(snap_root, d))
+            ]
+            if entries:
+                return sorted(entries)[0], True
+
+    offline = os.environ.get("HF_HUB_OFFLINE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    ) or os.environ.get("TRANSFORMERS_OFFLINE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    return "bert-base-uncased", offline
 
 
 class Blip2Base(BaseModel):
     @classmethod
     def init_tokenizer(cls):
-        tokenizer = BertTokenizer.from_pretrained(BERT_BASE_UNCASED)
+        bid, local_only = _bert_pretrained_args()
+        tokenizer = BertTokenizer.from_pretrained(
+            bid,
+            local_files_only=local_only,
+        )
         tokenizer.add_special_tokens({"bos_token": "[DEC]"})
         return tokenizer
 
@@ -47,14 +89,15 @@ class Blip2Base(BaseModel):
 
     @classmethod
     def init_Qformer(cls, num_query_token, vision_width, cross_attention_freq=2):
-        encoder_config = BertConfig.from_pretrained(BERT_BASE_UNCASED)
+        bid, _lo = _bert_pretrained_args()
+        encoder_config = BertConfig.from_pretrained(bid, local_files_only=_lo)
         encoder_config.encoder_width = vision_width
         # insert cross-attention layer every other block
         encoder_config.add_cross_attention = True
         encoder_config.cross_attention_freq = cross_attention_freq
         encoder_config.query_length = num_query_token
         Qformer = BertLMHeadModel.from_pretrained(
-            BERT_BASE_UNCASED, config=encoder_config
+            bid, config=encoder_config, local_files_only=_lo
         )
         query_tokens = nn.Parameter(
             torch.zeros(1, num_query_token, encoder_config.hidden_size)

@@ -1,6 +1,6 @@
 # =============================================================================
 # CC3M 小规模 calibration（128 条）：seed20260411 子集，本地 json + images
-# 数据：/root/autodl-tmp/CC3M_calib_128_seed20260411/cc3m_calib_128.json + images/
+# 数据：/data/data2/mfs/CC3M_calib_128_seed20260411/cc3m_calib_128.json + images/
 # 预训练权重（本机）: cache_moved/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth
 # 换机器请改 model.pretrained 与下方 json/images 路径。
 # 用法：与 cc_prefix_derivative_compute_cc3m_calib128.yaml 相同，仅 cfg 文件名不同。
@@ -12,7 +12,7 @@ model:
   arch: blip2_t5
   model_type: pretrain_flant5xl
   use_grad_checkpoint: False
-  pretrained: "/root/autodl-tmp/cache_moved/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth"
+  pretrained: "/data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth"
 
 datasets:
   prefix_conceptual_caption_3m:
@@ -27,11 +27,11 @@ datasets:
       annotations:
         train:
           url:
-            - /root/autodl-tmp/CC3M_calib_128_seed20260411/cc3m_calib_128.json
+            - /data/data2/mfs/CC3M_calib_128_seed20260411/cc3m_calib_128.json
           storage:
-            - /root/autodl-tmp/CC3M_calib_128_seed20260411/cc3m_calib_128.json
+            - /data/data2/mfs/CC3M_calib_128_seed20260411/cc3m_calib_128.json
       images:
-        storage: /root/autodl-tmp/CC3M_calib_128_seed20260411/images
+        storage: /data/data2/mfs/CC3M_calib_128_seed20260411/images
 
 run:
   task: image_text_pretrain

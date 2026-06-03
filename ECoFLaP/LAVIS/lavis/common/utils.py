@@ -56,6 +56,15 @@ def load_json(filename):
         return json.load(f)
 
 
+def is_serializable(value):
+    """Return True if value can be JSON-serialized (used by dataset displ helpers)."""
+    try:
+        json.dumps(value)
+        return True
+    except (TypeError, OverflowError):
+        return False
+
+
 # The following are adapted from torchvision and vissl
 # torchvision: https://github.com/pytorch/vision
 # vissl: https://github.com/facebookresearch/vissl/blob/main/vissl/utils/download.py

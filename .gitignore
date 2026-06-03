@@ -13,12 +13,36 @@ ukmp_env/
 venv/
 .env
 
-# 大文件/数据
+# 大文件/数据（权重、数据集、缓存勿提交）
 *.zip
 *.pt
 *.pth
 *.bin
+*.ckpt
+*.safetensors
 datasets/
+model_cache/
+pruned_checkpoint/
+pruned_indices/
+training_statistics/
+output/
+lavis/output/
+cache/
+*_calib_128/
+MMBench_calibration/
+MMMU_calibration/
+MathVista_calibration/
+CC3M_calib_128/
+MMBench_eval/
+MMMU_single_image/
+MathVista_eval_testmini_mc/
+c4_calib_128.json
+
+# 本机完整 LAVIS 副本（体积过大，只保留 ECoFLaP/LAVIS 与 LAVIS_backup 改动）
+ECoFLaP_official/
+
+# 临时标定 yaml/json
+tmp_calib/
 
 # 本地/自动
 .autodl/

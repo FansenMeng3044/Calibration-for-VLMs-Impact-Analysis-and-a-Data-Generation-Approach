@@ -8,7 +8,7 @@ Pred parsing matches ``judge_multi_choice_tamp_style`` in mmmu_eval_by_disciplin
     in ``a``–``g`` (this split uses option letters only, not the first char of the string).
   - Else: first match of ``[a-g]`` in the processed text.
 
-Run from LAVIS repo root (same as mmmu_eval_by_discipline.py).
+Run from LAVIS repo root (ECoFLaP/LAVIS or LAVIS_backup; same as mmmu_eval_by_discipline.py).
 """
 from __future__ import annotations
 

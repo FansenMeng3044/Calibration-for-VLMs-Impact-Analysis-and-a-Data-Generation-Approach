@@ -1,16 +1,16 @@
 # =============================================================================
-# CC3M 小规模 calibration（128 条）：本地 json + images，用于剪枝（与 ECoFLaP 侧配置一致）
-# 数据：/root/autodl-tmp/CC3M_calib_128/cc3m_calib_128.json + images/
-# 预训练权重（本机已探测）: cache_moved/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth
+# CC3M 小规模 calibration（128 条）：本地 json + images，用于 ECoFLaP 剪枝
+# 数据（本机默认）：/data/data2/mfs/CC3M_calib_128/cc3m_calib_128.json + images/
+# 预训练权重（本机）: /data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth
 # 换机器请改 model.pretrained，或运行时 --options model.pretrained=/your/path.pth
-# 用法（在 LAVIS_backup 根目录，统一 TAMP）:
+# 用法（在 ECoFLaP/LAVIS 根目录）:
 #   CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.run --nproc_per_node=1 --master_port 29507 \
 #     evaluate_blip.py --cfg-path lavis/projects/blip2/eval/cc_prefix_derivative_compute_cc3m_calib128.yaml \
-#     --pruning_method blipt5_tamp_pruner --save_pruned_model \
-#     --num_data 128 --prunining_dataset_batch_size 8 \
-#     --t5_prune_spec 24-0.5-1.0-1.0 --vit_prune_spec 39-0.5-1.0-1.0 \
-#     --job_id cc3m_calib128-blipt5_tamp_pruner_0.5-1.0-1.0
-# （TAMP 入口会把 score 设为 density_sum、token_selection=amia、granularity=layer，勿再传 MEZO/block。）
+#     --pruning_method blipt5_wanda_pruner --save_pruned_model \
+#     --score_method MEZO-GradOnly_sum --sparsity_ratio_granularity block \
+#     --max_sparsity_per_layer 0.6 --prunining_dataset_batch_size 8 \
+#     --num_data 128 --t5_prune_spec 24-0.5-1.0-1.0 --vit_prune_spec 39-0.5-1.0-1.0 \
+#     --job_id cc3m_calib128_wanda
 # num_data 与 prunining_dataset_batch_size：后者须整除 128（1,2,4,8,16,32,64,128）。
 # =============================================================================
 # Copyright (c) 2022, salesforce.com, inc.
@@ -20,7 +20,7 @@ model:
   arch: blip2_t5
   model_type: pretrain_flant5xl
   use_grad_checkpoint: False
-  pretrained: "/root/autodl-tmp/cache_moved/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth"
+  pretrained: "/data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth"
 
 datasets:
   prefix_conceptual_caption_3m:
@@ -36,11 +36,11 @@ datasets:
         train:
           # 必须同时覆盖 defaults_3m 里的 url，否则仍会合并出错误的远程路径
           url:
-            - /root/autodl-tmp/CC3M_calib_128/cc3m_calib_128.json
+            - /data/data2/mfs/CC3M_calib_128/cc3m_calib_128.json
           storage:
-            - /root/autodl-tmp/CC3M_calib_128/cc3m_calib_128.json
+            - /data/data2/mfs/CC3M_calib_128/cc3m_calib_128.json
       images:
-        storage: /root/autodl-tmp/CC3M_calib_128/images
+        storage: /data/data2/mfs/CC3M_calib_128/images
 
 run:
   task: image_text_pretrain

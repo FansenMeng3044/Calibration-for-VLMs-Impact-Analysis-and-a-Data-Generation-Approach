@@ -1,6 +1,6 @@
 # =============================================================================
 # CC3M 小规模 calibration（128 条）：本地 json + images，用于 ECoFLaP 剪枝
-# 数据：/root/autodl-tmp/CC3M_calib_128/cc3m_calib_128.json + images/
+# 数据（本机默认）：/data/data2/mfs/CC3M_calib_128/cc3m_calib_128.json + images/
 # 预训练权重（本机已探测）: cache_moved/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth
 # 换机器请改 model.pretrained，或运行时 --options model.pretrained=/your/path.pth
 # 用法（在 ECoFLaP/LAVIS 根目录）:
@@ -20,7 +20,7 @@ model:
   arch: blip2_t5
   model_type: pretrain_flant5xl
   use_grad_checkpoint: False
-  pretrained: "/root/autodl-tmp/cache_moved/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth"
+  pretrained: "/data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth"
 
 datasets:
   prefix_conceptual_caption_3m:
@@ -36,11 +36,11 @@ datasets:
         train:
           # 必须同时覆盖 defaults_3m 里的 url，否则仍会合并出错误的远程路径
           url:
-            - /root/autodl-tmp/CC3M_calib_128/cc3m_calib_128.json
+            - /data/data2/mfs/CC3M_calib_128/cc3m_calib_128.json
           storage:
-            - /root/autodl-tmp/CC3M_calib_128/cc3m_calib_128.json
+            - /data/data2/mfs/CC3M_calib_128/cc3m_calib_128.json
       images:
-        storage: /root/autodl-tmp/CC3M_calib_128/images
+        storage: /data/data2/mfs/CC3M_calib_128/images
 
 run:
   task: image_text_pretrain

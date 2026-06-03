@@ -1,27 +1,27 @@
-# MathVista calibration（multi_choice + free_form 已转换成 OK-VQA calibration JSON）
-# 标注：/root/autodl-tmp/MathVista_calibration/mathvista_calibration_train.json
-# 图片：/root/autodl-tmp/MathVista_calibration/images
+# MathVista calibration（multi_choice + free_form → OK-VQA 格式 JSON）
 model:
   arch: blip2_t5
   model_type: pretrain_flant5xl
   use_grad_checkpoint: False
+  pretrained: "/data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth"
 
 datasets:
-  prefix_okvqa_calibration:
+  prefix_conceptual_caption_3m:
     vis_processor:
-      train:
-        name: "blip2_image_train"
-        image_size: 224
+        train:
+          name: "blip2_image_train"
+          image_size: 224
     text_processor:
-      train:
-        name: "blip_question"
+        train:
+          name: "blip_caption"
     build_info:
       annotations:
         train:
           storage:
-            - /root/autodl-tmp/MathVista_calibration/mathvista_calibration_train.json
+              - /data/data2/mfs/MathVista_calibration/mathvista_calibration_train.json
       images:
-        storage: /root/autodl-tmp/MathVista_calibration/images
+        # HF images.zip 解压后多为 images/images/*.jpg（与 json 里相对路径一致）
+        storage: /data/data2/mfs/MathVista_calibration/images/images
 
 run:
   task: image_text_pretrain

@@ -11,7 +11,8 @@ MMMU 单图 test 集上跑 BLIP2-T5 推理，并按 6 大领域汇总准确率�
     [--ckpt pruned_checkpoint/okvqa_ghlc-xxx.pth] \\
     [--batch_size 2] [--device cuda]
 
-- 从 MMMU_single_image 读 test parquet，只评估单图题。
+- 从 MMMU_single_image 读 parquet；``--split test``（默认）会遍历各学科子目录下
+  所有 ``test-*.parquet`` 中 **仅含 1 张图** 的样本，即 single-image **全量 test**。
 - 若提供 --ckpt 则加载完整剪枝 state_dict；若同时提供 --vit_ckpt 与 --t5_ckpt 则从两个单侧剪枝文件分别加载 ViT / T5（组合评测）；否则用 LAVIS 预训练权重。
 - 输出：Overall 准确率 + 6 大领域各自准确率。
 """

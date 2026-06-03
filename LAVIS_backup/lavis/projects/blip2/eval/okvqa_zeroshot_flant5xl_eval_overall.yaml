@@ -1,4 +1,6 @@
-# OK-VQA 全量 val 评测（不按 11 类拆分）；与 UKMP overall_local 路径约定一致
+# OK-VQA val overall accuracy（与 evaluate_blip + split/merged 剪枝 ckpt 配套）
+# 请把下面路径改成你本机 OKVQA 标注与 COCO val 图目录，或 export OKVQA_ROOT 后用 sed 生成副本。
+# 图片根目录须含标注里的相对路径（常见为 val2014/…jpg）。本机若 val2014 与 annotations 并列在 okvqa/ 下，storage 填 okvqa 根而非 okvqa/images。
 model:
   arch: blip2_t5
   model_type: pretrain_flant5xl
@@ -8,28 +10,34 @@ model:
 datasets:
   ok_vqa:
     vis_processor:
-        eval:
-          name: "blip_image_eval"
-          image_size: 224
+      eval:
+        name: "blip_image_eval"
+        image_size: 224
     text_processor:
-        eval:
-          name: "blip_question"
+      eval:
+        name: "blip_question"
     build_info:
       annotations:
+        train:
+          url:
+            - https://storage.googleapis.com/sfr-vision-language-research/LAVIS/datasets/okvqa/okvqa_train.json
+          storage:
+            - /data/data2/mfs/datasets/okvqa/annotations/okvqa_train.json
         test:
           storage:
-            - /root/autodl-tmp/datasets/okvqa/annotations/vqa_val_eval.json
-            - /root/autodl-tmp/datasets/okvqa/annotations/answer_list.json
-            - /root/autodl-tmp/datasets/okvqa/annotations/OpenEnded_mscoco_val2014_questions.json
-            - /root/autodl-tmp/datasets/okvqa/annotations/mscoco_val2014_annotations.json
+            - /data/data2/mfs/datasets/okvqa/annotations/vqa_val_eval.json
+            - /data/data2/mfs/datasets/okvqa/annotations/answer_list.json
+            - /data/data2/mfs/datasets/okvqa/annotations/OpenEnded_mscoco_val2014_questions.json
+            - /data/data2/mfs/datasets/okvqa/annotations/mscoco_val2014_annotations.json
       images:
-        storage: /root/autodl-tmp/datasets/okvqa_official/images
+        storage: /data/data2/mfs/datasets/okvqa
 
 run:
   task: vqa
   batch_size_train: 2
   batch_size_eval: 2
-  num_workers: 4
+  # 多进程 + spacy/lemmatizer 易触发 worker SIGSEGV，本机建议 0
+  num_workers: 0
   max_len: 10
   min_len: 1
   num_beams: 5

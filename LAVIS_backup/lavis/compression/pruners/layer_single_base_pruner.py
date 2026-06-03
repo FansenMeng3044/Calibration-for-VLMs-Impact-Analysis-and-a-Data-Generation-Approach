@@ -27,39 +27,20 @@ def _get_module_by_path(model, path):
 
 def cos_pairwise_density(embeddings, image_mask, eps=1e-8):
     """
-    Compute vision-vision, language-language, and vision-language mean cosine **similarities**
-    (same convention as TAMP LLaVA). Used for DAS (Density-Aware Sparsity).
-    Downstream typically uses importance = (1 - v) + (1 - l) + (1 - vl) to get density-based importance.
-
-    Args:
-        embeddings: (S, D) or (B, S, D)
-        image_mask: (S,) or (B, S), bool; True = vision token, False = language token
-        eps: small constant for L2 normalization
-
-    Returns:
-        tuple (v_mean_sim, l_mean_sim, vl_mean_sim) as python floats (cosine similarity in [−1,1]).
-        - v_mean_sim: mean cosine similarity among vision tokens (upper-triangular, excl. diagonal).
-          Same as TAMP: only positive similarities are averaged (> 0). 0 if <2 vision tokens or all <= 0.
-        - l_mean_sim: mean cosine similarity among language tokens. 0 if <2 language tokens or all <= 0.
-        - vl_mean_sim: mean cosine similarity between vision and language. 0 if either side empty.
+    Vision-vision, language-language, and vision-language mean cosine similarities (TAMP / DAS).
     """
     with torch.no_grad():
         if embeddings.dim() == 2:
             embeddings = embeddings.unsqueeze(0)
             image_mask = image_mask.unsqueeze(0)
-            squeeze_out = True
-        else:
-            squeeze_out = False
 
         B, S, D = embeddings.shape
         device = embeddings.device
 
-        # Ensure image_mask shape (B, S) for 3D embeddings
         if image_mask.dim() == 1:
             image_mask = image_mask.unsqueeze(0).expand(B, -1)
         image_mask = image_mask.to(device=device)
 
-        # L2 normalize (same as TAMP: normalized dot product = cosine similarity)
         embeddings = torch.nn.functional.normalize(embeddings.float(), dim=-1, eps=eps)
 
         v_sims = []
@@ -67,8 +48,8 @@ def cos_pairwise_density(embeddings, image_mask, eps=1e-8):
         vl_sims = []
 
         for b in range(B):
-            emb = embeddings[b]   # (S, D)
-            mask = image_mask[b]   # (S,)
+            emb = embeddings[b]
+            mask = image_mask[b]
             v_idx = torch.where(mask)[0]
             l_idx = torch.where(~mask)[0]
             nv = v_idx.numel()
@@ -79,13 +60,13 @@ def cos_pairwise_density(embeddings, image_mask, eps=1e-8):
             vl_mean_sim_b = 0.0
 
             if nv >= 2:
-                v_emb = emb[v_idx]   # (Nv, D)
-                sim_vv = v_emb @ v_emb.T   # (Nv, Nv), cosine similarity
-                v_upper = sim_vv.triu(diagonal=1)   # same as TAMP: upper triangular, exclude diagonal
-                v_vals = v_upper[v_upper > 0]   # TAMP uses > 0: exclude zeros and negative similarities
+                v_emb = emb[v_idx]
+                sim_vv = v_emb @ v_emb.T
+                v_upper = sim_vv.triu(diagonal=1)
+                v_vals = v_upper[v_upper > 0]
                 v_mean_sim_b = v_vals.mean().item() if v_vals.numel() > 0 else 0.0
             if nl >= 2:
-                l_emb = emb[l_idx]   # (Nl, D)
+                l_emb = emb[l_idx]
                 sim_ll = l_emb @ l_emb.T
                 l_upper = sim_ll.triu(diagonal=1)
                 l_vals = l_upper[l_upper > 0]
@@ -108,11 +89,7 @@ def cos_pairwise_density(embeddings, image_mask, eps=1e-8):
 
 
 class ActivationDensity:
-    """
-    Accumulates vision-vision, language-language, and vision-language mean cosine similarities
-    over multiple batches (e.g. from encoder layer hooks). Used by DAS compute_density.
-    Downstream uses importance = (1 - v) + (1 - l) + (1 - vl) with get_stats() values.
-    """
+    """Accumulates DAS density stats over encoder layer forwards."""
 
     def __init__(self):
         self.sum_v = 0.0
@@ -121,15 +98,6 @@ class ActivationDensity:
         self.count = 0
 
     def add_batch(self, out, image_mask, **kwargs):
-        """
-        Add one batch of layer output and accumulate density stats.
-
-        Args:
-            out: Layer output tensor, shape (B, S, D) or (S, D). If tuple/list with single
-                 element (e.g. from a hook), the first element is used.
-            image_mask: (S,) or (B, S), bool; True = vision token, False = language token.
-            **kwargs: Optional, reserved for future use (e.g. AMIA valid_mask).
-        """
         if isinstance(out, (tuple, list)) and len(out) == 1:
             out = out[0]
         v, l, vl = cos_pairwise_density(out, image_mask)
@@ -139,13 +107,6 @@ class ActivationDensity:
         self.count += 1
 
     def get_stats(self):
-        """
-        Return accumulated mean cosine similarities (same semantics as cos_pairwise_density).
-
-        Returns:
-            tuple (v_mean_sim, l_mean_sim, vl_mean_sim) as floats. If count==0, returns (0.0, 0.0, 0.0).
-            Downstream typically uses importance = (1 - v_mean_sim) + (1 - l_mean_sim) + (1 - vl_mean_sim).
-        """
         if self.count == 0:
             return 0.0, 0.0, 0.0
         return (
@@ -153,21 +114,6 @@ class ActivationDensity:
             self.sum_l / self.count,
             self.sum_vl / self.count,
         )
-
-    @property
-    def v_density(self):
-        """TAMP-compatible: same as get_stats()[0]."""
-        return self.sum_v / self.count if self.count > 0 else 0.0
-
-    @property
-    def l_density(self):
-        """TAMP-compatible: same as get_stats()[1]."""
-        return self.sum_l / self.count if self.count > 0 else 0.0
-
-    @property
-    def vl_dist(self):
-        """TAMP-compatible: same as get_stats()[2]."""
-        return self.sum_vl / self.count if self.count > 0 else 0.0
 
 
 class LayerWiseBasePruner(BasePruner):
@@ -289,7 +235,7 @@ class LayerSparsity:
             calibration_fn=None,
             model_for_calibration=None,
             data_loader_for_calibration=None,
-    ):
+        ):
         self.importance_measure = {}
         self.model = model
         self.data_loader = data_loader
@@ -307,11 +253,9 @@ class LayerSparsity:
         
         if score_method is not None:
             self.score_compute, self.score_aggregate = score_method.split("_")
-            # density_sum (and any score_method starting with "density") must use sum aggregation
             if self.score_compute.startswith("density"):
                 self.score_aggregate = "sum"
-        
-        # Optional: for compute_density (DAS). Default None, do not break existing callers.
+
         self.calibration_fn = calibration_fn
         self.model_for_calibration = model_for_calibration
         self.data_loader_for_calibration = data_loader_for_calibration
@@ -501,7 +445,6 @@ class LayerSparsity:
                 # use zeroth-order gradient
                 self.importance_measure = self.compute_importance_scores_mezo(layer_to_group_mapping)
             elif self.score_compute.startswith("density"):
-                # DAS: density-based importance (T5 encoder only). Requires calibration_fn returning (inps, outs, caches, image_masks).
                 self.importance_measure = self.compute_density(layer_to_group_mapping)
             else:
                 # use first-order gradient
@@ -539,10 +482,9 @@ class LayerSparsity:
                 
                 num_params += num_parameters_dict[l]
             
-            # density_sum => score_aggregate="sum" (no normalization). Others may use "avg".
             if self.score_aggregate == "avg":
-                group_scores[group_name] /= num_params # normalization
-            
+                group_scores[group_name] /= num_params
+
             group_num_parameters[group_name] = num_params
 
         if self.prune_per_model:
@@ -583,12 +525,7 @@ class LayerSparsity:
         return layer_sparsity
 
     def compute_density(self, layer_to_group_mapping):
-        """
-        Compute per-layer importance from vision/language density (DAS).
-        Only supported for BLIP-2 T5 encoder (t5_model.encoder.block).
-        Requires self.calibration_fn to be set and to return (inps, outs, caches, image_masks).
-        """
-        # 1) Only support T5 encoder: keys contain t5_model.encoder.block. or model has t5_model.encoder.block
+        """Per-layer DAS importance from T5 encoder hidden states and vision/language masks."""
         t5_encoder_prefix = "t5_model.encoder.block."
         has_t5_encoder_keys = any(
             t5_encoder_prefix in k for k in layer_to_group_mapping
@@ -602,12 +539,12 @@ class LayerSparsity:
         if not (has_t5_encoder_keys or has_t5_encoder_module):
             raise NotImplementedError(
                 "compute_density is only implemented for T5 encoder "
-                "(layer_to_group_mapping keys containing 't5_model.encoder.block.' or model with t5_model.encoder.block)"
+                "(keys containing 't5_model.encoder.block.' or model with t5_model.encoder.block)"
             )
 
         if self.calibration_fn is None:
             raise ValueError(
-                "compute_density requires calibration_fn to be set (e.g. prepare_calibration_input_encoder returning inps, outs, caches, image_masks)"
+                "compute_density requires calibration_fn (encoder calib with image_masks)"
             )
 
         model = self.model_for_calibration if self.model_for_calibration is not None else self.model
@@ -625,7 +562,7 @@ class LayerSparsity:
 
         if image_masks is None or len(image_masks) == 0:
             raise ValueError(
-                "compute_density requires calibration_fn to return image_masks (Step 3); got none"
+                "compute_density requires calibration_fn to return image_masks; got none"
             )
 
         n_samples = len(inps)
@@ -636,8 +573,6 @@ class LayerSparsity:
             model, "maybe_autocast", lambda dtype=None: contextlib.nullcontext()
         )
 
-        # 2) Per-block density: for each block i, run forward on all samples, accumulate ActivationDensity.
-        #    Inps must be updated after each block so the next block receives this block's output (same as TAMP inps, outs = outs, inps).
         importance_per_block = [0.0] * num_blocks
 
         for i in range(num_blocks):
@@ -655,12 +590,8 @@ class LayerSparsity:
                 new_inps.append(out.detach())
             inps = new_inps
             v, l, vl = act_density.get_stats()
-            # TAMP formula: importance = (1 - v_density) + (1 - l_density) + (1 - vl_dist); we use similarity so same
             importance_per_block[i] = (1.0 - v) + (1.0 - l) + (1.0 - vl)
 
-        # 3) Map block importance to each param key in layer_to_group_mapping (same block -> same importance).
-        #    按 TAMP 原版：先对 layer_to_group_mapping 里所有 key 赋默认值，再只填 T5 encoder 的 density。
-        #    非 T5 的 key（如 ViT）用 1.0 而非 0：否则 prune_per_model 下 ViT 单独分配时 total_ratio=0 会得 NaN sparsity。
         importance_measure = {name: torch.FloatTensor([1.0]) for name in layer_to_group_mapping}
         for name in layer_to_group_mapping:
             if t5_encoder_prefix not in name:

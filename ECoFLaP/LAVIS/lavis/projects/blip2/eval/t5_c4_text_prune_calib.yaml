@@ -1,19 +1,33 @@
 # T5-only 剪枝 + C4（128 条纯文本）calibration — 见 evaluate_blip.py --prune_calib_mode t5_c4_text
-# cfg 仅用于加载 BLIP-2 / build_datasets；剪枝校准数据为 --c4_calib_json
+# cfg 仅用于加载 BLIP-2 / build_datasets；剪枝校准数据为 --c4_calib_json（本机常与
+# /data/data2/mfs/c4_calib_128.json 配对）。
+#
+# datasets 须为已注册 builder；此处用 prefix_conceptual_caption_3m + CC3M calib 满足 build_datasets，
+# 实际 SparseGPT 文本校准仍走 --c4_calib_json。
 model:
   arch: blip2_t5
   model_type: pretrain_flant5xl
   use_grad_checkpoint: False
+  pretrained: "/data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth"
 
 datasets:
-  prefix_okvqa_calibration:
+  prefix_conceptual_caption_3m:
     vis_processor:
-        train:
-          name: "blip2_image_train"
-          image_size: 224
+      train:
+        name: "blip2_image_train"
+        image_size: 224
     text_processor:
+      train:
+        name: "blip_caption"
+    build_info:
+      annotations:
         train:
-          name: "blip_question"
+          url:
+            - /data/data2/mfs/CC3M_calib_128/cc3m_calib_128.json
+          storage:
+            - /data/data2/mfs/CC3M_calib_128/cc3m_calib_128.json
+      images:
+        storage: /data/data2/mfs/CC3M_calib_128/images
 
 run:
   task: image_text_pretrain

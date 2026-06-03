@@ -6,7 +6,7 @@
 """
 import logging
 import os
-import random 
+import random
 
 import torch
 import torch.nn as nn
@@ -16,6 +16,50 @@ from transformers import T5TokenizerFast
 from lavis.common.registry import registry
 from lavis.models.blip2_models.blip2 import Blip2Base, disabled_train
 from lavis.models.blip2_models.modeling_t5 import T5Config, T5ForConditionalGeneration
+
+
+def _flan_t5_pretrained_args(t5_model):
+    """
+    Return (path_or_id, local_files_only) for Flan-T5 tokenizer / config / weights.
+
+    Uses FLAN_T5_XL_SNAPSHOT when set, else first snapshot under HuggingFace hub cache
+    (models--<org>--<name>), so TRANSFORMERS_OFFLINE=1 works with a local snapshot.
+    """
+    p = os.path.expanduser(t5_model)
+    if os.path.isdir(p):
+        return p, True
+
+    env_snap = os.environ.get("FLAN_T5_XL_SNAPSHOT")
+    if env_snap and t5_model == "google/flan-t5-xl":
+        ep = os.path.expanduser(env_snap)
+        if os.path.isdir(ep):
+            return ep, True
+
+    hub_root = os.environ.get("HUGGINGFACE_HUB_CACHE")
+    if not hub_root and os.environ.get("HF_HOME"):
+        hub_root = os.path.join(os.environ["HF_HOME"], "hub")
+    if hub_root:
+        folder = "models--" + t5_model.replace("/", "--")
+        snap_root = os.path.join(hub_root, folder, "snapshots")
+        if os.path.isdir(snap_root):
+            entries = [
+                os.path.join(snap_root, d)
+                for d in os.listdir(snap_root)
+                if os.path.isdir(os.path.join(snap_root, d))
+            ]
+            if entries:
+                return sorted(entries)[0], True
+
+    offline = os.environ.get("HF_HUB_OFFLINE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    ) or os.environ.get("TRANSFORMERS_OFFLINE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    return t5_model, offline
 
 
 @registry.register_model("blip2_t5")
@@ -84,20 +128,14 @@ class Blip2T5(Blip2Base):
             layer.output = None
             layer.intermediate = None
 
-        t5_load_path = os.environ.get("FLAN_T5_XL_SNAPSHOT")
-        if t5_load_path and os.path.isdir(t5_load_path):
-            t5_model = t5_load_path
-            local_only = True
-        else:
-            local_only = False
-
+        t5_src, t5_local = _flan_t5_pretrained_args(t5_model)
         self.t5_tokenizer = T5TokenizerFast.from_pretrained(
-            t5_model, local_files_only=local_only
+            t5_src, local_files_only=t5_local
         )
-        t5_config = T5Config.from_pretrained(t5_model, local_files_only=local_only)
+        t5_config = T5Config.from_pretrained(t5_src, local_files_only=t5_local)
         t5_config.dense_act_fn = "gelu"
         self.t5_model = T5ForConditionalGeneration.from_pretrained(
-            t5_model, config=t5_config, local_files_only=local_only
+            t5_src, config=t5_config, local_files_only=t5_local
         )
 
         for name, param in self.t5_model.named_parameters():
@@ -168,13 +206,11 @@ class Blip2T5(Blip2Base):
             inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)
             inputs_embeds = torch.cat([inputs_t5, inputs_embeds], dim=1)
 
-            # ---- expose vision/text token mask for calibration (temp_label) ----
             num_query = inputs_t5.shape[1]
             bsz, seq_len, _ = inputs_embeds.shape
             temp_label = torch.zeros((bsz, seq_len), dtype=torch.bool, device=inputs_embeds.device)
             temp_label[:, :num_query] = True
             self.temp_label = temp_label
-            # ---------------------------------------------------------------
 
             outputs = self.t5_model(
                 inputs_embeds=inputs_embeds,
@@ -236,13 +272,11 @@ class Blip2T5(Blip2Base):
             inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)
             inputs_embeds = torch.cat([inputs_t5, inputs_embeds], dim=1)
 
-            # ---- expose vision/text token mask for calibration (temp_label) ----
             num_query = inputs_t5.shape[1]
             bsz, seq_len, _ = inputs_embeds.shape
             temp_label = torch.zeros((bsz, seq_len), dtype=torch.bool, device=inputs_embeds.device)
             temp_label[:, :num_query] = True
             self.temp_label = temp_label
-            # ---------------------------------------------------------------
 
             outputs = self.t5_model(
                 inputs_embeds=inputs_embeds,
@@ -295,13 +329,11 @@ class Blip2T5(Blip2Base):
             inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)
             inputs_embeds = torch.cat([inputs_t5, inputs_embeds], dim=1)
 
-            # ---- expose vision/text token mask for calibration (temp_label) ----
             num_query = inputs_t5.shape[1]
             bsz, seq_len, _ = inputs_embeds.shape
             temp_label = torch.zeros((bsz, seq_len), dtype=torch.bool, device=inputs_embeds.device)
             temp_label[:, :num_query] = True
             self.temp_label = temp_label
-            # ---------------------------------------------------------------
 
             outputs = self.t5_model(
                 inputs_embeds=inputs_embeds,
@@ -383,13 +415,11 @@ class Blip2T5(Blip2Base):
             inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)
             inputs_embeds = torch.cat([inputs_t5, inputs_embeds], dim=1)
 
-            # ---- expose vision/text token mask for calibration (temp_label) ----
             num_query = inputs_t5.shape[1]
             bsz, seq_len, _ = inputs_embeds.shape
             temp_label = torch.zeros((bsz, seq_len), dtype=torch.bool, device=inputs_embeds.device)
             temp_label[:, :num_query] = True
             self.temp_label = temp_label
-            # ---------------------------------------------------------------
 
             outputs = self.t5_model.generate(
                 inputs_embeds=inputs_embeds,
@@ -459,13 +489,11 @@ class Blip2T5(Blip2Base):
             inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)
             inputs_embeds = torch.cat([inputs_t5, inputs_embeds], dim=1)
 
-            # ---- expose vision/text token mask for calibration (temp_label) ----
             num_query = inputs_t5.shape[1]
             bsz, seq_len, _ = inputs_embeds.shape
             temp_label = torch.zeros((bsz, seq_len), dtype=torch.bool, device=inputs_embeds.device)
             temp_label[:, :num_query] = True
             self.temp_label = temp_label
-            # ---------------------------------------------------------------
 
             outputs = self.t5_model.generate(
                 inputs_embeds=inputs_embeds,

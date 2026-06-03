@@ -16,6 +16,13 @@ from lavis.common.vqa_tools.vqa_eval import VQAEval
 from lavis.tasks.base_task import BaseTask
 
 
+def _question_id_to_int(ques_id):
+    """ECoFLaP base_dataset.collater keeps scalars as list[int]; LAVIS default_collate yields tensors."""
+    if hasattr(ques_id, "item"):
+        return int(ques_id.item())
+    return int(ques_id)
+
+
 @registry.register_task("vqa")
 class VQATask(BaseTask):
     def __init__(
@@ -109,7 +116,7 @@ class VQATask(BaseTask):
 
         question_id = samples["question_id"]
         for answer, ques_id in zip(answers, question_id):
-            ques_id = int(ques_id.item())
+            ques_id = _question_id_to_int(ques_id)
             pred_qa_pairs.append({"question_id": ques_id, "answer": answer})
 
         return pred_qa_pairs
@@ -201,7 +208,7 @@ class GQATask(VQATask):
         gt_answers = samples["answer"]
         
         for answer, ques_id, gt_answer in zip(answers, question_id, gt_answers):
-            ques_id = int(ques_id.item())
+            ques_id = _question_id_to_int(ques_id)
             pred_qa_pairs.append({"question_id": ques_id, "pred_ans": answer, "gt_ans": gt_answer})
 
         return pred_qa_pairs

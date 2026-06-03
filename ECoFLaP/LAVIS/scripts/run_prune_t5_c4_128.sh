@@ -10,8 +10,18 @@ set -euo pipefail
 REPO="${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 export PYTHONPATH="${REPO}:${PYTHONPATH:-}"
 
+MODEL_CACHE_ROOT="${MODEL_CACHE_ROOT:-/data/data2/mfs/model_cache}"
+ECOFLAP_ENV="${ECOFLAP_ENV:-${MODEL_CACHE_ROOT}/ecoflap_model_env.sh}"
+if [[ -f "${ECOFLAP_ENV}" ]]; then
+  set +u
+  # shellcheck disable=SC1091
+  source "${ECOFLAP_ENV}"
+  set -u
+fi
+
 # --- HuggingFace / Transformers：离线，BERT & Flan-T5 从本地 snapshot 加载 ---
-export HF_HOME="${HF_HOME:-/root/autodl-tmp/cache_moved/huggingface}"
+export HF_HOME="${HF_HOME:-${MODEL_CACHE_ROOT}/huggingface}"
+mkdir -p "${HF_HOME}/hub" "${HF_HOME}/transformers" 2>/dev/null || true
 export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
 export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
 export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
@@ -44,7 +54,7 @@ if [[ ! -d "$FLAN_T5_XL_SNAPSHOT" ]]; then
 fi
 
 # BLIP-2 聚合权重（覆盖 cfg 里默认的 GCS URL，避免联网下载）
-BLIP2_PRETRAINED="${BLIP2_PRETRAINED:-/root/autodl-tmp/cache_moved/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth}"
+BLIP2_PRETRAINED="${BLIP2_PRETRAINED:-/data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth}"
 if [[ ! -f "$BLIP2_PRETRAINED" ]]; then
   echo "[FATAL] 未找到本地 BLIP2 预训练权重: $BLIP2_PRETRAINED （请下载或 export BLIP2_PRETRAINED=你的路径）" >&2
   exit 1
@@ -56,7 +66,7 @@ echo "[INFO] FLAN_T5_XL_SNAPSHOT=$FLAN_T5_XL_SNAPSHOT"
 echo "[INFO] BLIP2_PRETRAINED=$BLIP2_PRETRAINED"
 
 CFG="${CFG:-${REPO}/lavis/projects/blip2/eval/t5_c4_text_prune_calib.yaml}"
-C4_JSON="${C4_JSON:-/root/autodl-tmp/c4_calib_128.json}"
+C4_JSON="${C4_JSON:-/data/data2/mfs/c4_calib_128.json}"
 T5_SPEC="${T5_SPEC:-24-0.5-1.0-1.0}"
 JOB_ID="${JOB_ID:-ecoflap_separate_t5_only}"
 NUM_DATA="${NUM_DATA:-128}"

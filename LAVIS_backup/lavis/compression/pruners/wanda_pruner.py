@@ -1,6 +1,6 @@
+import math
 import torch
 import torch.nn as nn
-import math
 
 from time import time
 from copy import deepcopy
@@ -12,7 +12,11 @@ from lavis.models.blip2_models.blip2_t5 import Blip2T5
 from lavis.models.t5_models.t5 import T5
 from lavis.models.clip_models.eva_model import EVA_CLIP
 from lavis.compression.pruners.utils import (
-    loss_vision_language, loss_language, loss_vision, print_time
+    loss_vision_language,
+    loss_language,
+    loss_vision,
+    loss_vit_encode_l2,
+    print_time,
 )
 from lavis.compression.pruners.layer_single_base_pruner import LayerWiseBasePruner, LayerSparsity
 
@@ -54,11 +58,7 @@ def find_layers(module, layers=[nn.Linear], name=''):
 
 
 def _cos_pairwise_density_single(embeddings, image_mask, eps=1e-8):
-    """
-    Single-batch density for AMIA: mean of v-v, l-l, v-l cosine similarities (positive only for v/l).
-    embeddings: (S, D), image_mask: (S,) bool. Returns scalar float.
-    No extra deps; used only when token_selection='amia'.
-    """
+    """Single-batch density for AMIA (mean v-v, l-l, v-l cosine similarities)."""
     with torch.no_grad():
         S, D = embeddings.shape
         emb = torch.nn.functional.normalize(embeddings.float(), dim=-1, eps=eps)
@@ -85,10 +85,8 @@ def _cos_pairwise_density_single(embeddings, image_mask, eps=1e-8):
 
 
 class AdaptiveMultimodalInputActivation:
-    """
-    Token selection for calibration: only selected tokens update scaler_row (for Wanda |W|*sqrt(scaler_row)).
-    Compatible with T5 encoder: score may be None (use density-only / uniform).
-    """
+    """AMIA token selection: only selected tokens contribute to Wanda scaler_row."""
+
     def __init__(self, layer, layer_id=0, layer_name="none", keep_ratio=1.0, **kwargs):
         self.layer = layer
         self.dev = self.layer.weight.device
@@ -107,7 +105,6 @@ class AdaptiveMultimodalInputActivation:
         return torch.exp(-pairwise_dists.clamp(min=0) / (2 * sigma ** 2))
 
     def _select_tokens(self, out, image_mask, score, eps=1e-8):
-        # out: (N, D), image_mask: (N,) bool, score: (N,) or None
         N, D = out.shape
         out = torch.nn.functional.normalize(out.float(), dim=-1, eps=eps)
         if score is None:
@@ -163,7 +160,7 @@ class AdaptiveMultimodalInputActivation:
     def add_batch(self, inp, out, image_mask=None, score=None):
         if image_mask is None:
             raise RuntimeError(
-                "token_selection='amia' requires image_masks. Please enable return_image_masks in calibration (Step 3)."
+                "token_selection='amia' requires image_masks. Enable return_image_masks in calibration."
             )
         out_tensor = out[0] if isinstance(out, (tuple, list)) else out
         inp_tensor = inp
@@ -180,7 +177,9 @@ class AdaptiveMultimodalInputActivation:
         if mask_flat.numel() != out_flat.shape[0]:
             mask_flat = mask_flat[: out_flat.shape[0]]
             if mask_flat.numel() < out_flat.shape[0]:
-                mask_flat = torch.nn.functional.pad(mask_flat.bool(), (0, out_flat.shape[0] - mask_flat.numel()), value=False)
+                mask_flat = torch.nn.functional.pad(
+                    mask_flat.bool(), (0, out_flat.shape[0] - mask_flat.numel()), value=False
+                )
         mask_flat = mask_flat.to(out_flat.device).bool()
         score_flat = None
         if score is not None:
@@ -223,7 +222,6 @@ class WrappedGPT:
         self.layer_name = layer_name
 
     def add_batch(self, inp, out, image_mask=None, score=None):
-        # image_mask, score ignored (signature compatible with AMIA)
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
         tmp = inp.shape[0]
@@ -236,7 +234,7 @@ class WrappedGPT:
         self.nsamples += tmp
 
         inp = inp.type(torch.float32)
-        self.scaler_row += torch.norm(inp, p=2, dim=1) ** 2  / self.nsamples
+        self.scaler_row += torch.norm(inp, p=2, dim=1) ** 2 / self.nsamples
 
 
 @registry.register_pruner("t5_wanda_pruner")
@@ -320,45 +318,46 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
     def forward_to_cache(self, model, batch):
         return model(batch)
     
-    def prepare_calibration_input_encoder(self, model, dataloader, device, model_prefix, n_samples, module_to_process="encoder.block", return_image_masks=False):
-        """
-        Run calibration for T5 encoder: collect first-layer inputs (inps), caches, and optionally image_masks.
-        When return_image_masks=True (TAMP/DAS path): also collect model.temp_label per batch and return
-        (inps, outs, caches, image_masks). Semantics aligned with TAMP:
-        - TAMP (LLaVA): Catcher on model.layers[0], image_masks.append(model.temp_label) per batch.
-        - Here (BLIP-2): Catcher on t5_model.encoder.block[0], same append per batch; temp_label is set
-          in Blip2T5.forward (Step 1) before T5 encoder runs, so it is available when Catcher fires.
-        - image_masks[i] aligns with inps[i]: same batch, shape (B, S) with inps[i].shape (B, S, D).
-        """
+    def prepare_calibration_input_encoder(
+        self,
+        model,
+        dataloader,
+        device,
+        model_prefix,
+        n_samples,
+        module_to_process="encoder.block",
+        return_image_masks=False,
+    ):
         use_cache = getattr(model, model_prefix).config.use_cache
         getattr(model, model_prefix).config.use_cache = False
-        
+
         layers = get_module_recursive(model, module_to_process)
 
-        dtype = next(iter(model.parameters())).dtype
         inps = []
-        
         caches = []
         image_masks = [] if return_image_masks else None
-        
+
         keys_to_cache = [
-            "attention_mask", "position_bias", "encoder_attention_mask", "encoder_decoder_position_bias",
-            "layer_head_mask", "cross_attn_layer_head_mask", "encoder_hidden_states",
+            "attention_mask",
+            "position_bias",
+            "encoder_attention_mask",
+            "encoder_decoder_position_bias",
+            "layer_head_mask",
+            "cross_attn_layer_head_mask",
+            "encoder_hidden_states",
         ]
-        
+
         class Catcher(nn.Module):
             def __init__(self, module):
                 super().__init__()
                 self.module = module
+
             def forward(self, inp, **kwargs):
-                # 不能对非叶子张量设 requires_grad，用 detach 存一份不需梯度的副本
                 inps.append(inp.detach())
-                
                 cache = {}
                 for k in keys_to_cache:
                     cache[k] = kwargs[k]
                 caches.append(cache)
-                
                 raise ValueError
 
         layers[0] = Catcher(layers[0])
@@ -382,37 +381,49 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
                 if return_image_masks:
                     if not hasattr(model, "temp_label"):
                         raise RuntimeError(
-                            "model.temp_label not found. Please complete Step 1 (set temp_label in Blip2T5.forward)."
+                            "model.temp_label not found; required for AMIA / DAS (set in Blip2T5.forward)."
                         )
                     with torch.no_grad():
                         mask = model.temp_label.detach()
                     if mask.dtype != torch.bool:
                         mask = mask.bool()
                     image_masks.append(mask.cpu())
-                pass
         layers[0] = layers[0].module
-        
+
         outs = [None] * len(inps)
-        
+
         getattr(model, model_prefix).config.use_cache = use_cache
 
         if return_image_masks:
-            # Self-check: image_masks aligned with inps (same length, same batch/seq dims).
             assert len(image_masks) == len(inps), (
                 "image_masks vs inps length mismatch: %d vs %d" % (len(image_masks), len(inps))
             )
             for i in range(len(inps)):
                 B, S = inps[i].shape[0], inps[i].shape[1]
                 assert image_masks[i].shape == (B, S), (
-                    "image_masks[%d].shape %s vs inps[%d] (B,S) (%d,%d)" % (i, image_masks[i].shape, i, B, S)
+                    "image_masks[%d].shape %s vs inps[%d] (%d,%d)"
+                    % (i, image_masks[i].shape, i, B, S)
                 )
             return inps, outs, caches, image_masks
         return inps, outs, caches
-    
+
     @print_time
-    def _prune(self, model, dataloader, device, model_prefix, module_to_process="encoder.block", n_samples=64, sparsity_ratio=0.5, token_selection="naive", image_masks=None, scores=None, cached_calib=None):
-        use_cache = getattr(model, model_prefix).config.use_cache 
-        getattr(model, model_prefix).config.use_cache = False 
+    def _prune(
+        self,
+        model,
+        dataloader,
+        device,
+        model_prefix,
+        module_to_process="encoder.block",
+        n_samples=64,
+        sparsity_ratio=0.5,
+        token_selection="naive",
+        image_masks=None,
+        scores=None,
+        cached_calib=None,
+    ):
+        use_cache = getattr(model, model_prefix).config.use_cache
+        getattr(model, model_prefix).config.use_cache = False
 
         return_image_masks = token_selection == "amia"
         print("loading calibdation data")
@@ -421,15 +432,20 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
                 result = cached_calib
             else:
                 result = self.prepare_calibration_input_encoder(
-                    model, dataloader, device, model_prefix, n_samples, module_to_process,
+                    model,
+                    dataloader,
+                    device,
+                    model_prefix,
+                    n_samples,
+                    module_to_process,
                     return_image_masks=return_image_masks,
                 )
             inps, outs, caches = result[0], result[1], result[2]
-            image_masks = result[3] if len(result) == 4 else None
+            image_masks = result[3] if len(result) == 4 else image_masks
 
         if token_selection == "amia" and (image_masks is None or len(image_masks) == 0):
             raise RuntimeError(
-                "token_selection='amia' requires image_masks. Enable return_image_masks in prepare_calibration_input_encoder (Step 3) and ensure model.temp_label is set (Step 1)."
+                "token_selection='amia' requires image_masks (multimodal calib + temp_label)."
             )
 
         n_samples = min(n_samples, len(inps))
@@ -453,6 +469,7 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
                     mask_j = image_masks[j_ref] if image_masks is not None else None
                     score_j = scores[j_ref] if scores is not None else None
                     wrapped_layers[name].add_batch(inp_data, out_tensor.data, mask_j, score_j)
+
                 return tmp
 
             handles = []
@@ -478,26 +495,30 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
                 else:
                     assert wrapped_layers[name].nsamples > 0
                 print(f"pruning layer {i} name {name}")
-                W_metric = torch.abs(subset[name].weight.data) * torch.sqrt(wrapped_layers[name].scaler_row.reshape((1,-1)))
+                W_metric = torch.abs(subset[name].weight.data) * torch.sqrt(
+                    wrapped_layers[name].scaler_row.reshape((1, -1))
+                )
 
-                # setattr(subset[name].weight, "importance_score", W_metric.cpu().abs().mean().item())
-                
-                W_mask = (torch.zeros_like(W_metric) == 1)  ## initialize a mask to be all False
+                W_mask = torch.zeros_like(W_metric) == 1
                 if self.prune_n != 0:
-                    # structured n:m sparsity
                     for ii in range(W_metric.shape[1]):
                         if ii % self.prune_m == 0:
-                            tmp = W_metric[:,ii:(ii+self.prune_m)].float()
-                            W_mask.scatter_(1,ii+torch.topk(tmp, self.prune_n, dim=1, largest=False)[1], True)
+                            tmp = W_metric[:, ii : (ii + self.prune_m)].float()
+                            W_mask.scatter_(
+                                1,
+                                ii
+                                + torch.topk(tmp, self.prune_n, dim=1, largest=False)[1],
+                                True,
+                            )
                 else:
                     sort_res = torch.sort(W_metric, dim=-1, stable=True)
-
-                    # unstructured pruning
                     sparsity_key = f"{module_to_process}.{i}.{name}.weight"
-                    indices = sort_res[1][:,:int(W_metric.shape[1] * sparsity_ratio[sparsity_key])]
+                    indices = sort_res[1][
+                        :, : int(W_metric.shape[1] * sparsity_ratio[sparsity_key])
+                    ]
                     W_mask.scatter_(1, indices, True)
 
-                subset[name].weight.data[W_mask] = 0  ## set weights to zero 
+                subset[name].weight.data[W_mask] = 0
 
             for j in range(n_samples):
                 with torch.no_grad():
@@ -505,9 +526,9 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
                         outs[j] = layer(inps[j], **caches[j])[0]
             inps, outs = outs, inps
 
-        getattr(model, model_prefix).config.use_cache = use_cache 
+        getattr(model, model_prefix).config.use_cache = use_cache
         torch.cuda.empty_cache()
-        
+
         return model
     
     def get_sparsity(self, original_sparsity, sparsity_ratio_granularity=None):
@@ -692,7 +713,8 @@ class VITLayerWandaPruner(LayerWiseBasePruner):
                 super().__init__()
                 self.module = module
             def forward(self, inp, rel_pos_bias):
-                inps.append(inp.detach())
+                inps.append(inp)
+                inps[-1].requires_grad = False
                 
                 cache = {}
                 cache["rel_pos_bias"] = rel_pos_bias
@@ -946,8 +968,11 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         self.prune_t5 = prune_t5
         self.prune_vit = prune_vit
         self.t5_unimodal_text_skip_decoder = t5_unimodal_text_skip_decoder
-        assert importance_scope in ("joint", "llm_only"), (
-            f"importance_scope must be joint or llm_only (got {importance_scope})"
+        assert importance_scope in (
+            "joint",
+            "llm_only",
+            "vit_only",
+            "vit_only_encode",
         )
         self.importance_scope = importance_scope
 
@@ -968,6 +993,8 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                     return False
                 if self.importance_scope == "llm_only":
                     return name.startswith(self.t5_model_prefix)
+                if self.importance_scope in ("vit_only", "vit_only_encode"):
+                    return name.startswith(self.vit_model_prefix)
                 return name.startswith(self.t5_model_prefix) or name.startswith(
                     self.vit_model_prefix
                 )
@@ -1010,24 +1037,37 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                 }
             else:
                 raise NotImplementedError
-        
+
+        if self.importance_scope == "llm_only":
+            loss_fn = loss_language
+            per_model_group = [self.t5_model_prefix]
+        elif self.importance_scope == "vit_only":
+            # Multimodal CE; groups / budget only over ViT blocks.
+            loss_fn = loss_vision_language
+            per_model_group = [self.vit_model_prefix]
+        elif self.importance_scope == "vit_only_encode":
+            # Pure-ViT forward: normalized encode_image features, mean square (surrogate).
+            loss_fn = loss_vit_encode_l2
+            per_model_group = [self.vit_model_prefix]
+        else:
+            loss_fn = loss_vision_language
+            per_model_group = [self.t5_model_prefix, self.vit_model_prefix]
+
         calibration_fn = None
         if self.score_method == "density_sum" and self.importance_scope in ("joint", "llm_only"):
             def calibration_fn(model, data_loader, device):
                 if getattr(self, "_cached_encoder_calib", None) is not None:
                     return self._cached_encoder_calib
                 return T5LayerWandaPruner.prepare_calibration_input_encoder(
-                    self, model, data_loader, device, self.t5_model_prefix,
-                    self.num_data_first_stage, module_to_process=f"{self.t5_model_prefix}.encoder.block",
+                    self,
+                    model,
+                    data_loader,
+                    device,
+                    self.t5_model_prefix,
+                    self.num_data_first_stage,
+                    module_to_process=f"{self.t5_model_prefix}.encoder.block",
                     return_image_masks=True,
                 )
-
-        if self.importance_scope == "llm_only":
-            loss_fn = loss_language
-            per_model_group = [self.t5_model_prefix]
-        else:
-            loss_fn = loss_vision_language
-            per_model_group = [self.t5_model_prefix, self.vit_model_prefix]
 
         sparsity_module = LayerSparsity(
             self.model, 
@@ -1069,13 +1109,17 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                 self,
             )
             calib_result = self.prepare_calibration_input_encoder(
-                self.model, self.data_loader, device, self.t5_model_prefix,
-                self.num_data_first_stage, module_to_process=f"{self.t5_model_prefix}.encoder.block",
+                self.model,
+                self.data_loader,
+                device,
+                self.t5_model_prefix,
+                self.num_data_first_stage,
+                module_to_process=f"{self.t5_model_prefix}.encoder.block",
                 return_image_masks=True,
             )
             if self.token_selection == "amia" and len(calib_result) != 4:
                 raise RuntimeError(
-                    "token_selection='amia' requires image_masks. Enable return_image_masks in prepare_calibration_input_encoder (Step 3) and ensure model.temp_label is set (Step 1)."
+                    "token_selection='amia' requires image_masks from calibration and temp_label on Blip2T5."
                 )
             self._cached_encoder_calib = calib_result
 
@@ -1101,11 +1145,12 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                     "(or pass t5_prune_spec to reuse its keep ratio for the global budget)."
                 )
             else:
+                # T5-only joint allocation: prefer t5_prune_spec; many YAMLs only define vit_prune_spec.
                 budget_kr = t5_kr if t5_kr is not None else vit_kr
                 assert budget_kr is not None, (
-                    "Pass --t5_prune_spec when pruning T5 with sparsity_ratio_granularity set, "
-                    "or add --vit_prune_spec with the same keep ratio to reuse it for the budget, "
-                    "or use --sparsity_dict / set granularity to None."
+                    "Pass --t5_prune_spec (e.g. 24-0.5-1.0-1.0) when pruning T5 with "
+                    "sparsity_ratio_granularity set, or add --vit_prune_spec with the same keep ratio "
+                    "to reuse it for the budget, or use --sparsity_dict / set granularity to None."
                 )
 
             global_sparsity_dict = self.get_sparsity(
@@ -1113,63 +1158,67 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                 sparsity_ratio_granularity=self.sparsity_ratio_granularity,
             )
 
-        if self.prune_vit and self.vit_prune_spec is not None:
-            _, keep_ratio, _, _ = self.convert_spec_to_list(self.vit_prune_spec)
-
-            sparsity_ratio = 1 - keep_ratio
-
+        if self.prune_vit:
             if global_sparsity_dict is not None:
                 sparsity_dict = global_sparsity_dict
             else:
+                assert self.vit_prune_spec is not None, (
+                    "vit_prune_spec is required for ViT Wanda when no joint sparsity_dict was built "
+                    "(e.g. sparsity_ratio_granularity is None)."
+                )
+                _, keep_ratio, _, _ = self.convert_spec_to_list(self.vit_prune_spec)
+                sparsity_ratio = 1 - keep_ratio
                 sparsity_dict = self.get_sparsity(
                     sparsity_ratio,
                     sparsity_ratio_granularity=None
                 )
-
+            
             _vit_prune = partial(VITLayerWandaPruner._prune, self)
             self.prepare_calibration_input_encoder = partial(
                 VITLayerWandaPruner.prepare_calibration_input_encoder,
                 self,
-            )
-
+                )
+            
             self.model = _vit_prune(
-                self.model, self.data_loader, device,
+                self.model, self.data_loader, device, 
                 model_prefix=self.vit_model_prefix,
                 module_to_process=f"{self.vit_model_prefix}.blocks",
                 n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
             )
-
-        if self.prune_t5 and self.t5_prune_spec is not None:
-            _, keep_ratio, _, _ = self.convert_spec_to_list(self.t5_prune_spec)
-
-            sparsity_ratio = 1 - keep_ratio
-
+            
+        if self.prune_t5:
             if global_sparsity_dict is not None:
                 sparsity_dict = global_sparsity_dict
             else:
+                assert self.t5_prune_spec is not None, (
+                    "t5_prune_spec is required for T5 Wanda when no joint sparsity_dict was built "
+                    "(e.g. sparsity_ratio_granularity is None)."
+                )
+                _, keep_ratio, _, _ = self.convert_spec_to_list(self.t5_prune_spec)
+                sparsity_ratio = 1 - keep_ratio
                 sparsity_dict = self.get_sparsity(
                     sparsity_ratio,
                     sparsity_ratio_granularity=None
                 )
-
+            
             _t5_prune = partial(T5LayerWandaPruner._prune, self)
             self.prepare_calibration_input_encoder = partial(
                 T5LayerWandaPruner.prepare_calibration_input_encoder,
                 self,
-            )
-
+                )
+            
             self.model = _t5_prune(
-                self.model, self.data_loader, device,
+                self.model, self.data_loader, device, 
                 model_prefix=self.t5_model_prefix,
                 module_to_process=f"{self.t5_model_prefix}.encoder.block",
                 n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
-                token_selection=getattr(self, "token_selection", "naive"),
+                token_selection=self.token_selection,
                 cached_calib=self._cached_encoder_calib if need_calib else None,
             )
-
+            
             if not self.t5_unimodal_text_skip_decoder:
                 self.model = _t5_prune(
-                    self.model, self.data_loader, device,
+                    self.model, self.data_loader, device, 
                     model_prefix=self.t5_model_prefix,
                     module_to_process=f"{self.t5_model_prefix}.decoder.block",
                     n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
@@ -1177,6 +1226,7 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                 )
 
         self._cached_encoder_calib = None
+        # let the pruned model has the original
         self.model_reset(self.model, dtype_record, requires_grad_record, device)
-
+        
         return self.model, global_sparsity_dict

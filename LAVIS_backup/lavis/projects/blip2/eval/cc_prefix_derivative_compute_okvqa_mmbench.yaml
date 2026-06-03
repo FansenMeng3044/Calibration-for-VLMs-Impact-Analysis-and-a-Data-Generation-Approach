@@ -1,28 +1,27 @@
-# OK-VQA calibration 剪枝：使用 MMBench calibration 数据
-# 与 LAVIS_backup 的 okvqa_calibration_dataset.js 同构：
-#  - ann["image"] 相对 vis_root（/root/autodl-tmp/MMBench_calibration/images）
-#  - ann["answer"] 作为 text_output（字母 A/B/C/D）
+# MMBench calibration → TAMP / Wanda 剪枝（128 条，DistributedSampler seed 由 LAVIS_DISTRIBUTED_SAMPLER_SEED 控制）
 model:
   arch: blip2_t5
   model_type: pretrain_flant5xl
   use_grad_checkpoint: False
+  pretrained: "/data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth"
 
 datasets:
-  prefix_okvqa_calibration:
+  # OK-VQA 格式 JSON（image/question/answer）；用 prefix_conceptual_caption_3m 加载（勿用未注册的 prefix_okvqa_calibration）
+  prefix_conceptual_caption_3m:
     vis_processor:
-      train:
-        name: "blip2_image_train"
-        image_size: 224
+        train:
+          name: "blip2_image_train"
+          image_size: 224
     text_processor:
-      train:
-        name: "blip_question"
+        train:
+          name: "blip_caption"
     build_info:
       annotations:
         train:
           storage:
-            - /root/autodl-tmp/MMBench_calibration/mmbench_calibration_train.json
+            - /data/data2/mfs/MMBench_calibration/mmbench_calibration_train.json
       images:
-        storage: /root/autodl-tmp/MMBench_calibration/images
+        storage: /data/data2/mfs/MMBench_calibration/images
 
 run:
   task: image_text_pretrain
@@ -32,12 +31,12 @@ run:
   warmup_lr: 1e-6
   weight_decay: 0.05
   max_epoch: 1
-  batch_size_train: 40
-  batch_size_eval: 40
+  batch_size_train: 2
+  batch_size_eval: 2
   num_workers: 4
   warmup_steps: 1000
   seed: 42
-  output_dir: "output/BLIP2/OKVQA_calibration"
+  output_dir: "output/BLIP2/MMBench_calibration"
   amp: True
   resume_ckpt_path: null
   evaluate: False
@@ -47,4 +46,3 @@ run:
   world_size: 1
   dist_url: "env://"
   distributed: True
-

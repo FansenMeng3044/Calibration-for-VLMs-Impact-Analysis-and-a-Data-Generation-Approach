@@ -20,21 +20,27 @@ from lavis.models.blip2_models.modeling_t5 import T5Config, T5ForConditionalGene
 
 def _flan_t5_pretrained_args(t5_model):
     """
-    Return (path_or_id, local_files_only) for Flan-T5 loading.
-    Resolves HF hub snapshot under HF_HOME when present (offline-friendly).
+    Return (path_or_id, local_files_only) for Flan-T5 tokenizer / config / weights.
+
+    Uses FLAN_T5_XL_SNAPSHOT when set, else first snapshot under HuggingFace hub cache
+    (models--<org>--<name>), so TRANSFORMERS_OFFLINE=1 works with a local snapshot.
     """
     p = os.path.expanduser(t5_model)
     if os.path.isdir(p):
         return p, True
+
     env_snap = os.environ.get("FLAN_T5_XL_SNAPSHOT")
-    if env_snap and os.path.isdir(os.path.expanduser(env_snap)):
-        return os.path.expanduser(env_snap), True
+    if env_snap and t5_model == "google/flan-t5-xl":
+        ep = os.path.expanduser(env_snap)
+        if os.path.isdir(ep):
+            return ep, True
 
     hub_root = os.environ.get("HUGGINGFACE_HUB_CACHE")
     if not hub_root and os.environ.get("HF_HOME"):
         hub_root = os.path.join(os.environ["HF_HOME"], "hub")
-    if hub_root and "flan-t5-xl" in t5_model:
-        snap_root = os.path.join(hub_root, "models--google--flan-t5-xl", "snapshots")
+    if hub_root:
+        folder = "models--" + t5_model.replace("/", "--")
+        snap_root = os.path.join(hub_root, folder, "snapshots")
         if os.path.isdir(snap_root):
             entries = [
                 os.path.join(snap_root, d)

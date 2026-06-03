@@ -3,6 +3,7 @@ Unimodal calibration for BLIP-2 Wanda pruning: T5-only on text (e.g. C4), ViT-on
 without full multimodal forward during calibration.
 
 C4 text path default: full T5 seq2seq (encoder + decoder); optional encoder-only view for ablation.
+ViT-only runs use full BLIP in evaluate_blip (no wrapper); importance_scope=vit_only limits LayerSparsity to visual_encoder.
 """
 
 import json
@@ -79,6 +80,7 @@ class T5EncoderTextOnlyView(nn.Module):
             attention_mask=input_tokens.attention_mask,
             return_dict=True,
         )
+        # dict loss for LayerSparsity / loss_language
         return {"loss": enc.last_hidden_state.float().pow(2).mean()}
 
 
@@ -123,7 +125,7 @@ class T5Seq2SeqTextOnlyView(nn.Module):
             )
             inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)
             bsz, enc_len = inputs_embeds.shape[:2]
-            # Align with Blip2T5: True = vision/query, False = language. Text-only C4: all language tokens.
+            # Blip2T5 convention: True = vision/query, False = language. C4 text-only: all language.
             self.temp_label = torch.zeros((bsz, enc_len), dtype=torch.bool, device=inputs_embeds.device)
             out = self.t5_model(
                 inputs_embeds=inputs_embeds,
@@ -133,6 +135,29 @@ class T5Seq2SeqTextOnlyView(nn.Module):
                 labels=targets,
             )
             return {"loss": out.loss, "logits": out.logits}
+
+
+class VisualEncoderImageOnlyView(nn.Module):
+    """ViT-only: same vision path as Blip2T5 (``ln_vision(visual_encoder(image))``), no Q-Former / T5."""
+
+    def __init__(self, blip_model):
+        super().__init__()
+        self._blip = blip_model
+        self.visual_encoder = blip_model.visual_encoder
+
+    def maybe_autocast(self, dtype=torch.float16):
+        return self._blip.maybe_autocast(dtype=dtype)
+
+    def encode_image(self, image):
+        # EVA VisionTransformer has ``forward`` only (no ``encode_image``); align with Blip2T5.
+        with self.maybe_autocast():
+            x = self.visual_encoder(image)
+            if hasattr(self._blip, "ln_vision"):
+                x = self._blip.ln_vision(x)
+            return x
+
+    def forward(self, samples):
+        return self.encode_image(samples["image"])
 
 
 def build_text_only_dataloader(c4_json_path, num_data, batch_size, distributed=False):
@@ -157,4 +182,6 @@ def wrap_model_for_unimodal_prune(full_blip_model, mode, t5_c4_encoder_only=Fals
         if t5_c4_encoder_only:
             return T5EncoderTextOnlyView(full_blip_model), full_blip_model
         return T5Seq2SeqTextOnlyView(full_blip_model), full_blip_model
+    if mode == "vit_image_only":
+        return VisualEncoderImageOnlyView(full_blip_model), full_blip_model
     raise ValueError(mode)

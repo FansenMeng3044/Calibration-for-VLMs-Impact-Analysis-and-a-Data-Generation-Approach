@@ -456,9 +456,12 @@ class RunnerBase:
         self.config.run_cfg.batch_size_train = batch_size_train_record
         self.config.run_cfg.batch_size_eval = batch_size_eval_record
 
+        _dl_for_dataset = data_loader
+        if not hasattr(_dl_for_dataset, "dataset") and hasattr(_dl_for_dataset, "_dataloader"):
+            _dl_for_dataset = _dl_for_dataset._dataloader
         self.task.before_evaluation(
             model=model,
-            dataset=data_loader.dataset,
+            dataset=_dl_for_dataset.dataset,
         )
 
         derivative_info = self.task.get_data_derivative(
@@ -668,20 +671,15 @@ class RunnerBase:
 
         self.config.run_cfg.batch_size_train = batch_size_train_record
         self.config.run_cfg.batch_size_eval = batch_size_eval_record
-
-        # Unwrap IterLoader -> PrefetchLoader -> DataLoader to get .dataset (distributed 时 train 是 IterLoader)
-        loader_for_dataset = data_loader
-        if hasattr(loader_for_dataset, "_dataloader"):
-            loader_for_dataset = loader_for_dataset._dataloader
-        if hasattr(loader_for_dataset, "loader"):
-            loader_for_dataset = loader_for_dataset.loader
-        underlying_dataset = getattr(loader_for_dataset, "dataset", None)
-        assert underlying_dataset is not None, "dataloader for importance has no .dataset (unwrap IterLoader/PrefetchLoader failed)."
         
         class DataLoaderWrapper:
-            def __init__(self, dataloader, length, dataset):
+            def __init__(self, dataloader, length):
                 self.dataloader = dataloader
-                self.dataset = dataset
+                # Runner may wrap loaders in IterLoader (no .dataset); unwrap for metadata.
+                _base = dataloader
+                if not hasattr(_base, "dataset") and hasattr(_base, "_dataloader"):
+                    _base = _base._dataloader
+                self.dataset = _base.dataset
                 self.length = min(length, len(dataloader))
 
             def __iter__(self):
@@ -696,7 +694,7 @@ class RunnerBase:
             def __len__(self):
                 return self.length
             
-        data_loader = DataLoaderWrapper(data_loader, num_data//batch_size, underlying_dataset)
+        data_loader = DataLoaderWrapper(data_loader, num_data//batch_size)
 
         # get the activations by forwarding the data through the model
         return data_loader
@@ -854,18 +852,23 @@ class RunnerBase:
                 # map-style dataset are concatenated together
                 # setup distributed sampler
                 if self.use_distributed:
-                    # 剪枝 importance 子集顺序：默认与 yaml run.seed 一致；可用环境变量单独指定
-                    if os.environ.get("LAVIS_DISTRIBUTED_SAMPLER_SEED", "").strip() != "":
-                        _dss = int(os.environ["LAVIS_DISTRIBUTED_SAMPLER_SEED"])
-                    else:
-                        _dss = int(self.config.run_cfg.get("seed", 0))
-                    sampler = DistributedSampler(
-                        dataset,
+                    sampler_kwargs = dict(
+                        dataset=dataset,
                         shuffle=is_train,
                         num_replicas=get_world_size(),
                         rank=get_rank(),
-                        seed=_dss,
                     )
+                    _ds_seed = os.environ.get("LAVIS_DISTRIBUTED_SAMPLER_SEED")
+                    if _ds_seed is not None:
+                        try:
+                            sampler_kwargs["seed"] = int(_ds_seed)
+                        except ValueError:
+                            pass
+                    try:
+                        sampler = DistributedSampler(**sampler_kwargs)
+                    except TypeError:
+                        sampler_kwargs.pop("seed", None)
+                        sampler = DistributedSampler(**sampler_kwargs)
                     if not self.use_dist_eval_sampler:
                         # e.g. retrieval evaluation
                         sampler = sampler if is_train else None

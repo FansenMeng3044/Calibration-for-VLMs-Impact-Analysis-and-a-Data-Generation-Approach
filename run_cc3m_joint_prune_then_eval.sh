@@ -11,7 +11,7 @@
 # 环境变量:
 #   RUN_LAVISBACKUP_ONLY=1     只跑 LAVIS_backup（跳过 ECoFLaP 剪枝与评测）
 #   RUN_PRUNE=1 RUN_EVAL=1     默认均 1；仅评测设 RUN_PRUNE=0 且 JOB_STAMP 与剪枝一致
-#   JOB_STAMP                  时间戳，写入 pth/jsonl 文件名；仅评测时需与剪枝时一致
+#   JOB_STAMP                  时间戳（t…），写入 pth / jsonl / 评测 job 名；仅评测时需与剪枝时一致
 #   LAVIS_DISTRIBUTED_SAMPLER_SEED / SEED   默认 42（CC3M 128 条子集与 dataloader 可复现；改 seed 即换一批 128）
 #   NUM_DATA / NUM_DATA_FIRST_STAGE         默认 128
 #   PRUNING_CALIB_BATCH                     默认 8
@@ -22,14 +22,13 @@
 
 set -euo pipefail
 
-AUTODL_TMP="${AUTODL_TMP:-/root/autodl-tmp}"
-ECOFLAP_ROOT="$AUTODL_TMP/ECoFLaP/LAVIS"
-LB_ROOT="$AUTODL_TMP/LAVIS_backup"
+AUTODL_TMP="${AUTODL_TMP:-/data/data2/mfs}"
+ECOFLAP_ROOT="$AUTODL_TMP/2/ECoFLaP/LAVIS"
+LB_ROOT="$AUTODL_TMP/2/LAVIS_backup"
 
-# 默认使用 CC3M_calib_128_seed20260411；换回旧集可 export CC3M_CFG=.../cc_prefix_derivative_compute_cc3m_calib128.yaml
-CC3M_CFG="${CC3M_CFG:-lavis/projects/blip2/eval/cc_prefix_derivative_compute_cc3m_calib128_seed20260411.yaml}"
-CC3M_CFG_ECO="$CC3M_CFG"
-CC3M_CFG_LB="$CC3M_CFG"
+# ECoFLaP 用 seed20260411 版 YAML；LAVIS_backup 没有该版本，用基础版
+CC3M_CFG_ECO="${CC3M_CFG_ECO:-lavis/projects/blip2/eval/cc_prefix_derivative_compute_cc3m_calib128_seed20260411.yaml}"
+CC3M_CFG_LB="${CC3M_CFG_LB:-lavis/projects/blip2/eval/cc_prefix_derivative_compute_cc3m_calib128.yaml}"
 
 EVAL_JSON="${EVAL_JSON:-$AUTODL_TMP/MathVista_eval_testmini_mc/mathvista_multi_choice_eval.json}"
 IMAGES_DIR="${IMAGES_DIR:-$AUTODL_TMP/MathVista_eval_testmini_mc/images}"
@@ -38,15 +37,15 @@ export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export OMP_NUM_THREADS=1
 
 export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
-export HF_HOME="${HF_HOME:-$AUTODL_TMP/cache_moved/huggingface}"
+export HF_HOME="${HF_HOME:-$AUTODL_TMP/model_cache/huggingface}"
 export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
 export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
 export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-$HF_HOME/datasets}"
 export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
 export TOKENIZERS_PARALLELISM="${TOKENIZERS_PARALLELISM:-false}"
-export BERT_BASE_UNCASED_SNAPSHOT="${BERT_BASE_UNCASED_SNAPSHOT:-$AUTODL_TMP/cache_moved/huggingface/hub/models--bert-base-uncased/snapshots/86b5e0934494bd15c9632b12f734a8a67f723594}"
-export FLAN_T5_XL_SNAPSHOT="${FLAN_T5_XL_SNAPSHOT:-$AUTODL_TMP/cache_moved/huggingface/hub/models--google--flan-t5-xl/snapshots/7d6315df2c2fb742f0f5b556879d730926ca9001}"
+export BERT_BASE_UNCASED_SNAPSHOT="${BERT_BASE_UNCASED_SNAPSHOT:-$AUTODL_TMP/model_cache/huggingface/hub/models--bert-base-uncased/snapshots/86b5e0934494bd15c9632b12f734a8a67f723594}"
+export FLAN_T5_XL_SNAPSHOT="${FLAN_T5_XL_SNAPSHOT:-$AUTODL_TMP/model_cache/huggingface/hub/models--google--flan-t5-xl/snapshots/7d6315df2c2fb742f0f5b556879d730926ca9001}"
 
 export MMBENCH_ROOT="${MMBENCH_ROOT:-$AUTODL_TMP/MMBench_eval}"
 export MMMU_ROOT="${MMMU_ROOT:-$AUTODL_TMP/MMMU_single_image}"
@@ -71,22 +70,35 @@ RUN_EVAL="${RUN_EVAL:-1}"
 RUN_LAVISBACKUP_ONLY="${RUN_LAVISBACKUP_ONLY:-0}"
 PRUNE_VIT="${PRUNE_VIT:-0}"
 
+# --- job_id / 权重文件名：标定(cfg 基名) + 剪枝范围 + 时间 + seed ---
+_cfg_basename_noext() {
+  basename "$1" .yaml
+}
+CALIB_SLUG_ECO="$(_cfg_basename_noext "$CC3M_CFG_ECO")"
+CALIB_SLUG_LB="$(_cfg_basename_noext "$CC3M_CFG_LB")"
+if [[ "$PRUNE_VIT" == "1" ]]; then
+  PRUNE_SCOPE_SLUG="vit_and_t5"
+else
+  PRUNE_SCOPE_SLUG="t5_only"
+fi
+# 片段: calib-<yaml> | wanda|tamp | t5_only|vit_and_t5 | t<时间戳> | seed<>
+JID_ECO="calib-${CALIB_SLUG_ECO}__wandaMEZO__${PRUNE_SCOPE_SLUG}__t${JOB_STAMP}__seed${SEED}"
+JID_LB="calib-${CALIB_SLUG_LB}__TAMP__${PRUNE_SCOPE_SLUG}__t${JOB_STAMP}__seed${SEED}"
+
 SUMMARY_DIR_ECO="$ECOFLAP_ROOT/lavis/output/BLIP2"
 SUMMARY_DIR_LB="$LB_ROOT/lavis/output/BLIP2"
 mkdir -p "$SUMMARY_DIR_ECO" "$SUMMARY_DIR_LB"
 
-JSONL_ECO="$SUMMARY_DIR_ECO/cc3m_joint_eval_ecoflap_${JOB_STAMP}_seed${SEED}.jsonl"
-JSONL_LB="$SUMMARY_DIR_LB/cc3m_joint_eval_lavisbackup_${JOB_STAMP}_seed${SEED}.jsonl"
+STEM_EVAL_ECO="eval_eco__${CALIB_SLUG_ECO}__${PRUNE_SCOPE_SLUG}__t${JOB_STAMP}__seed${SEED}"
+STEM_EVAL_LB="eval_lb__${CALIB_SLUG_LB}__${PRUNE_SCOPE_SLUG}__t${JOB_STAMP}__seed${SEED}"
+JSONL_ECO="$SUMMARY_DIR_ECO/${STEM_EVAL_ECO}.jsonl"
+JSONL_LB="$SUMMARY_DIR_LB/${STEM_EVAL_LB}.jsonl"
 if [[ "$RUN_LAVISBACKUP_ONLY" == "1" ]]; then
   : > "$JSONL_LB"
 else
   : > "$JSONL_ECO"
   : > "$JSONL_LB"
 fi
-
-# pruned_checkpoint/*.pth 与 training_statistics/*.yaml 的 job_id：时间戳 + seed，便于区分标定子集
-JID_ECO="cc3m_joint_eco_wanda_${JOB_STAMP}_seed${SEED}"
-JID_LB="cc3m_joint_lb_tamp_${JOB_STAMP}_seed${SEED}"
 
 CKPT_ECO="$ECOFLAP_ROOT/pruned_checkpoint/${JID_ECO}.pth"
 CKPT_LB="$LB_ROOT/pruned_checkpoint/${JID_LB}.pth"
@@ -230,7 +242,10 @@ run_lb_joint() {
 }
 
 echo "========== CC3M joint prune + eval | STAMP=${JOB_STAMP} SEED=${SEED} =========="
-echo "  PRUNE_VIT=${PRUNE_VIT} (0=只剪 T5, 1=ViT+T5)"
+echo "  PRUNE_VIT=${PRUNE_VIT} (0=只剪 T5, 1=ViT+T5) → 文件名片段: ${PRUNE_SCOPE_SLUG}"
+echo "  标定(cfg): ECo=${CALIB_SLUG_ECO} | LB=${CALIB_SLUG_LB}"
+echo "  job_id(ECo)=${JID_ECO}"
+echo "  job_id(LB) =${JID_LB}"
 if [[ "$RUN_LAVISBACKUP_ONLY" == "1" ]]; then
   echo "  [MODE] RUN_LAVISBACKUP_ONLY=1 — 仅 LAVIS_backup"
 else
@@ -261,13 +276,13 @@ fi
 if [[ "$RUN_LAVISBACKUP_ONLY" != "1" ]]; then
   echo "========== [评测] ECoFLaP 联合权重 → 四项 =========="
   export LAVIS_METRICS_JSONL="$JSONL_ECO"
-  TAG_ECO="CC3Mjoint_eco_${JOB_STAMP}_seed${SEED}"
-  EJOB_ECO="okvqa_eval_cc3m_joint_eco_${JOB_STAMP}_seed${SEED}_fullval"
-  run_four_evals "$ECOFLAP_ROOT" "$CKPT_ECO" "$TAG_ECO" "$EJOB_ECO" 29911 "mv_mc_cc3m_joint_eco"
+  TAG_ECO="tag_${STEM_EVAL_ECO}"
+  EJOB_ECO="okvqa_${STEM_EVAL_ECO}_fullval"
+  run_four_evals "$ECOFLAP_ROOT" "$CKPT_ECO" "$TAG_ECO" "$EJOB_ECO" 29911 "mv_mc_${STEM_EVAL_ECO}"
 
   collect_summary "$ECOFLAP_ROOT" "collect_ecoflap_eval_summary.py" "$JSONL_ECO" \
-    "$SUMMARY_DIR_ECO/cc3m_joint_eval_ecoflap_${JOB_STAMP}_seed${SEED}.md" \
-    "$SUMMARY_DIR_ECO/cc3m_joint_eval_ecoflap_${JOB_STAMP}_seed${SEED}.tsv" \
+    "$SUMMARY_DIR_ECO/${STEM_EVAL_ECO}.md" \
+    "$SUMMARY_DIR_ECO/${STEM_EVAL_ECO}.tsv" \
     --suites "${TAG_ECO}:${EJOB_ECO}"
 else
   echo "[SKIP] ECoFLaP 评测（RUN_LAVISBACKUP_ONLY=1）"
@@ -275,13 +290,13 @@ fi
 
 echo "========== [评测] LAVIS_backup 联合权重 → 四项 =========="
 export LAVIS_METRICS_JSONL="$JSONL_LB"
-TAG_LB="CC3Mjoint_lb_${JOB_STAMP}_seed${SEED}"
-EJOB_LB="okvqa_eval_cc3m_joint_lb_${JOB_STAMP}_seed${SEED}_fullval"
-run_four_evals "$LB_ROOT" "$CKPT_LB" "$TAG_LB" "$EJOB_LB" 31911 "mv_mc_cc3m_joint_lb"
+TAG_LB="tag_${STEM_EVAL_LB}"
+EJOB_LB="okvqa_${STEM_EVAL_LB}_fullval"
+run_four_evals "$LB_ROOT" "$CKPT_LB" "$TAG_LB" "$EJOB_LB" 31911 "mv_mc_${STEM_EVAL_LB}"
 
 collect_summary "$LB_ROOT" "collect_lavisbackup_eval_summary.py" "$JSONL_LB" \
-  "$SUMMARY_DIR_LB/cc3m_joint_eval_lavisbackup_${JOB_STAMP}_seed${SEED}.md" \
-  "$SUMMARY_DIR_LB/cc3m_joint_eval_lavisbackup_${JOB_STAMP}_seed${SEED}.tsv" \
+  "$SUMMARY_DIR_LB/${STEM_EVAL_LB}.md" \
+  "$SUMMARY_DIR_LB/${STEM_EVAL_LB}.tsv" \
   --suites "${TAG_LB}:${EJOB_LB}"
 
 echo "========== ALL DONE =========="

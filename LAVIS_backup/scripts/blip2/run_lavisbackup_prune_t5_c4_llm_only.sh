@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# LAVIS_backup：C4 纯文本校准 + 只剪 T5（LLM）；剪枝算法与多模态一致（Wanda / MEZO / DAS density_sum / AMIA 等均可）。
-# 使用 blipt5_tamp_pruner 时与多模态 TAMP 相同（AMIA + density_sum + layer），仅校准输入改为 C4 文本。
+# LAVIS_backup：C4 纯文本校准 + 只剪 T5（LLM）；默认剪枝器为 TAMP（与多模态 TAMP 相同：AMIA + density_sum + layer），仅校准输入改为 C4 文本。
+# 可选 Wanda：PRUNE_METHOD=blipt5_wanda_pruner bash ...
 # 需本地 C4 JSON（与 ECoFLaP/scripts/run_prune_t5_c4_128.sh 相同格式）。
 #
 # 用法:
@@ -10,8 +10,8 @@
 # 覆盖示例:
 #   C4_JSON=/path/to/c4_calib_128.json JOB_ID=my_t5_c4_t5only bash scripts/blip2/run_lavisbackup_prune_t5_c4_llm_only.sh
 #
-# 默认与 ECoFLaP run_prune_t5_c4_128.sh 对齐（MEZO + block）；若要 TAMP（DAS+AMIA+layer）:
-#   PRUNE_METHOD=blipt5_tamp_pruner bash scripts/blip2/run_lavisbackup_prune_t5_c4_llm_only.sh
+# 默认 TAMP；若要 Wanda（与 ECoFLaP run_prune_t5_c4_128.sh 对齐的 MEZO + block）:
+#   PRUNE_METHOD=blipt5_wanda_pruner bash scripts/blip2/run_lavisbackup_prune_t5_c4_llm_only.sh
 set -euo pipefail
 
 REPO="${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -66,7 +66,7 @@ BS="${BS:-8}"
 SCORE_METHOD="${SCORE_METHOD:-MEZO-GradOnly_sum}"
 SPARSITY_GRANULARITY="${SPARSITY_GRANULARITY:-block}"
 MAX_SPARSITY_PER_LAYER="${MAX_SPARSITY_PER_LAYER:-0.6}"
-PRUNE_METHOD="${PRUNE_METHOD:-blipt5_wanda_pruner}"
+PRUNE_METHOD="${PRUNE_METHOD:-blipt5_tamp_pruner}"
 
 if [[ ! -f "${C4_JSON}" ]]; then
   echo "[FATAL] 缺少 C4 校准 JSON: ${C4_JSON}" >&2

@@ -4,7 +4,5 @@
  # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 
 env:
-  # For default users
-  # cache_root: "cache"
-  # For internal use with persistent storage
-  cache_root: "/work/users/y/l/ylsung/cache"
+  # 相对 LAVIS 仓库根目录（见 registry）；勿用本机不存在的 /work/...，否则 makedirs 会先建 /work 并 Permission denied
+  cache_root: "cache"

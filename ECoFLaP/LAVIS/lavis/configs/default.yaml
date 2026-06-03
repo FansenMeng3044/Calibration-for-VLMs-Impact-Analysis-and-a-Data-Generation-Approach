@@ -4,7 +4,5 @@
  # For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 
 env:
-  # For default users
-  # cache_root: "cache"
-  # For internal use with persistent storage
-  cache_root: "/work/users/y/l/ylsung/cache"
+  # Relative to LAVIS repo parent (see lavis/__init__.py -> registry "cache_root").
+  cache_root: "cache"
