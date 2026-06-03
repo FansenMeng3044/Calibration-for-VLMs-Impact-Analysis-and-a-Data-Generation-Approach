@@ -113,15 +113,15 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--max_len", type=int, default=24, help="Generation max_new_tokens.")
     ap.add_argument("--min_len", type=int, default=3)
     ap.add_argument("--hint_max_words", type=int, default=18)
+    ap.add_argument(
+        "--max_hint_attempts",
+        type=int,
+        default=5,
+        help="Regenerate a bad hint up to this many attempts. The script stops if no good hint is found.",
+    )
     ap.add_argument("--question_field", default="question")
     ap.add_argument("--image_field", default="image")
     ap.add_argument("--answer_field", default="answer")
-    ap.add_argument(
-        "--bad_hint_policy",
-        choices=["drop", "append"],
-        default="drop",
-        help="drop keeps the original question when a hint is filtered.",
-    )
     ap.add_argument(
         "--append_template",
         default="{question}\nHint: {hint}",
@@ -183,6 +183,19 @@ def build_prompt(question: str, row: Dict[str, Any], max_words: int) -> str:
     if options:
         return PROMPT_WITH_OPTIONS.format(question=question, options=options, max_words=max_words)
     return PROMPT_NO_OPTIONS.format(question=question, max_words=max_words)
+
+
+def build_retry_prompt(base_prompt: str, rejected_hint: Any, reasons: Sequence[str], max_words: int) -> str:
+    reason_text = ", ".join(reasons) if reasons else "invalid hint"
+    return (
+        base_prompt
+        + "\n\nThe previous hint was rejected and must not be repeated.\n"
+        + "Rejected hint: %s\n" % str(rejected_hint or "").strip()
+        + "Rejected because: %s\n" % reason_text
+        + "Write a different valid hint under %d words. Do not answer the question.\n"
+        % max_words
+        + "Hint:"
+    )
 
 
 def strip_wrapping_quotes(text: str) -> str:
@@ -296,20 +309,16 @@ def make_output_row(
     row: Dict[str, Any],
     question_field: str,
     hint: str,
-    status: str,
     reasons: Sequence[str],
     args: argparse.Namespace,
 ) -> Dict[str, Any]:
     out = copy.deepcopy(row)
     original_question = str(row.get(question_field, ""))
-    if status == "ok" or args.bad_hint_policy == "append":
-        out[question_field] = args.append_template.format(question=original_question, hint=hint)
-    else:
-        out[question_field] = original_question
+    out[question_field] = args.append_template.format(question=original_question, hint=hint)
 
     if args.add_hint_metadata:
         out["generated_hint"] = hint
-        out["generated_hint_status"] = status
+        out["generated_hint_status"] = "ok"
         out["generated_hint_reasons"] = list(reasons)
 
     return out
@@ -338,6 +347,8 @@ def main() -> None:
 
     if args.device is None:
         args.device = "cuda" if torch.cuda.is_available() else "cpu"
+    if args.max_hint_attempts < 1:
+        raise ValueError("--max_hint_attempts must be >= 1")
 
     calib_json = os.path.abspath(args.calib_json)
     images_dir = (
@@ -365,15 +376,15 @@ def main() -> None:
     vis_processor = load_processor("blip_image_eval").build(image_size=224)
 
     ensure_parent_dir(args.out_hints_jsonl)
-    output_rows: List[Dict[str, Any]] = []
+    output_rows: List[Optional[Dict[str, Any]]] = [None] * len(rows)
     ok_count = 0
-    filtered_count = 0
+    retry_count = 0
 
     with open(args.out_hints_jsonl, "w", encoding="utf-8") as audit_f:
         for start in range(0, len(rows), args.batch_size):
             batch = rows[start : start + args.batch_size]
-            images = []
-            prompts = []
+            image_tensors = []
+            base_prompts = []
 
             for row_idx, row in enumerate(batch, start=start):
                 if args.question_field not in row:
@@ -387,59 +398,104 @@ def main() -> None:
                     raise FileNotFoundError("Image not found for row %d: %s" % (row_idx, img_path))
 
                 img = Image.open(img_path).convert("RGB")
-                images.append(vis_processor(img))
-                prompts.append(build_prompt(question, row, args.hint_max_words))
+                image_tensors.append(vis_processor(img))
+                base_prompts.append(build_prompt(question, row, args.hint_max_words))
 
-            image_tensor = torch.stack(images).to(args.device)
-            with torch.no_grad():
-                hints_raw = model.predict_answers(
-                    {"image": image_tensor, "text_input": prompts},
-                    num_beams=args.num_beams,
-                    max_len=args.max_len,
-                    min_len=args.min_len,
-                    inference_method="generate",
-                )
+            pending = list(range(len(batch)))
+            last_raw: Dict[int, Any] = {}
+            last_reasons: Dict[int, List[str]] = {}
 
-            for row, prompt, raw_hint in zip(batch, prompts, hints_raw):
-                clean = clean_hint(raw_hint, args.hint_max_words)
-                status, reasons = filter_hint(raw_hint, clean, row.get(args.answer_field))
-                if status == "ok":
-                    ok_count += 1
-                else:
-                    filtered_count += 1
+            for attempt in range(1, args.max_hint_attempts + 1):
+                if not pending:
+                    break
 
-                output_rows.append(
-                    make_output_row(
-                        row=row,
-                        question_field=args.question_field,
-                        hint=clean,
-                        status=status,
-                        reasons=reasons,
-                        args=args,
+                prompts = []
+                images = []
+                for local_idx in pending:
+                    if attempt == 1:
+                        prompt = base_prompts[local_idx]
+                    else:
+                        prompt = build_retry_prompt(
+                            base_prompts[local_idx],
+                            last_raw.get(local_idx, ""),
+                            last_reasons.get(local_idx, []),
+                            args.hint_max_words,
+                        )
+                    prompts.append(prompt)
+                    images.append(image_tensors[local_idx])
+
+                image_tensor = torch.stack(images).to(args.device)
+                with torch.no_grad():
+                    hints_raw = model.predict_answers(
+                        {"image": image_tensor, "text_input": prompts},
+                        num_beams=args.num_beams,
+                        max_len=args.max_len,
+                        min_len=args.min_len,
+                        inference_method="generate",
                     )
-                )
 
-                audit = {
-                    "image": row.get(args.image_field),
-                    "question": row.get(args.question_field),
-                    "answer": row.get(args.answer_field),
-                    "hint_prompt": prompt,
-                    "hint_raw": raw_hint,
-                    "hint_clean": clean,
-                    "status": status,
-                    "reasons": list(reasons),
-                }
-                audit_f.write(json.dumps(audit, ensure_ascii=False) + "\n")
+                still_pending = []
+                for local_idx, prompt, raw_hint in zip(pending, prompts, hints_raw):
+                    row = batch[local_idx]
+                    clean = clean_hint(raw_hint, args.hint_max_words)
+                    status, reasons = filter_hint(raw_hint, clean, row.get(args.answer_field))
+                    audit_status = "ok" if status == "ok" else "retry"
+
+                    audit = {
+                        "image": row.get(args.image_field),
+                        "question": row.get(args.question_field),
+                        "answer": row.get(args.answer_field),
+                        "hint_prompt": prompt,
+                        "hint_raw": raw_hint,
+                        "hint_clean": clean,
+                        "status": audit_status,
+                        "attempt": attempt,
+                        "reasons": list(reasons),
+                    }
+
+                    if status == "ok":
+                        ok_count += 1
+                        output_rows[start + local_idx] = make_output_row(
+                            row=row,
+                            question_field=args.question_field,
+                            hint=clean,
+                            reasons=[],
+                            args=args,
+                        )
+                    else:
+                        retry_count += 1
+                        last_raw[local_idx] = raw_hint
+                        last_reasons[local_idx] = list(reasons)
+                        if attempt >= args.max_hint_attempts:
+                            audit["status"] = "failed"
+                            audit_f.write(json.dumps(audit, ensure_ascii=False) + "\n")
+                            audit_f.flush()
+                            raise RuntimeError(
+                                "Could not generate an acceptable hint for row %d after %d attempts. "
+                                "Last hint=%r reasons=%s"
+                                % (start + local_idx, args.max_hint_attempts, clean, reasons)
+                            )
+                        still_pending.append(local_idx)
+
+                    audit_f.write(json.dumps(audit, ensure_ascii=False) + "\n")
+
+                pending = still_pending
             audit_f.flush()
 
             done = min(start + len(batch), len(rows))
             if args.log_every > 0 and (done == len(rows) or done % args.log_every == 0):
-                print("Processed %d/%d rows (ok=%d filtered=%d)" % (done, len(rows), ok_count, filtered_count))
+                print("Processed %d/%d rows (ok=%d retries=%d)" % (done, len(rows), ok_count, retry_count))
 
-    write_json(args.out_calib_json, output_rows)
+    final_rows: List[Dict[str, Any]] = []
+    for idx, row in enumerate(output_rows):
+        if row is None:
+            raise RuntimeError("Internal error: row %d has no accepted hint." % idx)
+        final_rows.append(row)
+
+    write_json(args.out_calib_json, final_rows)
     print("[OK] wrote audit hints:", os.path.abspath(args.out_hints_jsonl))
     print("[OK] wrote calibration JSON:", os.path.abspath(args.out_calib_json))
-    print("[OK] accepted hints: %d | filtered hints: %d" % (ok_count, filtered_count))
+    print("[OK] accepted hints: %d | retry attempts: %d" % (ok_count, retry_count))
 
 
 if __name__ == "__main__":
