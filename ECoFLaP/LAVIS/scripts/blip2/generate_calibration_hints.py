@@ -28,50 +28,82 @@ if _LAVIS_ROOT not in sys.path:
     sys.path.insert(0, _LAVIS_ROOT)
 
 
-PROMPT_NO_OPTIONS = """Generate a short question-focused hint for this visual question.
+PROMPT_NO_OPTIONS = """# Role
+You write high-information hints for visual questions.
 
-First, carefully interpret what the question is asking.
-Then mention the kind of visual evidence that should be checked in the image.
-The hint should clarify the question's intent, not solve it.
+# Task
+Write one short hint that clarifies the question's intent and points to concrete visual evidence in the image.
 
-Rules:
+# Requirements
+- Mention what kind of evidence to inspect: table rows/columns, labels, numbers, axes, units, legend, text in the image, object positions, marked regions, or visual relationships.
+- If the question asks for a calculation, identify the source values or relationship to compare.
+- Do not restate or summarize the question.
 - Do not answer the question.
-- Do not mention any option letter such as A, B, C, or D.
-- Do not mention the correct choice.
-- Do not copy an answer option as the hint.
-- Do not describe the whole image.
+- Do not mention the correct value, option letter, or final choice.
 - Do not provide step-by-step reasoning.
-- Keep it under {max_words} words.
-- Output only one hint sentence.
+- Do not copy any example hint exactly.
+- Use {min_words} to {max_words} words.
+- Output only the hint sentence.
 
+# Bad hints
+Question: For company B, find the missing amounts.
+Hint: For company B, find the missing amounts.
+
+Question: What is the ending balance in the owners' capital account?
+Hint: the ending balance in the owners' capital account
+
+# Good hints
+Hint: Inspect the relevant table row, column labels, totals, and blank cells.
+Hint: Use the displayed account changes and labels to identify the requested balance.
+Hint: Compare the chart labels, units, and marked values related to the requested quantity.
+
+# Input
 Question:
 {question}
 
+# Output
 Hint:"""
 
 
-PROMPT_WITH_OPTIONS = """Generate a short question-focused hint for this visual question.
+PROMPT_WITH_OPTIONS = """# Role
+You write high-information hints for visual multiple-choice questions.
 
-First, carefully interpret what the question is asking.
-Then mention the kind of visual evidence that should be checked in the image.
-The hint should clarify the question's intent, not solve it.
+# Task
+Write one short hint that clarifies the question's intent and points to concrete visual evidence in the image.
 
-Rules:
+# Requirements
+- Mention what kind of evidence to inspect: table rows/columns, labels, numbers, axes, units, legend, text in the image, object positions, marked regions, or visual relationships.
+- If the question asks for a calculation, identify the source values or relationship to compare.
+- Use the options only to understand what type of evidence matters.
+- Do not restate or summarize the question.
 - Do not answer the question.
 - Do not mention any option letter such as A, B, C, or D.
-- Do not mention the correct choice.
 - Do not copy an answer option as the hint.
-- Do not describe the whole image.
 - Do not provide step-by-step reasoning.
-- Keep it under {max_words} words.
-- Output only one hint sentence.
+- Do not copy any example hint exactly.
+- Use {min_words} to {max_words} words.
+- Output only the hint sentence.
 
+# Bad hints
+Question: For company B, find the missing amounts.
+Hint: For company B, find the missing amounts.
+
+Question: What is the ending balance in the owners' capital account?
+Hint: the ending balance in the owners' capital account
+
+# Good hints
+Hint: Inspect the relevant table row, column labels, totals, and blank cells.
+Hint: Use the displayed account changes and labels to identify the requested balance.
+Hint: Compare the chart labels, units, and marked values related to the requested quantity.
+
+# Input
 Question:
 {question}
 
 Options:
 {options}
 
+# Output
 Hint:"""
 
 
@@ -85,6 +117,73 @@ BAD_SUBSTRINGS = [
     "right answer",
     "selected",
 ]
+
+EVIDENCE_CUES = [
+    "axis",
+    "axes",
+    "bar",
+    "bars",
+    "blank",
+    "cell",
+    "cells",
+    "chart",
+    "column",
+    "columns",
+    "diagram",
+    "figure",
+    "graph",
+    "grid",
+    "label",
+    "labels",
+    "legend",
+    "line",
+    "marked",
+    "number",
+    "numbers",
+    "object",
+    "objects",
+    "position",
+    "positions",
+    "region",
+    "regions",
+    "relationship",
+    "row",
+    "rows",
+    "table",
+    "text",
+    "total",
+    "totals",
+    "unit",
+    "units",
+    "value",
+    "values",
+]
+
+STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "for",
+    "from",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "that",
+    "the",
+    "this",
+    "to",
+    "what",
+    "which",
+    "with",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -112,6 +211,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--num_beams", type=int, default=3)
     ap.add_argument("--max_len", type=int, default=24, help="Generation max_new_tokens.")
     ap.add_argument("--min_len", type=int, default=3)
+    ap.add_argument("--hint_min_words", type=int, default=8)
     ap.add_argument("--hint_max_words", type=int, default=18)
     ap.add_argument(
         "--max_hint_attempts",
@@ -178,11 +278,16 @@ def build_options_text(row: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def build_prompt(question: str, row: Dict[str, Any], max_words: int) -> str:
+def build_prompt(question: str, row: Dict[str, Any], min_words: int, max_words: int) -> str:
     options = build_options_text(row)
     if options:
-        return PROMPT_WITH_OPTIONS.format(question=question, options=options, max_words=max_words)
-    return PROMPT_NO_OPTIONS.format(question=question, max_words=max_words)
+        return PROMPT_WITH_OPTIONS.format(
+            question=question,
+            options=options,
+            min_words=min_words,
+            max_words=max_words,
+        )
+    return PROMPT_NO_OPTIONS.format(question=question, min_words=min_words, max_words=max_words)
 
 
 def build_retry_prompt(base_prompt: str, rejected_hint: Any, reasons: Sequence[str], max_words: int) -> str:
@@ -192,7 +297,7 @@ def build_retry_prompt(base_prompt: str, rejected_hint: Any, reasons: Sequence[s
         + "\n\nThe previous hint was rejected and must not be repeated.\n"
         + "Rejected hint: %s\n" % str(rejected_hint or "").strip()
         + "Rejected because: %s\n" % reason_text
-        + "Write a different valid hint under %d words. Do not answer the question.\n"
+        + "Write a different valid hint under %d words. Include a concrete visual evidence cue.\n"
         % max_words
         + "Hint:"
     )
@@ -242,6 +347,40 @@ def normalize_text(text: Any) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+def word_tokens(text: Any) -> List[str]:
+    return re.findall(r"[a-z0-9]+", str(text or "").casefold())
+
+
+def content_tokens(text: Any) -> List[str]:
+    return [tok for tok in word_tokens(text) if tok not in STOPWORDS]
+
+
+def has_evidence_cue(text: str) -> bool:
+    toks = set(word_tokens(text))
+    return any(cue in toks for cue in EVIDENCE_CUES)
+
+
+def has_copied_ngram(hint: str, question: str, n: int = 5) -> bool:
+    hint_tokens = word_tokens(hint)
+    question_tokens = word_tokens(question)
+    if len(hint_tokens) < n or len(question_tokens) < n:
+        return False
+    q_ngrams = {tuple(question_tokens[i : i + n]) for i in range(len(question_tokens) - n + 1)}
+    for i in range(len(hint_tokens) - n + 1):
+        if tuple(hint_tokens[i : i + n]) in q_ngrams:
+            return True
+    return False
+
+
+def is_too_similar_to_question(hint: str, question: str) -> bool:
+    hint_content = set(content_tokens(hint))
+    question_content = set(content_tokens(question))
+    if not hint_content or not question_content:
+        return False
+    overlap = len(hint_content & question_content) / float(len(hint_content))
+    return overlap >= 0.8 and len(hint_content) >= 4
+
+
 def iter_answer_values(answer: Any) -> Iterable[str]:
     if isinstance(answer, list):
         for item in answer:
@@ -283,13 +422,21 @@ def has_option_letter_leak(text: str) -> bool:
     return False
 
 
-def filter_hint(raw_hint: Any, clean: str, answer: Any) -> Tuple[str, List[str]]:
+def filter_hint(
+    raw_hint: Any,
+    clean: str,
+    question: Any,
+    answer: Any,
+    min_words: int,
+) -> Tuple[str, List[str]]:
     reasons: List[str] = []
     combined = ("%s %s" % (str(raw_hint or ""), clean)).strip()
     combined_lower = combined.casefold()
 
     if not clean:
         reasons.append("empty")
+    elif len(word_tokens(clean)) < min_words:
+        reasons.append("too_short")
 
     for bad in BAD_SUBSTRINGS:
         if bad in combined_lower:
@@ -300,6 +447,15 @@ def filter_hint(raw_hint: Any, clean: str, answer: Any) -> Tuple[str, List[str]]
 
     if contains_answer_leak(combined, answer):
         reasons.append("answer_leak")
+
+    if clean and not has_evidence_cue(clean):
+        reasons.append("no_evidence_cue")
+
+    if clean and has_copied_ngram(clean, str(question or "")):
+        reasons.append("copied_question_ngram")
+
+    if clean and is_too_similar_to_question(clean, str(question or "")):
+        reasons.append("too_similar_to_question")
 
     status = "ok" if not reasons else "filtered"
     return status, reasons
@@ -353,6 +509,10 @@ def main() -> None:
         args.device = "cuda" if torch.cuda.is_available() else "cpu"
     if args.max_hint_attempts < 1:
         raise ValueError("--max_hint_attempts must be >= 1")
+    if args.hint_min_words < 1:
+        raise ValueError("--hint_min_words must be >= 1")
+    if args.hint_min_words > args.hint_max_words:
+        raise ValueError("--hint_min_words must be <= --hint_max_words")
 
     calib_json = os.path.abspath(args.calib_json)
     images_dir = (
@@ -404,7 +564,7 @@ def main() -> None:
 
                 img = Image.open(img_path).convert("RGB")
                 image_tensors.append(vis_processor(img))
-                base_prompts.append(build_prompt(question, row, args.hint_max_words))
+                base_prompts.append(build_prompt(question, row, args.hint_min_words, args.hint_max_words))
 
             pending = list(range(len(batch)))
             last_raw: Dict[int, Any] = {}
@@ -443,7 +603,13 @@ def main() -> None:
                 for local_idx, prompt, raw_hint in zip(pending, prompts, hints_raw):
                     row = batch[local_idx]
                     clean = clean_hint(raw_hint, args.hint_max_words)
-                    status, reasons = filter_hint(raw_hint, clean, row.get(args.answer_field))
+                    status, reasons = filter_hint(
+                        raw_hint,
+                        clean,
+                        row.get(args.question_field),
+                        row.get(args.answer_field),
+                        args.hint_min_words,
+                    )
                     audit_status = "ok" if status == "ok" else "retry"
 
                     audit = {
