@@ -28,31 +28,35 @@ if _LAVIS_ROOT not in sys.path:
     sys.path.insert(0, _LAVIS_ROOT)
 
 
-PROMPT_NO_OPTIONS = """Write one detailed question-focused hint for answering the visual question.
+PROMPT_NO_OPTIONS = """Write question-focused hints for answering the visual question.
 
-Focus first on what the question asks, then name the image evidence to inspect.
-Mention at least two concrete evidence types, such as table rows, column labels, given numbers, blank cells, chart axes, units, text labels, positions, or visual relationships.
+The hints should add useful context, clarify the question's intent, and point to the image evidence that should be checked.
+Focus on the question text first: identify the target concept, entity, comparison, calculation, attribute, or relationship being asked about.
+Then mention relevant visual evidence, such as table rows, column labels, given numbers, blank cells, chart axes, units, text labels, positions, or visual relationships.
 
-Do not answer. Do not repeat the question. Do not give step-by-step reasoning.
-Write {target_min_words} to {max_words} words in one sentence. Start with Check, Inspect, Compare, Read, Use, or Look at.
+Do not answer the question. Do not repeat the question. Do not provide step-by-step reasoning.
+Do not write a general caption for the whole image.
+Write as much hint text as needed to clarify the task and relevant evidence.
 
 Bad hint: For company B, find the missing amounts.
-Good hint: Check company B's row, column headings, given totals, and blank cells before calculating the missing amounts.
+Good hint: Check which row belongs to company B, then use the column labels, given totals, and blank cells to understand what values must be inferred.
 
 Question: {question}
 Hint:"""
 
 
-PROMPT_WITH_OPTIONS = """Write one detailed question-focused hint for answering the visual multiple-choice question.
+PROMPT_WITH_OPTIONS = """Write question-focused hints for answering the visual multiple-choice question.
 
-Focus first on what the question asks, then name the image evidence to inspect.
-Mention at least two concrete evidence types, such as table rows, column labels, given numbers, blank cells, chart axes, units, text labels, positions, or visual relationships.
+The hints should add useful context, clarify the question's intent, and point to the image evidence that should be checked.
+Focus on the question text first: identify the target concept, entity, comparison, calculation, attribute, or relationship being asked about.
+Then mention relevant visual evidence, such as table rows, column labels, given numbers, blank cells, chart axes, units, text labels, positions, or visual relationships.
 
-Do not answer. Do not mention option letters. Do not repeat the question. Do not copy an option. Do not give step-by-step reasoning.
-Write {target_min_words} to {max_words} words in one sentence. Start with Check, Inspect, Compare, Read, Use, or Look at.
+Do not answer the question. Do not mention option letters. Do not copy an option. Do not repeat the question.
+Do not provide step-by-step reasoning. Do not write a general caption for the whole image.
+Write as much hint text as needed to clarify the task and relevant evidence.
 
 Bad hint: For company B, find the missing amounts.
-Good hint: Compare the relevant table labels, numeric values, and units, then match the question focus without using choices.
+Good hint: Identify the visual detail or data pattern the question asks about, then compare the relevant labels, values, units, and relationships without using the choices.
 
 Question: {question}
 Options: {options}
@@ -97,9 +101,14 @@ def parse_args() -> argparse.Namespace:
         "--hint_target_min_words",
         type=int,
         default=12,
-        help="Desired minimum hint length requested in the prompt.",
+        help="Soft quality target. Shorter accepted hints are marked weak in the audit file.",
     )
-    ap.add_argument("--hint_max_words", type=int, default=26)
+    ap.add_argument(
+        "--hint_max_words",
+        type=int,
+        default=None,
+        help="Optional post-cleaning word cap. Defaults to no word cap.",
+    )
     ap.add_argument(
         "--max_hint_attempts",
         type=int,
@@ -165,19 +174,15 @@ def build_options_text(row: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def build_prompt(question: str, row: Dict[str, Any], target_min_words: int, max_words: int) -> str:
+def build_prompt(question: str, row: Dict[str, Any]) -> str:
     options = build_options_text(row)
     if options:
         return PROMPT_WITH_OPTIONS.format(
             question=question,
             options=options,
-            target_min_words=target_min_words,
-            max_words=max_words,
         )
     return PROMPT_NO_OPTIONS.format(
         question=question,
-        target_min_words=target_min_words,
-        max_words=max_words,
     )
 
 
@@ -185,8 +190,6 @@ def build_retry_prompt(
     base_prompt: str,
     rejected_hint: Any,
     reasons: Sequence[str],
-    target_min_words: int,
-    max_words: int,
 ) -> str:
     reason_text = ", ".join(reasons) if reasons else "invalid hint"
     return (
@@ -194,8 +197,8 @@ def build_retry_prompt(
         + "\n\nThe previous hint was rejected and must not be repeated.\n"
         + "Rejected hint: %s\n" % str(rejected_hint or "").strip()
         + "Rejected because: %s\n" % reason_text
-        + "Write a different valid hint in %d to %d words. Include at least two concrete visual evidence cues.\n"
-        % (target_min_words, max_words)
+        + "Write different hints that clarify the question intent and point to relevant visual evidence.\n"
+        + "Do not answer the question, copy an option, or reuse the rejected hint.\n"
         + "Hint:"
     )
 
@@ -213,14 +216,16 @@ def strip_wrapping_quotes(text: str) -> str:
     return s
 
 
-def truncate_words(text: str, max_words: int) -> str:
+def truncate_words(text: str, max_words: Optional[int]) -> str:
+    if max_words is None:
+        return text
     words = text.split()
     if len(words) <= max_words:
         return text
     return " ".join(words[:max_words]).rstrip(",;:")
 
 
-def clean_hint(raw_hint: Any, max_words: int) -> str:
+def clean_hint(raw_hint: Any, max_words: Optional[int]) -> str:
     s = str(raw_hint or "").replace("\r", " ").replace("\n", " ")
     s = re.sub(r"\s+", " ", s).strip()
     s = strip_wrapping_quotes(s)
@@ -366,10 +371,13 @@ def main() -> None:
         raise ValueError("--hint_min_words must be >= 1")
     if args.hint_target_min_words < args.hint_min_words:
         raise ValueError("--hint_target_min_words must be >= --hint_min_words")
-    if args.hint_target_min_words > args.hint_max_words:
-        raise ValueError("--hint_target_min_words must be <= --hint_max_words")
-    if args.hint_min_words > args.hint_max_words:
-        raise ValueError("--hint_min_words must be <= --hint_max_words")
+    if args.hint_max_words is not None:
+        if args.hint_max_words < 1:
+            raise ValueError("--hint_max_words must be >= 1")
+        if args.hint_target_min_words > args.hint_max_words:
+            raise ValueError("--hint_target_min_words must be <= --hint_max_words")
+        if args.hint_min_words > args.hint_max_words:
+            raise ValueError("--hint_min_words must be <= --hint_max_words")
 
     calib_json = os.path.abspath(args.calib_json)
     images_dir = (
@@ -386,7 +394,6 @@ def main() -> None:
     print("images_dir:", images_dir)
     print("device:", args.device)
     print("generation_interface: model.generate")
-
     model = load_model(
         "blip2_t5",
         "pretrain_flant5xl",
@@ -422,14 +429,7 @@ def main() -> None:
 
                 img = Image.open(img_path).convert("RGB")
                 image_tensors.append(vis_processor(img))
-                base_prompts.append(
-                    build_prompt(
-                        question,
-                        row,
-                        args.hint_target_min_words,
-                        args.hint_max_words,
-                    )
-                )
+                base_prompts.append(build_prompt(question, row))
 
             pending = list(range(len(batch)))
             last_raw: Dict[int, Any] = {}
@@ -449,8 +449,6 @@ def main() -> None:
                             base_prompts[local_idx],
                             last_raw.get(local_idx, ""),
                             last_reasons.get(local_idx, []),
-                            args.hint_target_min_words,
-                            args.hint_max_words,
                         )
                     prompts.append(prompt)
                     images.append(image_tensors[local_idx])
