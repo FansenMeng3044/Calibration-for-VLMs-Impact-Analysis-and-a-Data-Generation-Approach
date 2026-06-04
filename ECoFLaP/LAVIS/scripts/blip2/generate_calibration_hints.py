@@ -28,36 +28,45 @@ if _LAVIS_ROOT not in sys.path:
     sys.path.insert(0, _LAVIS_ROOT)
 
 
-PROMPT_NO_OPTIONS = """Create a supplementary hint for a visual question.
+PROMPT_NO_OPTIONS = """Convert the visual question into a calibration hint.
 
-Use the question only to infer the task. Write new guidance that clarifies the intent and names the evidence a reader should check in the image.
-Mention evidence categories such as relevant rows, columns, labels, numbers, units, axes, objects, regions, comparisons, blank cells, or visual relationships.
+Write new text that tells the reader what to inspect before answering.
+Use an imperative checklist style. Start with Check, Compare, Inspect, Use, Read, or Locate.
+Choose the evidence types implied by the question, such as labels, values, units, table positions, visual regions, object relationships, chart markings, or blank cells.
 
-Do not answer the question.
-Do not restate or summarize the question.
-Do not copy phrases from the question, except necessary names or short identifiers.
-Do not give final values, choices, object names, artist names, disease names, or conclusions.
-Do not provide calculations or step-by-step reasoning.
-Do not write a general caption for the whole image.
+Avoid these failure modes:
+- Do not answer or guess the answer.
+- Do not restate the question or turn it into another question.
+- Do not copy a phrase from the question longer than a few words.
+- Do not include exact numbers, formulas, dollar amounts, percentages, or final values.
+- Do not name a final class, disease, artist, object identity, or conclusion.
+- Do not write a general caption such as "the image shows".
+- Do not output generic wording such as "evidence categories".
+
 Output only the hint text.
 
 Question: {question}
 Hint:"""
 
 
-PROMPT_WITH_OPTIONS = """Create a supplementary hint for a visual multiple-choice question.
+PROMPT_WITH_OPTIONS = """Convert the visual multiple-choice question into a calibration hint.
 
-Use the question and options only to infer the task and answer type. Write new guidance that clarifies the intent and names the evidence a reader should check in the image.
-Mention evidence categories such as relevant rows, columns, labels, numbers, units, axes, objects, regions, comparisons, blank cells, or visual relationships.
+Use the question and options only to infer the task and answer type.
+Write new text that tells the reader what to inspect before answering.
+Use an imperative checklist style. Start with Check, Compare, Inspect, Use, Read, or Locate.
+Choose the evidence types implied by the question, such as labels, values, units, table positions, visual regions, object relationships, chart markings, or blank cells.
 
-Do not answer the question.
-Do not mention option letters.
-Do not copy an option.
-Do not restate or summarize the question.
-Do not copy phrases from the question, except necessary names or short identifiers.
-Do not give final values, choices, object names, artist names, disease names, or conclusions.
-Do not provide calculations or step-by-step reasoning.
-Do not write a general caption for the whole image.
+Avoid these failure modes:
+- Do not answer or guess the answer.
+- Do not mention option letters.
+- Do not copy an option.
+- Do not restate the question or turn it into another question.
+- Do not copy a phrase from the question longer than a few words.
+- Do not include exact numbers, formulas, dollar amounts, percentages, or final values.
+- Do not name a final class, disease, artist, object identity, or conclusion.
+- Do not write a general caption such as "the image shows".
+- Do not output generic wording such as "evidence categories".
+
 Output only the hint text.
 
 Question: {question}
@@ -205,8 +214,9 @@ def build_retry_prompt(
         + "\n\nThe previous hint was rejected and must not be repeated.\n"
         + "Rejected hint: %s\n" % str(rejected_hint or "").strip()
         + "Rejected because: %s\n" % reason_text
-        + "Write a different supplementary hint that clarifies the task and names evidence to check.\n"
-        + "Do not answer, copy an option, copy question phrases, or reuse the rejected hint.\n"
+        + "Write a different imperative checklist-style hint.\n"
+        + "Start with Check, Compare, Inspect, Use, Read, or Locate.\n"
+        + "Do not answer, copy an option, copy question phrases, include exact numbers, or reuse the rejected hint.\n"
         + "Hint:"
     )
 
