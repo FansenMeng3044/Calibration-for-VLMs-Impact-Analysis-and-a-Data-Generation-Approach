@@ -28,35 +28,37 @@ if _LAVIS_ROOT not in sys.path:
     sys.path.insert(0, _LAVIS_ROOT)
 
 
-PROMPT_NO_OPTIONS = """Write question-focused hints for answering the visual question.
+PROMPT_NO_OPTIONS = """Create a supplementary hint for a visual question.
 
-The hints should add useful context, clarify the question's intent, and point to the image evidence that should be checked.
-Focus on the question text first: identify the target concept, entity, comparison, calculation, attribute, or relationship being asked about.
-Then mention relevant visual evidence, such as table rows, column labels, given numbers, blank cells, chart axes, units, text labels, positions, or visual relationships.
+Use the question only to infer the task. Write new guidance that clarifies the intent and names the evidence a reader should check in the image.
+Mention evidence categories such as relevant rows, columns, labels, numbers, units, axes, objects, regions, comparisons, blank cells, or visual relationships.
 
-Do not answer the question. Do not repeat the question. Do not provide step-by-step reasoning.
+Do not answer the question.
+Do not restate or summarize the question.
+Do not copy phrases from the question, except necessary names or short identifiers.
+Do not give final values, choices, object names, artist names, disease names, or conclusions.
+Do not provide calculations or step-by-step reasoning.
 Do not write a general caption for the whole image.
-Write as much hint text as needed to clarify the task and relevant evidence.
-
-Bad hint: For company B, find the missing amounts.
-Good hint: Check which row belongs to company B, then use the column labels, given totals, and blank cells to understand what values must be inferred.
+Output only the hint text.
 
 Question: {question}
 Hint:"""
 
 
-PROMPT_WITH_OPTIONS = """Write question-focused hints for answering the visual multiple-choice question.
+PROMPT_WITH_OPTIONS = """Create a supplementary hint for a visual multiple-choice question.
 
-The hints should add useful context, clarify the question's intent, and point to the image evidence that should be checked.
-Focus on the question text first: identify the target concept, entity, comparison, calculation, attribute, or relationship being asked about.
-Then mention relevant visual evidence, such as table rows, column labels, given numbers, blank cells, chart axes, units, text labels, positions, or visual relationships.
+Use the question and options only to infer the task and answer type. Write new guidance that clarifies the intent and names the evidence a reader should check in the image.
+Mention evidence categories such as relevant rows, columns, labels, numbers, units, axes, objects, regions, comparisons, blank cells, or visual relationships.
 
-Do not answer the question. Do not mention option letters. Do not copy an option. Do not repeat the question.
-Do not provide step-by-step reasoning. Do not write a general caption for the whole image.
-Write as much hint text as needed to clarify the task and relevant evidence.
-
-Bad hint: For company B, find the missing amounts.
-Good hint: Identify the visual detail or data pattern the question asks about, then compare the relevant labels, values, units, and relationships without using the choices.
+Do not answer the question.
+Do not mention option letters.
+Do not copy an option.
+Do not restate or summarize the question.
+Do not copy phrases from the question, except necessary names or short identifiers.
+Do not give final values, choices, object names, artist names, disease names, or conclusions.
+Do not provide calculations or step-by-step reasoning.
+Do not write a general caption for the whole image.
+Output only the hint text.
 
 Question: {question}
 Options: {options}
@@ -203,8 +205,8 @@ def build_retry_prompt(
         + "\n\nThe previous hint was rejected and must not be repeated.\n"
         + "Rejected hint: %s\n" % str(rejected_hint or "").strip()
         + "Rejected because: %s\n" % reason_text
-        + "Write different hints that clarify the question intent and point to relevant visual evidence.\n"
-        + "Do not answer the question, copy an option, or reuse the rejected hint.\n"
+        + "Write a different supplementary hint that clarifies the task and names evidence to check.\n"
+        + "Do not answer, copy an option, copy question phrases, or reuse the rejected hint.\n"
         + "Hint:"
     )
 
