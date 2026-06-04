@@ -88,6 +88,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Device for generation. Defaults to cuda when available, otherwise cpu.",
     )
+    ap.add_argument(
+        "--hint_generation_mode",
+        choices=["t5_text_only", "blip2"],
+        default="t5_text_only",
+        help="Use Flan-T5-XL text-only generation or the original BLIP2 image+prompt generation path.",
+    )
     ap.add_argument("--num_beams", type=int, default=3)
     ap.add_argument("--max_len", type=int, default=40, help="Generation max_new_tokens.")
     ap.add_argument("--min_len", type=int, default=8)
@@ -349,6 +355,29 @@ def write_json(path: str, rows: List[Dict[str, Any]]) -> None:
         f.write("\n")
 
 
+def generate_t5_text_only(
+    model: Any,
+    prompts: Sequence[str],
+    args: argparse.Namespace,
+    torch_module: Any,
+) -> List[str]:
+    input_tokens = model.t5_tokenizer(
+        list(prompts),
+        padding="longest",
+        return_tensors="pt",
+    ).to(args.device)
+
+    with model.maybe_autocast(dtype=torch_module.bfloat16):
+        outputs = model.t5_model.generate(
+            input_ids=input_tokens.input_ids,
+            attention_mask=input_tokens.attention_mask,
+            num_beams=args.num_beams,
+            max_new_tokens=args.max_len,
+            min_length=args.min_len,
+        )
+        return model.t5_tokenizer.batch_decode(outputs, skip_special_tokens=True)
+
+
 def main() -> None:
     args = parse_args()
 
@@ -393,7 +422,7 @@ def main() -> None:
     print("Loaded %d calibration rows from %s" % (len(rows), calib_json))
     print("images_dir:", images_dir)
     print("device:", args.device)
-    print("generation_interface: model.generate")
+    print("hint_generation_mode:", args.hint_generation_mode)
     model = load_model(
         "blip2_t5",
         "pretrain_flant5xl",
@@ -402,7 +431,9 @@ def main() -> None:
         checkpoint=args.ckpt,
     )
     model.eval()
-    vis_processor = load_processor("blip_image_eval").build(image_size=224)
+    vis_processor = None
+    if args.hint_generation_mode == "blip2":
+        vis_processor = load_processor("blip_image_eval").build(image_size=224)
 
     ensure_parent_dir(args.out_hints_jsonl)
     output_rows: List[Optional[Dict[str, Any]]] = [None] * len(rows)
@@ -423,12 +454,13 @@ def main() -> None:
                     raise KeyError("Row %d missing image field %r" % (row_idx, args.image_field))
 
                 question = str(row.get(args.question_field, ""))
-                img_path = resolve_image_path(images_dir, row[args.image_field])
-                if not os.path.isfile(img_path):
-                    raise FileNotFoundError("Image not found for row %d: %s" % (row_idx, img_path))
+                if args.hint_generation_mode == "blip2":
+                    img_path = resolve_image_path(images_dir, row[args.image_field])
+                    if not os.path.isfile(img_path):
+                        raise FileNotFoundError("Image not found for row %d: %s" % (row_idx, img_path))
 
-                img = Image.open(img_path).convert("RGB")
-                image_tensors.append(vis_processor(img))
+                    img = Image.open(img_path).convert("RGB")
+                    image_tensors.append(vis_processor(img))
                 base_prompts.append(build_prompt(question, row))
 
             pending = list(range(len(batch)))
@@ -451,16 +483,20 @@ def main() -> None:
                             last_reasons.get(local_idx, []),
                         )
                     prompts.append(prompt)
-                    images.append(image_tensors[local_idx])
+                    if args.hint_generation_mode == "blip2":
+                        images.append(image_tensors[local_idx])
 
-                image_tensor = torch.stack(images).to(args.device)
                 with torch.no_grad():
-                    hints_raw = model.generate(
-                        {"image": image_tensor, "prompt": prompts},
-                        num_beams=args.num_beams,
-                        max_length=args.max_len,
-                        min_length=args.min_len,
-                    )
+                    if args.hint_generation_mode == "t5_text_only":
+                        hints_raw = generate_t5_text_only(model, prompts, args, torch)
+                    else:
+                        image_tensor = torch.stack(images).to(args.device)
+                        hints_raw = model.generate(
+                            {"image": image_tensor, "prompt": prompts},
+                            num_beams=args.num_beams,
+                            max_length=args.max_len,
+                            min_length=args.min_len,
+                        )
 
                 still_pending = []
                 for local_idx, prompt, raw_hint in zip(pending, prompts, hints_raw):
