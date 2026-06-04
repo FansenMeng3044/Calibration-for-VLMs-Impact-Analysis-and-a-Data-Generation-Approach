@@ -28,29 +28,31 @@ if _LAVIS_ROOT not in sys.path:
     sys.path.insert(0, _LAVIS_ROOT)
 
 
-PROMPT_NO_OPTIONS = """Write one useful hint for answering the visual question.
+PROMPT_NO_OPTIONS = """Write one detailed question-focused hint for answering the visual question.
 
-The hint must tell what evidence to inspect in the image, such as table rows, column labels, numbers, values, chart axes, units, text, positions, or visual relationships.
+Focus first on what the question asks, then name the image evidence to inspect.
+Mention at least two concrete evidence types, such as table rows, column labels, given numbers, blank cells, chart axes, units, text labels, positions, or visual relationships.
 
 Do not answer. Do not repeat the question. Do not give step-by-step reasoning.
-Use {min_words} to {max_words} words. Start with Check, Inspect, Compare, Read, Use, or Look at.
+Write {target_min_words} to {max_words} words in one sentence. Start with Check, Inspect, Compare, Read, Use, or Look at.
 
 Bad hint: For company B, find the missing amounts.
-Good hint: Check the company B row, column labels, totals, and blank cells.
+Good hint: Check company B's row, column headings, given totals, and blank cells before calculating the missing amounts.
 
 Question: {question}
 Hint:"""
 
 
-PROMPT_WITH_OPTIONS = """Write one useful hint for answering the visual multiple-choice question.
+PROMPT_WITH_OPTIONS = """Write one detailed question-focused hint for answering the visual multiple-choice question.
 
-The hint must tell what evidence to inspect in the image, such as table rows, column labels, numbers, values, chart axes, units, text, positions, or visual relationships.
+Focus first on what the question asks, then name the image evidence to inspect.
+Mention at least two concrete evidence types, such as table rows, column labels, given numbers, blank cells, chart axes, units, text labels, positions, or visual relationships.
 
 Do not answer. Do not mention option letters. Do not repeat the question. Do not copy an option. Do not give step-by-step reasoning.
-Use {min_words} to {max_words} words. Start with Check, Inspect, Compare, Read, Use, or Look at.
+Write {target_min_words} to {max_words} words in one sentence. Start with Check, Inspect, Compare, Read, Use, or Look at.
 
 Bad hint: For company B, find the missing amounts.
-Good hint: Check the relevant row, column labels, totals, and blank cells.
+Good hint: Compare the relevant table labels, numeric values, and units, then match the question focus without using choices.
 
 Question: {question}
 Options: {options}
@@ -173,10 +175,21 @@ def parse_args() -> argparse.Namespace:
         help="Device for generation. Defaults to cuda when available, otherwise cpu.",
     )
     ap.add_argument("--num_beams", type=int, default=3)
-    ap.add_argument("--max_len", type=int, default=24, help="Generation max_new_tokens.")
-    ap.add_argument("--min_len", type=int, default=3)
-    ap.add_argument("--hint_min_words", type=int, default=6)
-    ap.add_argument("--hint_max_words", type=int, default=20)
+    ap.add_argument("--max_len", type=int, default=40, help="Generation max_new_tokens.")
+    ap.add_argument("--min_len", type=int, default=8)
+    ap.add_argument(
+        "--hint_min_words",
+        type=int,
+        default=8,
+        help="Hard minimum accepted hint length. Shorter hints are retried.",
+    )
+    ap.add_argument(
+        "--hint_target_min_words",
+        type=int,
+        default=12,
+        help="Desired minimum hint length requested in the prompt.",
+    )
+    ap.add_argument("--hint_max_words", type=int, default=26)
     ap.add_argument(
         "--max_hint_attempts",
         type=int,
@@ -242,27 +255,37 @@ def build_options_text(row: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def build_prompt(question: str, row: Dict[str, Any], min_words: int, max_words: int) -> str:
+def build_prompt(question: str, row: Dict[str, Any], target_min_words: int, max_words: int) -> str:
     options = build_options_text(row)
     if options:
         return PROMPT_WITH_OPTIONS.format(
             question=question,
             options=options,
-            min_words=min_words,
+            target_min_words=target_min_words,
             max_words=max_words,
         )
-    return PROMPT_NO_OPTIONS.format(question=question, min_words=min_words, max_words=max_words)
+    return PROMPT_NO_OPTIONS.format(
+        question=question,
+        target_min_words=target_min_words,
+        max_words=max_words,
+    )
 
 
-def build_retry_prompt(base_prompt: str, rejected_hint: Any, reasons: Sequence[str], max_words: int) -> str:
+def build_retry_prompt(
+    base_prompt: str,
+    rejected_hint: Any,
+    reasons: Sequence[str],
+    target_min_words: int,
+    max_words: int,
+) -> str:
     reason_text = ", ".join(reasons) if reasons else "invalid hint"
     return (
         base_prompt
         + "\n\nThe previous hint was rejected and must not be repeated.\n"
         + "Rejected hint: %s\n" % str(rejected_hint or "").strip()
         + "Rejected because: %s\n" % reason_text
-        + "Write a different valid hint under %d words. Include a concrete visual evidence cue.\n"
-        % max_words
+        + "Write a different valid hint in %d to %d words. Include at least two concrete visual evidence cues.\n"
+        % (target_min_words, max_words)
         + "Hint:"
     )
 
@@ -392,18 +415,22 @@ def filter_hint(
     question: Any,
     answer: Any,
     min_words: int,
+    target_min_words: int,
 ) -> Tuple[str, List[str]]:
     reasons: List[str] = []
     hard_reasons: List[str] = []
     combined = ("%s %s" % (str(raw_hint or ""), clean)).strip()
     combined_lower = combined.casefold()
 
+    clean_word_count = len(word_tokens(clean))
     if not clean:
         reasons.append("empty")
         hard_reasons.append("empty")
-    elif len(word_tokens(clean)) < min_words:
+    elif clean_word_count < min_words:
         reasons.append("too_short")
         hard_reasons.append("too_short")
+    elif clean_word_count < target_min_words:
+        reasons.append("weak:shorter_than_target")
 
     for bad in BAD_SUBSTRINGS:
         if bad in combined_lower:
@@ -484,6 +511,10 @@ def main() -> None:
         raise ValueError("--max_hint_attempts must be >= 1")
     if args.hint_min_words < 1:
         raise ValueError("--hint_min_words must be >= 1")
+    if args.hint_target_min_words < args.hint_min_words:
+        raise ValueError("--hint_target_min_words must be >= --hint_min_words")
+    if args.hint_target_min_words > args.hint_max_words:
+        raise ValueError("--hint_target_min_words must be <= --hint_max_words")
     if args.hint_min_words > args.hint_max_words:
         raise ValueError("--hint_min_words must be <= --hint_max_words")
 
@@ -537,7 +568,14 @@ def main() -> None:
 
                 img = Image.open(img_path).convert("RGB")
                 image_tensors.append(vis_processor(img))
-                base_prompts.append(build_prompt(question, row, args.hint_min_words, args.hint_max_words))
+                base_prompts.append(
+                    build_prompt(
+                        question,
+                        row,
+                        args.hint_target_min_words,
+                        args.hint_max_words,
+                    )
+                )
 
             pending = list(range(len(batch)))
             last_raw: Dict[int, Any] = {}
@@ -557,6 +595,7 @@ def main() -> None:
                             base_prompts[local_idx],
                             last_raw.get(local_idx, ""),
                             last_reasons.get(local_idx, []),
+                            args.hint_target_min_words,
                             args.hint_max_words,
                         )
                     prompts.append(prompt)
@@ -582,6 +621,7 @@ def main() -> None:
                         row.get(args.question_field),
                         row.get(args.answer_field),
                         args.hint_min_words,
+                        args.hint_target_min_words,
                     )
                     audit_status = "ok" if status == "ok" else "retry"
 
