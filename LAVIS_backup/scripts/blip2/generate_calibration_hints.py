@@ -59,96 +59,6 @@ Options: {options}
 Hint:"""
 
 
-BAD_SUBSTRINGS = [
-    "answer is",
-    "correct",
-    "choose",
-    "option",
-    "the answer",
-    "best answer",
-    "right answer",
-    "selected",
-]
-
-EVIDENCE_CUES = [
-    "account",
-    "accounts",
-    "amount",
-    "amounts",
-    "axis",
-    "axes",
-    "balance",
-    "balances",
-    "bar",
-    "bars",
-    "blank",
-    "calculation",
-    "cell",
-    "cells",
-    "chart",
-    "column",
-    "columns",
-    "diagram",
-    "figure",
-    "graph",
-    "grid",
-    "label",
-    "labels",
-    "legend",
-    "line",
-    "marked",
-    "metric",
-    "metrics",
-    "number",
-    "numbers",
-    "object",
-    "objects",
-    "position",
-    "positions",
-    "region",
-    "regions",
-    "relationship",
-    "row",
-    "rows",
-    "table",
-    "text",
-    "total",
-    "totals",
-    "unit",
-    "units",
-    "value",
-    "values",
-    "variable",
-    "variables",
-]
-
-STOPWORDS = {
-    "a",
-    "an",
-    "and",
-    "are",
-    "as",
-    "at",
-    "be",
-    "by",
-    "for",
-    "from",
-    "in",
-    "is",
-    "it",
-    "of",
-    "on",
-    "or",
-    "that",
-    "the",
-    "this",
-    "to",
-    "what",
-    "which",
-    "with",
-}
-
-
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         description="Generate question-focused hints for calibration data.",
@@ -303,13 +213,6 @@ def strip_wrapping_quotes(text: str) -> str:
     return s
 
 
-def first_sentence(text: str) -> str:
-    m = re.match(r"(.+?[.!?])(?:\s|$)", text)
-    if m:
-        return m.group(1).strip()
-    return text.strip()
-
-
 def truncate_words(text: str, max_words: int) -> str:
     words = text.split()
     if len(words) <= max_words:
@@ -323,7 +226,6 @@ def clean_hint(raw_hint: Any, max_words: int) -> str:
     s = strip_wrapping_quotes(s)
     s = re.sub(r"^(?:hint|visual hint|question-focused hint)\s*:\s*", "", s, flags=re.IGNORECASE).strip()
     s = strip_wrapping_quotes(s)
-    s = first_sentence(s)
     s = truncate_words(s, max_words)
     return s.strip()
 
@@ -336,36 +238,6 @@ def normalize_text(text: Any) -> str:
 
 def word_tokens(text: Any) -> List[str]:
     return re.findall(r"[a-z0-9]+", str(text or "").casefold())
-
-
-def content_tokens(text: Any) -> List[str]:
-    return [tok for tok in word_tokens(text) if tok not in STOPWORDS]
-
-
-def has_evidence_cue(text: str) -> bool:
-    toks = set(word_tokens(text))
-    return any(cue in toks for cue in EVIDENCE_CUES)
-
-
-def has_copied_ngram(hint: str, question: str, n: int = 5) -> bool:
-    hint_tokens = word_tokens(hint)
-    question_tokens = word_tokens(question)
-    if len(hint_tokens) < n or len(question_tokens) < n:
-        return False
-    q_ngrams = {tuple(question_tokens[i : i + n]) for i in range(len(question_tokens) - n + 1)}
-    for i in range(len(hint_tokens) - n + 1):
-        if tuple(hint_tokens[i : i + n]) in q_ngrams:
-            return True
-    return False
-
-
-def is_too_similar_to_question(hint: str, question: str) -> bool:
-    hint_content = set(content_tokens(hint))
-    question_content = set(content_tokens(question))
-    if not hint_content or not question_content:
-        return False
-    overlap = len(hint_content & question_content) / float(len(hint_content))
-    return overlap >= 0.8 and len(hint_content) >= 4
 
 
 def iter_answer_values(answer: Any) -> Iterable[str]:
@@ -412,7 +284,6 @@ def has_option_letter_leak(text: str) -> bool:
 def filter_hint(
     raw_hint: Any,
     clean: str,
-    question: Any,
     answer: Any,
     min_words: int,
     target_min_words: int,
@@ -420,7 +291,6 @@ def filter_hint(
     reasons: List[str] = []
     hard_reasons: List[str] = []
     combined = ("%s %s" % (str(raw_hint or ""), clean)).strip()
-    combined_lower = combined.casefold()
 
     clean_word_count = len(word_tokens(clean))
     if not clean:
@@ -432,12 +302,6 @@ def filter_hint(
     elif clean_word_count < target_min_words:
         reasons.append("weak:shorter_than_target")
 
-    for bad in BAD_SUBSTRINGS:
-        if bad in combined_lower:
-            reason = "banned:%s" % bad
-            reasons.append(reason)
-            hard_reasons.append(reason)
-
     if has_option_letter_leak(combined):
         reasons.append("option_letter")
         hard_reasons.append("option_letter")
@@ -445,17 +309,6 @@ def filter_hint(
     if contains_answer_leak(combined, answer):
         reasons.append("answer_leak")
         hard_reasons.append("answer_leak")
-
-    if clean and not has_evidence_cue(clean):
-        reasons.append("weak:no_evidence_cue")
-
-    if clean and has_copied_ngram(clean, str(question or "")):
-        reasons.append("copied_question_ngram")
-        hard_reasons.append("copied_question_ngram")
-
-    if clean and is_too_similar_to_question(clean, str(question or "")):
-        reasons.append("too_similar_to_question")
-        hard_reasons.append("too_similar_to_question")
 
     status = "ok" if not hard_reasons else "filtered"
     return status, reasons
@@ -532,6 +385,7 @@ def main() -> None:
     print("Loaded %d calibration rows from %s" % (len(rows), calib_json))
     print("images_dir:", images_dir)
     print("device:", args.device)
+    print("generation_interface: model.generate")
 
     model = load_model(
         "blip2_t5",
@@ -603,12 +457,11 @@ def main() -> None:
 
                 image_tensor = torch.stack(images).to(args.device)
                 with torch.no_grad():
-                    hints_raw = model.predict_answers(
-                        {"image": image_tensor, "text_input": prompts},
+                    hints_raw = model.generate(
+                        {"image": image_tensor, "prompt": prompts},
                         num_beams=args.num_beams,
-                        max_len=args.max_len,
-                        min_len=args.min_len,
-                        inference_method="generate",
+                        max_length=args.max_len,
+                        min_length=args.min_len,
                     )
 
                 still_pending = []
@@ -618,7 +471,6 @@ def main() -> None:
                     status, reasons = filter_hint(
                         raw_hint,
                         clean,
-                        row.get(args.question_field),
                         row.get(args.answer_field),
                         args.hint_min_words,
                         args.hint_target_min_words,
