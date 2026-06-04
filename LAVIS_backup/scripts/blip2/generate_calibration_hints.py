@@ -28,82 +28,32 @@ if _LAVIS_ROOT not in sys.path:
     sys.path.insert(0, _LAVIS_ROOT)
 
 
-PROMPT_NO_OPTIONS = """# Role
-You write high-information hints for visual questions.
+PROMPT_NO_OPTIONS = """Write one useful hint for answering the visual question.
 
-# Task
-Write one short hint that clarifies the question's intent and points to concrete visual evidence in the image.
+The hint must tell what evidence to inspect in the image, such as table rows, column labels, numbers, values, chart axes, units, text, positions, or visual relationships.
 
-# Requirements
-- Mention what kind of evidence to inspect: table rows/columns, labels, numbers, axes, units, legend, text in the image, object positions, marked regions, or visual relationships.
-- If the question asks for a calculation, identify the source values or relationship to compare.
-- Do not restate or summarize the question.
-- Do not answer the question.
-- Do not mention the correct value, option letter, or final choice.
-- Do not provide step-by-step reasoning.
-- Do not copy any example hint exactly.
-- Use {min_words} to {max_words} words.
-- Output only the hint sentence.
+Do not answer. Do not repeat the question. Do not give step-by-step reasoning.
+Use {min_words} to {max_words} words. Start with Check, Inspect, Compare, Read, Use, or Look at.
 
-# Bad hints
-Question: For company B, find the missing amounts.
-Hint: For company B, find the missing amounts.
+Bad hint: For company B, find the missing amounts.
+Good hint: Check the company B row, column labels, totals, and blank cells.
 
-Question: What is the ending balance in the owners' capital account?
-Hint: the ending balance in the owners' capital account
-
-# Good hints
-Hint: Inspect the relevant table row, column labels, totals, and blank cells.
-Hint: Use the displayed account changes and labels to identify the requested balance.
-Hint: Compare the chart labels, units, and marked values related to the requested quantity.
-
-# Input
-Question:
-{question}
-
-# Output
+Question: {question}
 Hint:"""
 
 
-PROMPT_WITH_OPTIONS = """# Role
-You write high-information hints for visual multiple-choice questions.
+PROMPT_WITH_OPTIONS = """Write one useful hint for answering the visual multiple-choice question.
 
-# Task
-Write one short hint that clarifies the question's intent and points to concrete visual evidence in the image.
+The hint must tell what evidence to inspect in the image, such as table rows, column labels, numbers, values, chart axes, units, text, positions, or visual relationships.
 
-# Requirements
-- Mention what kind of evidence to inspect: table rows/columns, labels, numbers, axes, units, legend, text in the image, object positions, marked regions, or visual relationships.
-- If the question asks for a calculation, identify the source values or relationship to compare.
-- Use the options only to understand what type of evidence matters.
-- Do not restate or summarize the question.
-- Do not answer the question.
-- Do not mention any option letter such as A, B, C, or D.
-- Do not copy an answer option as the hint.
-- Do not provide step-by-step reasoning.
-- Do not copy any example hint exactly.
-- Use {min_words} to {max_words} words.
-- Output only the hint sentence.
+Do not answer. Do not mention option letters. Do not repeat the question. Do not copy an option. Do not give step-by-step reasoning.
+Use {min_words} to {max_words} words. Start with Check, Inspect, Compare, Read, Use, or Look at.
 
-# Bad hints
-Question: For company B, find the missing amounts.
-Hint: For company B, find the missing amounts.
+Bad hint: For company B, find the missing amounts.
+Good hint: Check the relevant row, column labels, totals, and blank cells.
 
-Question: What is the ending balance in the owners' capital account?
-Hint: the ending balance in the owners' capital account
-
-# Good hints
-Hint: Inspect the relevant table row, column labels, totals, and blank cells.
-Hint: Use the displayed account changes and labels to identify the requested balance.
-Hint: Compare the chart labels, units, and marked values related to the requested quantity.
-
-# Input
-Question:
-{question}
-
-Options:
-{options}
-
-# Output
+Question: {question}
+Options: {options}
 Hint:"""
 
 
@@ -119,11 +69,18 @@ BAD_SUBSTRINGS = [
 ]
 
 EVIDENCE_CUES = [
+    "account",
+    "accounts",
+    "amount",
+    "amounts",
     "axis",
     "axes",
+    "balance",
+    "balances",
     "bar",
     "bars",
     "blank",
+    "calculation",
     "cell",
     "cells",
     "chart",
@@ -138,6 +95,8 @@ EVIDENCE_CUES = [
     "legend",
     "line",
     "marked",
+    "metric",
+    "metrics",
     "number",
     "numbers",
     "object",
@@ -157,6 +116,8 @@ EVIDENCE_CUES = [
     "units",
     "value",
     "values",
+    "variable",
+    "variables",
 ]
 
 STOPWORDS = {
@@ -187,7 +148,10 @@ STOPWORDS = {
 
 
 def parse_args() -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="Generate question-focused hints for calibration data.")
+    ap = argparse.ArgumentParser(
+        description="Generate question-focused hints for calibration data.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     ap.add_argument("--calib_json", required=True, help="Input calibration JSON list.")
     ap.add_argument(
         "--images_dir",
@@ -211,8 +175,8 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--num_beams", type=int, default=3)
     ap.add_argument("--max_len", type=int, default=24, help="Generation max_new_tokens.")
     ap.add_argument("--min_len", type=int, default=3)
-    ap.add_argument("--hint_min_words", type=int, default=10)
-    ap.add_argument("--hint_max_words", type=int, default=20)
+    ap.add_argument("--hint_min_words", type=int, default=20)
+    ap.add_argument("--hint_max_words", type=int, default=30)
     ap.add_argument(
         "--max_hint_attempts",
         type=int,
@@ -430,34 +394,43 @@ def filter_hint(
     min_words: int,
 ) -> Tuple[str, List[str]]:
     reasons: List[str] = []
+    hard_reasons: List[str] = []
     combined = ("%s %s" % (str(raw_hint or ""), clean)).strip()
     combined_lower = combined.casefold()
 
     if not clean:
         reasons.append("empty")
+        hard_reasons.append("empty")
     elif len(word_tokens(clean)) < min_words:
         reasons.append("too_short")
+        hard_reasons.append("too_short")
 
     for bad in BAD_SUBSTRINGS:
         if bad in combined_lower:
-            reasons.append("banned:%s" % bad)
+            reason = "banned:%s" % bad
+            reasons.append(reason)
+            hard_reasons.append(reason)
 
     if has_option_letter_leak(combined):
         reasons.append("option_letter")
+        hard_reasons.append("option_letter")
 
     if contains_answer_leak(combined, answer):
         reasons.append("answer_leak")
+        hard_reasons.append("answer_leak")
 
     if clean and not has_evidence_cue(clean):
-        reasons.append("no_evidence_cue")
+        reasons.append("weak:no_evidence_cue")
 
     if clean and has_copied_ngram(clean, str(question or "")):
         reasons.append("copied_question_ngram")
+        hard_reasons.append("copied_question_ngram")
 
     if clean and is_too_similar_to_question(clean, str(question or "")):
         reasons.append("too_similar_to_question")
+        hard_reasons.append("too_similar_to_question")
 
-    status = "ok" if not reasons else "filtered"
+    status = "ok" if not hard_reasons else "filtered"
     return status, reasons
 
 
@@ -630,7 +603,7 @@ def main() -> None:
                             row=row,
                             question_field=args.question_field,
                             hint=clean,
-                            reasons=[],
+                            reasons=reasons,
                             args=args,
                         )
                     else:
