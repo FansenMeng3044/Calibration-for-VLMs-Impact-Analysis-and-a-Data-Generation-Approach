@@ -5,6 +5,8 @@ fairscale==0.4.4
 ftfy
 iopath
 ipython
+matplotlib
+numpy
 omegaconf
 opencv-python-headless==4.5.5.64
 opendatasets
