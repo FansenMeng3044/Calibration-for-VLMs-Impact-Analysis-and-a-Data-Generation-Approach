@@ -20,8 +20,9 @@ Recorded tensors:
   - T5 encoder last hidden states
 
 The static plots also include a visual-vs-text t-SNE projection built from
-per-sample pooled vectors in the shared T5 first-block input space, plus an
-overlaid histogram comparing their activation-value distributions.
+individual visual-query and non-padding text-token vectors in the shared T5
+first-block input space, plus an overlaid histogram comparing their
+activation-value distributions.
 
 By default the script stores compact per-sample statistics and pooled activation
 vectors. Use --save_full_tensors only when you really want the full tensors,
@@ -108,8 +109,8 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--tsne_max_points_per_modality",
         type=int,
-        default=2000,
-        help="Maximum pooled sample vectors per modality used by t-SNE.",
+        default=5000,
+        help="Maximum token vectors per modality used by t-SNE.",
     )
     ap.add_argument("--tsne_random_state", type=int, default=42)
     ap.add_argument(
@@ -508,17 +509,25 @@ def make_visual_text_tsne(
     out_dir: str,
     visual_vectors: np.ndarray,
     text_vectors: np.ndarray,
-    row_indices: np.ndarray,
+    visual_row_indices: np.ndarray,
+    visual_token_positions: np.ndarray,
+    text_row_indices: np.ndarray,
+    text_token_positions: np.ndarray,
     args: argparse.Namespace,
 ) -> Tuple[Optional[str], Optional[str]]:
-    """Plot pooled visual-query and text-token activations in one t-SNE space."""
-    if visual_vectors.shape != text_vectors.shape:
+    """Plot token-level visual-query and text-token activations."""
+    if visual_vectors.ndim != 2 or text_vectors.ndim != 2:
         raise ValueError(
-            "Visual and text pooled vectors must have the same shape, got %s and %s."
+            "Visual and text token vectors must be 2D, got %s and %s."
             % (visual_vectors.shape, text_vectors.shape)
         )
-    if visual_vectors.shape[0] < 2:
-        print("[WARN] t-SNE requires at least two dataset rows; skipping t-SNE plot.")
+    if visual_vectors.shape[1] != text_vectors.shape[1]:
+        raise ValueError(
+            "Visual and text token vectors must have the same hidden size, got %d and %d."
+            % (visual_vectors.shape[1], text_vectors.shape[1])
+        )
+    if visual_vectors.shape[0] < 2 or text_vectors.shape[0] < 2:
+        print("[WARN] t-SNE requires at least two tokens per modality; skipping t-SNE plot.")
         return None, None
 
     try:
@@ -531,16 +540,20 @@ def make_visual_text_tsne(
         ) from exc
 
     rng = np.random.RandomState(args.tsne_random_state)
-    num_rows = visual_vectors.shape[0]
-    max_points = min(args.tsne_max_points_per_modality, num_rows)
-    if max_points < num_rows:
-        selected = np.sort(rng.choice(num_rows, size=max_points, replace=False))
-    else:
-        selected = np.arange(num_rows)
+    def select_indices(num_points: int) -> np.ndarray:
+        max_points = min(args.tsne_max_points_per_modality, num_points)
+        if max_points < num_points:
+            return np.sort(rng.choice(num_points, size=max_points, replace=False))
+        return np.arange(num_points)
 
-    visual_selected = visual_vectors[selected].astype(np.float32, copy=False)
-    text_selected = text_vectors[selected].astype(np.float32, copy=False)
-    selected_rows = row_indices[selected]
+    visual_selected_indices = select_indices(visual_vectors.shape[0])
+    text_selected_indices = select_indices(text_vectors.shape[0])
+    visual_selected = visual_vectors[visual_selected_indices].astype(np.float32, copy=False)
+    text_selected = text_vectors[text_selected_indices].astype(np.float32, copy=False)
+    selected_visual_rows = visual_row_indices[visual_selected_indices]
+    selected_visual_positions = visual_token_positions[visual_selected_indices]
+    selected_text_rows = text_row_indices[text_selected_indices]
+    selected_text_positions = text_token_positions[text_selected_indices]
     features = np.concatenate([visual_selected, text_selected], axis=0)
     features = np.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
     features = StandardScaler().fit_transform(features)
@@ -556,9 +569,18 @@ def make_visual_text_tsne(
         random_state=args.tsne_random_state,
     ).fit_transform(features)
 
-    num_selected = len(selected)
-    visual_xy = embedding[:num_selected]
-    text_xy = embedding[num_selected:]
+    num_visual = len(visual_selected_indices)
+    visual_xy = embedding[:num_visual]
+    text_xy = embedding[num_visual:]
+    print(
+        "t-SNE token points: Visual=%d/%d Text=%d/%d"
+        % (
+            len(visual_selected_indices),
+            visual_vectors.shape[0],
+            len(text_selected_indices),
+            text_vectors.shape[0],
+        )
+    )
 
     plt = setup_matplotlib()
     plot_dir = os.path.join(out_dir, "plots")
@@ -567,26 +589,30 @@ def make_visual_text_tsne(
     ax.scatter(
         visual_xy[:, 0],
         visual_xy[:, 1],
-        s=34,
+        s=10,
         c="#B9DCEA",
         edgecolors="#5F7F8D",
-        linewidths=0.45,
-        alpha=0.85,
+        linewidths=0.2,
+        alpha=0.62,
         label="Visual",
     )
     ax.scatter(
         text_xy[:, 0],
         text_xy[:, 1],
-        s=34,
+        s=10,
         c="#A9D99B",
         edgecolors="#527A48",
-        linewidths=0.45,
-        alpha=0.85,
+        linewidths=0.2,
+        alpha=0.62,
         label="Text",
     )
     ax.set_xlabel("t-SNE Dimension 1")
     ax.set_ylabel("t-SNE Dimension 2")
-    ax.set_title("Visual and Text Activation Representations\n(T5 First-Block Input)")
+    ax.set_title(
+        "Token-Level Visual and Text Activation Representations\n"
+        "(T5 First-Block Input; Visual=%d, Text=%d)"
+        % (len(visual_xy), len(text_xy))
+    )
     ax.legend(frameon=True)
     ax.grid(alpha=0.18, linewidth=0.6)
     fig.tight_layout()
@@ -598,15 +624,36 @@ def make_visual_text_tsne(
     with open(csv_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["row_index", "modality", "tsne_dimension_1", "tsne_dimension_2"],
+            fieldnames=[
+                "row_index",
+                "modality",
+                "token_position",
+                "tsne_dimension_1",
+                "tsne_dimension_2",
+            ],
         )
         writer.writeheader()
-        for modality, coords in (("Visual", visual_xy), ("Text", text_xy)):
-            for row_index, xy in zip(selected_rows, coords):
+        modality_data = (
+            (
+                "Visual",
+                visual_xy,
+                selected_visual_rows,
+                selected_visual_positions,
+            ),
+            (
+                "Text",
+                text_xy,
+                selected_text_rows,
+                selected_text_positions,
+            ),
+        )
+        for modality, coords, rows, positions in modality_data:
+            for row_index, token_position, xy in zip(rows, positions, coords):
                 writer.writerow(
                     {
                         "row_index": int(row_index),
                         "modality": modality,
+                        "token_position": int(token_position),
                         "tsne_dimension_1": float(xy[0]),
                         "tsne_dimension_2": float(xy[1]),
                     }
@@ -621,7 +668,7 @@ def make_visual_text_activation_histogram(
     text_vectors: np.ndarray,
     num_bins: int,
 ) -> Tuple[str, str]:
-    """Plot activation values from pooled visual and text representations."""
+    """Plot activation values from token-level visual and text representations."""
     visual_values = np.nan_to_num(
         visual_vectors.astype(np.float32, copy=False).reshape(-1),
         nan=0.0,
@@ -689,7 +736,7 @@ def make_visual_text_activation_histogram(
     ax.set_xlim(lower, upper)
     ax.set_xlabel("Activation Value")
     ax.set_ylabel("Density")
-    ax.set_title("Visual and Text Activation Value Distributions\n(T5 First-Block Input)")
+    ax.set_title("Token-Level Visual and Text Activation Value Distributions\n(T5 First-Block Input)")
     ax.legend(frameon=True)
     ax.grid(axis="y", alpha=0.18, linewidth=0.6)
     fig.tight_layout()
@@ -983,11 +1030,15 @@ def main() -> None:
         "t5_text_embedding": [],
         "vit_first_block_input": [],
         "t5_first_block_input": [],
-        "t5_visual_query_first_block_input": [],
-        "t5_text_token_first_block_input": [],
         "t5_encoder_last_hidden": [],
         "t5_decoder_last_hidden": [],
     }
+    visual_token_vectors: List[np.ndarray] = []
+    visual_token_row_indices: List[np.ndarray] = []
+    visual_token_positions: List[np.ndarray] = []
+    text_token_vectors: List[np.ndarray] = []
+    text_token_row_indices: List[np.ndarray] = []
+    text_token_positions: List[np.ndarray] = []
     row_index_values: List[int] = []
     image_values: List[str] = []
     question_values: List[str] = []
@@ -1064,14 +1115,28 @@ def main() -> None:
             )
             num_query = captured["num_query_tokens"]
             first_block_input = captured["t5_first_block_input"]
-            pooled_vectors["t5_visual_query_first_block_input"].append(
-                masked_sequence_mean(first_block_input[:, :num_query, :], None)
+            visual_batch = first_block_input[:, :num_query, :].detach().float().cpu()
+            visual_token_vectors.append(
+                visual_batch.reshape(-1, visual_batch.shape[-1]).numpy()
             )
-            pooled_vectors["t5_text_token_first_block_input"].append(
-                masked_sequence_mean(
-                    first_block_input[:, num_query:, :],
-                    captured["input_attention_mask"],
-                )
+            visual_token_row_indices.append(
+                np.repeat(np.asarray(row_indices, dtype=np.int64), num_query)
+            )
+            visual_token_positions.append(
+                np.tile(np.arange(num_query, dtype=np.int64), len(row_indices))
+            )
+
+            text_batch = first_block_input[:, num_query:, :].detach().float().cpu()
+            text_mask = captured["input_attention_mask"].detach().bool().cpu()
+            valid_text_positions = torch.nonzero(text_mask, as_tuple=False)
+            text_token_vectors.append(text_batch[text_mask].numpy())
+            text_token_row_indices.append(
+                np.asarray(row_indices, dtype=np.int64)[
+                    valid_text_positions[:, 0].numpy()
+                ]
+            )
+            text_token_positions.append(
+                valid_text_positions[:, 1].numpy().astype(np.int64, copy=False)
             )
             pooled_vectors["t5_encoder_last_hidden"].append(
                 masked_sequence_mean(captured["t5_encoder_last_hidden"], captured["encoder_attention_mask"])
@@ -1127,6 +1192,18 @@ def main() -> None:
     }
     for name, values in concatenated_vectors.items():
         npz_payload[name + "_pooled"] = values
+    all_visual_token_vectors = np.concatenate(visual_token_vectors, axis=0)
+    all_visual_token_rows = np.concatenate(visual_token_row_indices, axis=0)
+    all_visual_token_positions = np.concatenate(visual_token_positions, axis=0)
+    all_text_token_vectors = np.concatenate(text_token_vectors, axis=0)
+    all_text_token_rows = np.concatenate(text_token_row_indices, axis=0)
+    all_text_token_positions = np.concatenate(text_token_positions, axis=0)
+    npz_payload["t5_visual_query_first_block_input_tokens"] = all_visual_token_vectors
+    npz_payload["t5_visual_query_token_row_index"] = all_visual_token_rows
+    npz_payload["t5_visual_query_token_position"] = all_visual_token_positions
+    npz_payload["t5_text_first_block_input_tokens"] = all_text_token_vectors
+    npz_payload["t5_text_token_row_index"] = all_text_token_rows
+    npz_payload["t5_text_token_position"] = all_text_token_positions
     for metric_name, values in metric_store.items():
         npz_payload[metric_name.replace(".", "__")] = np.asarray(values, dtype=np.float32)
 
@@ -1140,17 +1217,20 @@ def main() -> None:
     plot_paths = make_plots(out_dir, records)
     tsne_plot_path, tsne_csv_path = make_visual_text_tsne(
         out_dir=out_dir,
-        visual_vectors=concatenated_vectors["t5_visual_query_first_block_input"],
-        text_vectors=concatenated_vectors["t5_text_token_first_block_input"],
-        row_indices=np.asarray(row_index_values, dtype=np.int64),
+        visual_vectors=all_visual_token_vectors,
+        text_vectors=all_text_token_vectors,
+        visual_row_indices=all_visual_token_rows,
+        visual_token_positions=all_visual_token_positions,
+        text_row_indices=all_text_token_rows,
+        text_token_positions=all_text_token_positions,
         args=args,
     )
     if tsne_plot_path:
         plot_paths.append(tsne_plot_path)
     histogram_plot_path, histogram_csv_path = make_visual_text_activation_histogram(
         out_dir=out_dir,
-        visual_vectors=concatenated_vectors["t5_visual_query_first_block_input"],
-        text_vectors=concatenated_vectors["t5_text_token_first_block_input"],
+        visual_vectors=all_visual_token_vectors,
+        text_vectors=all_text_token_vectors,
         num_bins=args.activation_histogram_bins,
     )
     plot_paths.append(histogram_plot_path)
