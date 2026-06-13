@@ -19,6 +19,10 @@ Recorded tensors:
   - T5 decoder last hidden states
   - T5 encoder last hidden states
 
+The static plots also include a visual-vs-text t-SNE projection built from
+per-sample pooled vectors in the shared T5 first-block input space, plus an
+overlaid histogram comparing their activation-value distributions.
+
 By default the script stores compact per-sample statistics and pooled activation
 vectors. Use --save_full_tensors only when you really want the full tensors,
 because full logits/probabilities are large.
@@ -94,6 +98,25 @@ def parse_args() -> argparse.Namespace:
         "--save_full_tensors",
         action="store_true",
         help="Also save full activation/logit/probability tensors per batch as .pt files.",
+    )
+    ap.add_argument(
+        "--tsne_perplexity",
+        type=float,
+        default=30.0,
+        help="Requested perplexity for the visual-vs-text activation t-SNE.",
+    )
+    ap.add_argument(
+        "--tsne_max_points_per_modality",
+        type=int,
+        default=2000,
+        help="Maximum pooled sample vectors per modality used by t-SNE.",
+    )
+    ap.add_argument("--tsne_random_state", type=int, default=42)
+    ap.add_argument(
+        "--activation_histogram_bins",
+        type=int,
+        default=80,
+        help="Number of bins in the visual-vs-text activation histogram.",
     )
     ap.add_argument("--log_every", type=int, default=20)
     return ap.parse_args()
@@ -367,9 +390,10 @@ def setup_matplotlib() -> Any:
         import matplotlib.pyplot as plt
 
         return plt
-    except ImportError as exc:
+    except (ImportError, RuntimeError) as exc:
         raise SystemExit(
-            "matplotlib is required for static visualization. Install it with: pip install matplotlib"
+            "A compatible matplotlib/NumPy installation is required for static visualization. "
+            "Install the project requirements or run: pip install 'numpy<2' matplotlib"
         ) from exc
 
 
@@ -478,6 +502,226 @@ def make_plots(out_dir: str, records: Sequence[Dict[str, Any]]) -> List[str]:
     saved.append(path)
 
     return saved
+
+
+def make_visual_text_tsne(
+    out_dir: str,
+    visual_vectors: np.ndarray,
+    text_vectors: np.ndarray,
+    row_indices: np.ndarray,
+    args: argparse.Namespace,
+) -> Tuple[Optional[str], Optional[str]]:
+    """Plot pooled visual-query and text-token activations in one t-SNE space."""
+    if visual_vectors.shape != text_vectors.shape:
+        raise ValueError(
+            "Visual and text pooled vectors must have the same shape, got %s and %s."
+            % (visual_vectors.shape, text_vectors.shape)
+        )
+    if visual_vectors.shape[0] < 2:
+        print("[WARN] t-SNE requires at least two dataset rows; skipping t-SNE plot.")
+        return None, None
+
+    try:
+        from sklearn.manifold import TSNE
+        from sklearn.preprocessing import StandardScaler
+    except (ImportError, RuntimeError) as exc:
+        raise SystemExit(
+            "A compatible scikit-learn/SciPy/NumPy installation is required for t-SNE. "
+            "Install the project requirements or run: pip install 'numpy<2' scipy scikit-learn"
+        ) from exc
+
+    rng = np.random.RandomState(args.tsne_random_state)
+    num_rows = visual_vectors.shape[0]
+    max_points = min(args.tsne_max_points_per_modality, num_rows)
+    if max_points < num_rows:
+        selected = np.sort(rng.choice(num_rows, size=max_points, replace=False))
+    else:
+        selected = np.arange(num_rows)
+
+    visual_selected = visual_vectors[selected].astype(np.float32, copy=False)
+    text_selected = text_vectors[selected].astype(np.float32, copy=False)
+    selected_rows = row_indices[selected]
+    features = np.concatenate([visual_selected, text_selected], axis=0)
+    features = np.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
+    features = StandardScaler().fit_transform(features)
+
+    num_points = features.shape[0]
+    perplexity = min(float(args.tsne_perplexity), float(num_points - 1))
+    perplexity = max(perplexity, 1.0)
+    embedding = TSNE(
+        n_components=2,
+        perplexity=perplexity,
+        init="pca",
+        learning_rate=200.0,
+        random_state=args.tsne_random_state,
+    ).fit_transform(features)
+
+    num_selected = len(selected)
+    visual_xy = embedding[:num_selected]
+    text_xy = embedding[num_selected:]
+
+    plt = setup_matplotlib()
+    plot_dir = os.path.join(out_dir, "plots")
+    ensure_dir(plot_dir)
+    fig, ax = plt.subplots(figsize=(7.2, 6.2))
+    ax.scatter(
+        visual_xy[:, 0],
+        visual_xy[:, 1],
+        s=34,
+        c="#B9DCEA",
+        edgecolors="#5F7F8D",
+        linewidths=0.45,
+        alpha=0.85,
+        label="Visual",
+    )
+    ax.scatter(
+        text_xy[:, 0],
+        text_xy[:, 1],
+        s=34,
+        c="#A9D99B",
+        edgecolors="#527A48",
+        linewidths=0.45,
+        alpha=0.85,
+        label="Text",
+    )
+    ax.set_xlabel("t-SNE Dimension 1")
+    ax.set_ylabel("t-SNE Dimension 2")
+    ax.set_title("Visual and Text Activation Representations\n(T5 First-Block Input)")
+    ax.legend(frameon=True)
+    ax.grid(alpha=0.18, linewidth=0.6)
+    fig.tight_layout()
+    plot_path = os.path.join(plot_dir, "visual_text_activation_tsne.png")
+    fig.savefig(plot_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+    csv_path = os.path.join(out_dir, "visual_text_activation_tsne.csv")
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["row_index", "modality", "tsne_dimension_1", "tsne_dimension_2"],
+        )
+        writer.writeheader()
+        for modality, coords in (("Visual", visual_xy), ("Text", text_xy)):
+            for row_index, xy in zip(selected_rows, coords):
+                writer.writerow(
+                    {
+                        "row_index": int(row_index),
+                        "modality": modality,
+                        "tsne_dimension_1": float(xy[0]),
+                        "tsne_dimension_2": float(xy[1]),
+                    }
+                )
+
+    return plot_path, csv_path
+
+
+def make_visual_text_activation_histogram(
+    out_dir: str,
+    visual_vectors: np.ndarray,
+    text_vectors: np.ndarray,
+    num_bins: int,
+) -> Tuple[str, str]:
+    """Plot activation values from pooled visual and text representations."""
+    visual_values = np.nan_to_num(
+        visual_vectors.astype(np.float32, copy=False).reshape(-1),
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0,
+    )
+    text_values = np.nan_to_num(
+        text_vectors.astype(np.float32, copy=False).reshape(-1),
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0,
+    )
+    combined = np.concatenate([visual_values, text_values])
+    lower, upper = np.percentile(combined, [0.5, 99.5])
+    if not np.isfinite(lower) or not np.isfinite(upper) or lower >= upper:
+        lower = float(np.min(combined))
+        upper = float(np.max(combined))
+    if lower >= upper:
+        lower -= 0.5
+        upper += 0.5
+
+    bin_edges = np.linspace(lower, upper, num_bins + 1)
+    visual_density, _ = np.histogram(visual_values, bins=bin_edges, density=True)
+    text_density, _ = np.histogram(text_values, bins=bin_edges, density=True)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
+
+    plt = setup_matplotlib()
+    plot_dir = os.path.join(out_dir, "plots")
+    ensure_dir(plot_dir)
+    fig, ax = plt.subplots(figsize=(8.2, 5.6))
+    ax.hist(
+        visual_values,
+        bins=bin_edges,
+        density=True,
+        color="#8FC5DA",
+        edgecolor="#567B89",
+        linewidth=0.35,
+        alpha=0.62,
+        label="Visual",
+    )
+    ax.hist(
+        text_values,
+        bins=bin_edges,
+        density=True,
+        color="#93CD81",
+        edgecolor="#527A48",
+        linewidth=0.35,
+        alpha=0.58,
+        label="Text",
+    )
+    ax.axvline(
+        float(np.mean(visual_values)),
+        color="#416D7E",
+        linestyle="--",
+        linewidth=1.3,
+        label="Visual Mean",
+    )
+    ax.axvline(
+        float(np.mean(text_values)),
+        color="#477A3F",
+        linestyle="--",
+        linewidth=1.3,
+        label="Text Mean",
+    )
+    ax.set_xlim(lower, upper)
+    ax.set_xlabel("Activation Value")
+    ax.set_ylabel("Density")
+    ax.set_title("Visual and Text Activation Value Distributions\n(T5 First-Block Input)")
+    ax.legend(frameon=True)
+    ax.grid(axis="y", alpha=0.18, linewidth=0.6)
+    fig.tight_layout()
+    plot_path = os.path.join(plot_dir, "visual_text_activation_histogram.png")
+    fig.savefig(plot_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+    csv_path = os.path.join(out_dir, "visual_text_activation_histogram.csv")
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "bin_left",
+                "bin_right",
+                "bin_center",
+                "visual_density",
+                "text_density",
+            ],
+        )
+        writer.writeheader()
+        for idx in range(num_bins):
+            writer.writerow(
+                {
+                    "bin_left": float(bin_edges[idx]),
+                    "bin_right": float(bin_edges[idx + 1]),
+                    "bin_center": float(bin_centers[idx]),
+                    "visual_density": float(visual_density[idx]),
+                    "text_density": float(text_density[idx]),
+                }
+            )
+
+    return plot_path, csv_path
 
 
 def prepare_batch(
@@ -619,6 +863,7 @@ def forward_and_capture(
             "t5_text_embedding": text_embeds.detach(),
             "vit_first_block_input": captures["vit_first_block_input"],
             "t5_first_block_input": captures["t5_first_block_input"],
+            "num_query_tokens": int(num_query),
             "t5_encoder_last_hidden": encoder_last_hidden.detach(),
             "t5_decoder_last_hidden": decoder_hidden_states[-1].detach(),
             "final_logits": outputs.logits.detach(),
@@ -661,6 +906,7 @@ def save_full_tensor_batch(
         "t5_text_embedding": captured["t5_text_embedding"].detach().cpu(),
         "vit_first_block_input": captured["vit_first_block_input"].detach().cpu(),
         "t5_first_block_input": captured["t5_first_block_input"].detach().cpu(),
+        "num_query_tokens": int(captured["num_query_tokens"]),
         "t5_encoder_last_hidden": captured["t5_encoder_last_hidden"].detach().cpu(),
         "t5_decoder_last_hidden": captured["t5_decoder_last_hidden"].detach().cpu(),
         "final_logits": captured["final_logits"].detach().cpu(),
@@ -680,6 +926,12 @@ def main() -> None:
         raise ValueError("--top_k must be >= 1")
     if args.top_k_positions < 0:
         raise ValueError("--top_k_positions must be >= 0")
+    if args.tsne_perplexity <= 0:
+        raise ValueError("--tsne_perplexity must be > 0")
+    if args.tsne_max_points_per_modality < 2:
+        raise ValueError("--tsne_max_points_per_modality must be >= 2")
+    if args.activation_histogram_bins < 2:
+        raise ValueError("--activation_histogram_bins must be >= 2")
 
     try:
         import torch
@@ -731,6 +983,8 @@ def main() -> None:
         "t5_text_embedding": [],
         "vit_first_block_input": [],
         "t5_first_block_input": [],
+        "t5_visual_query_first_block_input": [],
+        "t5_text_token_first_block_input": [],
         "t5_encoder_last_hidden": [],
         "t5_decoder_last_hidden": [],
     }
@@ -808,6 +1062,17 @@ def main() -> None:
             pooled_vectors["t5_first_block_input"].append(
                 masked_sequence_mean(captured["t5_first_block_input"], captured["encoder_attention_mask"])
             )
+            num_query = captured["num_query_tokens"]
+            first_block_input = captured["t5_first_block_input"]
+            pooled_vectors["t5_visual_query_first_block_input"].append(
+                masked_sequence_mean(first_block_input[:, :num_query, :], None)
+            )
+            pooled_vectors["t5_text_token_first_block_input"].append(
+                masked_sequence_mean(
+                    first_block_input[:, num_query:, :],
+                    captured["input_attention_mask"],
+                )
+            )
             pooled_vectors["t5_encoder_last_hidden"].append(
                 masked_sequence_mean(captured["t5_encoder_last_hidden"], captured["encoder_attention_mask"])
             )
@@ -856,8 +1121,12 @@ def main() -> None:
         "question": np.asarray(question_values, dtype=str),
         "answer": np.asarray(answer_values, dtype=str),
     }
-    for name, chunks in pooled_vectors.items():
-        npz_payload[name + "_pooled"] = np.concatenate(chunks, axis=0)
+    concatenated_vectors = {
+        name: np.concatenate(chunks, axis=0)
+        for name, chunks in pooled_vectors.items()
+    }
+    for name, values in concatenated_vectors.items():
+        npz_payload[name + "_pooled"] = values
     for metric_name, values in metric_store.items():
         npz_payload[metric_name.replace(".", "__")] = np.asarray(values, dtype=np.float32)
 
@@ -869,12 +1138,31 @@ def main() -> None:
         f.write("\n")
 
     plot_paths = make_plots(out_dir, records)
+    tsne_plot_path, tsne_csv_path = make_visual_text_tsne(
+        out_dir=out_dir,
+        visual_vectors=concatenated_vectors["t5_visual_query_first_block_input"],
+        text_vectors=concatenated_vectors["t5_text_token_first_block_input"],
+        row_indices=np.asarray(row_index_values, dtype=np.int64),
+        args=args,
+    )
+    if tsne_plot_path:
+        plot_paths.append(tsne_plot_path)
+    histogram_plot_path, histogram_csv_path = make_visual_text_activation_histogram(
+        out_dir=out_dir,
+        visual_vectors=concatenated_vectors["t5_visual_query_first_block_input"],
+        text_vectors=concatenated_vectors["t5_text_token_first_block_input"],
+        num_bins=args.activation_histogram_bins,
+    )
+    plot_paths.append(histogram_plot_path)
     print("[OK] wrote:", jsonl_path)
     print("[OK] wrote:", os.path.join(out_dir, "activation_vectors_and_metrics.npz"))
     print("[OK] wrote:", os.path.join(out_dir, "activation_summary.csv"))
     print("[OK] wrote:", os.path.join(out_dir, "activation_summary.json"))
     for path in plot_paths:
         print("[OK] plot:", path)
+    if tsne_csv_path:
+        print("[OK] wrote:", tsne_csv_path)
+    print("[OK] wrote:", histogram_csv_path)
     if args.save_full_tensors:
         print("[OK] full tensors:", full_dir)
 
