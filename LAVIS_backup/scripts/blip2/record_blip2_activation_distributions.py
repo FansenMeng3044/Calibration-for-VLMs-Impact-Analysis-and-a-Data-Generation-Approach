@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""Record BLIP2-T5 input/output activations and make static plots.
+"""Record BLIP2-T5 activation distributions and make static plots.
 
-This script is for comparing calibration input distributions, for example:
+Supported input modes:
+  - multimodal: image + question + answer through the full BLIP2-T5 path
+  - t5_c4_text: C4 text through T5 only, using the text as its own target
+  - vit_image_only: image through visual_encoder + ln_vision only
 
+Multimodal example:
   python scripts/blip2/record_blip2_activation_distributions.py \
     --calib_json /data/data2/mfs/MMMU_calibration/mmmu_calibration_train.json \
     --images_dir /data/data2/mfs/MMMU_calibration/images \
@@ -10,6 +14,21 @@ This script is for comparing calibration input distributions, for example:
     --out_dir /data/data2/mfs/MMMU_calibration/activation_original \
     --batch_size 4 \
     --max_samples 128
+
+Text-only C4 example:
+  python scripts/blip2/record_blip2_activation_distributions.py \
+    --input_mode t5_c4_text \
+    --calib_json /data/data2/mfs/c4_calib_128.json \
+    --ckpt /data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth \
+    --out_dir /data/data2/mfs/c4_activation
+
+Image-only example:
+  python scripts/blip2/record_blip2_activation_distributions.py \
+    --input_mode vit_image_only \
+    --calib_json /data/data2/mfs/CC3M_calib_128/cc3m_calib_128.json \
+    --images_dir /data/data2/mfs/CC3M_calib_128/images \
+    --ckpt /data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth \
+    --out_dir /data/data2/mfs/cc3m_image_activation
 
 Recorded tensors:
   - T5 text embedding activation
@@ -49,6 +68,7 @@ if _LAVIS_ROOT not in sys.path:
 ACTIVATION_LABELS = {
     "t5_text_embedding": "T5 Text Embedding",
     "vit_first_block_input": "ViT First-Block Input",
+    "vit_last_hidden": "ViT Last Hidden (After ln_vision)",
     "t5_first_block_input": "T5 First-Block Input",
     "t5_encoder_last_hidden": "T5 Encoder Last Hidden",
     "t5_decoder_last_hidden": "T5 Decoder Last Hidden",
@@ -58,10 +78,20 @@ ACTIVATION_LABELS = {
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
-        description="Record BLIP2-T5 activation distributions for calibration JSON data.",
+        description="Record multimodal or unimodal BLIP2-T5 calibration activations.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    ap.add_argument("--calib_json", required=True, help="Input calibration JSON list.")
+    ap.add_argument(
+        "--input_mode",
+        choices=["multimodal", "t5_c4_text", "vit_image_only"],
+        default="multimodal",
+        help="Model path used to record activations.",
+    )
+    ap.add_argument(
+        "--calib_json",
+        required=True,
+        help="JSON list. C4 may be a list of strings or dictionaries.",
+    )
     ap.add_argument(
         "--images_dir",
         default=None,
@@ -82,6 +112,11 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--question_field", default="question")
     ap.add_argument("--image_field", default="image")
     ap.add_argument("--answer_field", default="answer")
+    ap.add_argument(
+        "--text_field",
+        default="auto",
+        help="C4 dictionary field, or auto to try text/caption/text_input/output.",
+    )
     ap.add_argument(
         "--max_txt_len",
         type=int,
@@ -127,15 +162,43 @@ def ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
 
-def load_rows(path: str, max_samples: Optional[int]) -> List[Dict[str, Any]]:
+def load_rows(path: str, max_samples: Optional[int]) -> List[Any]:
     with open(path, "r", encoding="utf-8") as f:
         rows = json.load(f)
     if not isinstance(rows, list):
-        raise TypeError("Input calibration JSON must be a list of objects.")
-    for idx, row in enumerate(rows):
-        if not isinstance(row, dict):
-            raise TypeError("Row %d is not a JSON object." % idx)
+        raise TypeError("Input calibration JSON must be a list.")
     return rows if max_samples is None else rows[:max_samples]
+
+
+def row_value(row: Any, field: str, default: Any = None) -> Any:
+    if isinstance(row, dict):
+        return row.get(field, default)
+    return default
+
+
+def extract_text(row: Any, args: argparse.Namespace, row_index: int) -> str:
+    if isinstance(row, str):
+        text = row
+    elif isinstance(row, dict):
+        fields = (
+            [args.text_field]
+            if args.text_field != "auto"
+            else ["text", "caption", "text_input", "output"]
+        )
+        selected = next((field for field in fields if field in row), None)
+        if selected is None:
+            raise KeyError(
+                "Row %d has no C4 text field. Tried: %s"
+                % (row_index, ", ".join(fields))
+            )
+        text = row[selected]
+    else:
+        raise TypeError("Row %d must be a string or JSON object." % row_index)
+
+    text = str(text).strip()
+    if not text:
+        raise ValueError("Row %d contains empty text." % row_index)
+    return text
 
 
 def resolve_image_path(images_dir: str, image_value: Any) -> str:
@@ -155,7 +218,7 @@ def answer_to_text(answer: Any) -> str:
     return str(answer)
 
 
-def iter_batches(rows: Sequence[Dict[str, Any]], batch_size: int) -> Iterable[Tuple[int, List[Dict[str, Any]]]]:
+def iter_batches(rows: Sequence[Any], batch_size: int) -> Iterable[Tuple[int, List[Any]]]:
     for start in range(0, len(rows), batch_size):
         yield start, list(rows[start : start + batch_size])
 
@@ -286,11 +349,12 @@ def output_distribution_stats(
 
 def make_row_record(
     row_index: int,
-    row: Dict[str, Any],
-    image_path: str,
+    row: Any,
+    image_path: Optional[str],
+    input_text: Optional[str],
     activation_stats: Dict[str, Dict[str, np.ndarray]],
-    output_stats: Dict[str, np.ndarray],
-    topk_records: List[Dict[str, Any]],
+    output_stats: Optional[Dict[str, np.ndarray]],
+    topk_records: Optional[List[Dict[str, Any]]],
     local_idx: int,
     args: argparse.Namespace,
 ) -> Dict[str, Any]:
@@ -305,21 +369,24 @@ def make_row_record(
             "token_count": float(stats["token_count"][local_idx]),
         }
 
-    stat_record["final_probability_distribution"] = {
-        "label": "Final Probability Distribution",
-        "entropy_mean": float(output_stats["entropy_mean"][local_idx]),
-        "top1_prob_mean": float(output_stats["top1_prob_mean"][local_idx]),
-        "prob_margin_mean": float(output_stats["prob_margin_mean"][local_idx]),
-        "logit_margin_mean": float(output_stats["logit_margin_mean"][local_idx]),
-        "top_tokens": topk_records,
-    }
+    if output_stats is not None:
+        stat_record["final_probability_distribution"] = {
+            "label": "Final Probability Distribution",
+            "entropy_mean": float(output_stats["entropy_mean"][local_idx]),
+            "top1_prob_mean": float(output_stats["top1_prob_mean"][local_idx]),
+            "prob_margin_mean": float(output_stats["prob_margin_mean"][local_idx]),
+            "logit_margin_mean": float(output_stats["logit_margin_mean"][local_idx]),
+            "top_tokens": topk_records or [],
+        }
 
     return {
         "row_index": row_index,
-        "image": row.get(args.image_field),
+        "input_mode": args.input_mode,
+        "image": row_value(row, args.image_field),
         "image_path": image_path,
-        "question": row.get(args.question_field),
-        "answer": row.get(args.answer_field),
+        "text": input_text,
+        "question": row_value(row, args.question_field),
+        "answer": row_value(row, args.answer_field),
         "stats": stat_record,
     }
 
@@ -327,6 +394,7 @@ def make_row_record(
 def flatten_record_for_csv(record: Dict[str, Any]) -> Dict[str, Any]:
     flat: Dict[str, Any] = {
         "row_index": record["row_index"],
+        "input_mode": record["input_mode"],
         "image": record["image"],
     }
     for name, values in record["stats"].items():
@@ -343,9 +411,12 @@ def save_csv(path: str, records: Sequence[Dict[str, Any]]) -> None:
     if "row_index" in fieldnames:
         fieldnames.remove("row_index")
         fieldnames.insert(0, "row_index")
+    if "input_mode" in fieldnames:
+        fieldnames.remove("input_mode")
+        fieldnames.insert(1, "input_mode")
     if "image" in fieldnames:
         fieldnames.remove("image")
-        fieldnames.insert(1, "image")
+        fieldnames.insert(2, "image")
 
     with open(path, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -359,6 +430,7 @@ def aggregate_summary(records: Sequence[Dict[str, Any]], args: argparse.Namespac
         "model_name": args.model_name,
         "model_type": args.model_type,
         "checkpoint": os.path.abspath(args.ckpt),
+        "input_mode": args.input_mode,
         "metrics": {},
     }
     if not records:
@@ -407,7 +479,13 @@ def make_plots(out_dir: str, records: Sequence[Dict[str, Any]]) -> List[str]:
     if not records:
         return saved
 
-    activation_names = list(ACTIVATION_LABELS.keys())
+    activation_names = [
+        name
+        for name in ACTIVATION_LABELS
+        if any(name in record["stats"] for record in records)
+    ]
+    if not activation_names:
+        return saved
     mean_abs_values = []
     rms_values = []
     box_data = []
@@ -475,32 +553,33 @@ def make_plots(out_dir: str, records: Sequence[Dict[str, Any]]) -> List[str]:
     plt.close(fig)
     saved.append(path)
 
-    output_metrics = [
-        ("entropy_mean", "Entropy"),
-        ("top1_prob_mean", "Top-1 Probability"),
-        ("prob_margin_mean", "Probability Margin"),
-        ("logit_margin_mean", "Logit Margin"),
-    ]
-    fig, axes = plt.subplots(2, 2, figsize=(11, 8))
-    axes_flat = axes.reshape(-1)
-    for ax, (metric, label) in zip(axes_flat, output_metrics):
-        vals = np.asarray(
-            [
-                r["stats"]["final_probability_distribution"][metric]
-                for r in records
-            ],
-            dtype=np.float64,
-        )
-        ax.hist(vals, bins=30, color="#10B981", alpha=0.85)
-        ax.set_title(label)
-        ax.set_xlabel(label)
-        ax.set_ylabel("Sample Count")
-    fig.suptitle("Final Probability Distribution Metrics", y=1.02)
-    fig.tight_layout()
-    path = os.path.join(plot_dir, "final_probability_distribution_metrics.png")
-    fig.savefig(path, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    saved.append(path)
+    if all("final_probability_distribution" in r["stats"] for r in records):
+        output_metrics = [
+            ("entropy_mean", "Entropy"),
+            ("top1_prob_mean", "Top-1 Probability"),
+            ("prob_margin_mean", "Probability Margin"),
+            ("logit_margin_mean", "Logit Margin"),
+        ]
+        fig, axes = plt.subplots(2, 2, figsize=(11, 8))
+        axes_flat = axes.reshape(-1)
+        for ax, (metric, label) in zip(axes_flat, output_metrics):
+            vals = np.asarray(
+                [
+                    r["stats"]["final_probability_distribution"][metric]
+                    for r in records
+                ],
+                dtype=np.float64,
+            )
+            ax.hist(vals, bins=30, color="#10B981", alpha=0.85)
+            ax.set_title(label)
+            ax.set_xlabel(label)
+            ax.set_ylabel("Sample Count")
+        fig.suptitle("Final Probability Distribution Metrics", y=1.02)
+        fig.tight_layout()
+        path = os.path.join(plot_dir, "final_probability_distribution_metrics.png")
+        fig.savefig(path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        saved.append(path)
 
     return saved
 
@@ -771,7 +850,199 @@ def make_visual_text_activation_histogram(
     return plot_path, csv_path
 
 
-def prepare_batch(
+def make_single_modality_tsne(
+    out_dir: str,
+    token_vectors: np.ndarray,
+    row_indices: np.ndarray,
+    token_positions: np.ndarray,
+    modality: str,
+    activation_label: str,
+    args: argparse.Namespace,
+) -> Tuple[Optional[str], Optional[str]]:
+    """Plot token-level activations for one modality."""
+    if token_vectors.ndim != 2:
+        raise ValueError("Token vectors must be 2D, got %s." % (token_vectors.shape,))
+    if token_vectors.shape[0] < 2:
+        print("[WARN] t-SNE requires at least two tokens; skipping %s plot." % modality)
+        return None, None
+
+    try:
+        from sklearn.manifold import TSNE
+        from sklearn.preprocessing import StandardScaler
+    except (ImportError, RuntimeError) as exc:
+        raise SystemExit(
+            "A compatible scikit-learn/SciPy/NumPy installation is required for t-SNE. "
+            "Install the project requirements or run: pip install 'numpy<2' scipy scikit-learn"
+        ) from exc
+
+    rng = np.random.RandomState(args.tsne_random_state)
+    num_selected = min(args.tsne_max_points_per_modality, token_vectors.shape[0])
+    if num_selected < token_vectors.shape[0]:
+        selected = np.sort(
+            rng.choice(token_vectors.shape[0], size=num_selected, replace=False)
+        )
+    else:
+        selected = np.arange(token_vectors.shape[0])
+
+    features = token_vectors[selected].astype(np.float32, copy=False)
+    features = np.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
+    features = StandardScaler().fit_transform(features)
+    perplexity = min(float(args.tsne_perplexity), float(features.shape[0] - 1))
+    perplexity = max(perplexity, 1.0)
+    embedding = TSNE(
+        n_components=2,
+        perplexity=perplexity,
+        init="pca",
+        learning_rate=200.0,
+        random_state=args.tsne_random_state,
+    ).fit_transform(features)
+
+    selected_rows = row_indices[selected]
+    selected_positions = token_positions[selected]
+    slug = modality.lower()
+    print(
+        "t-SNE token points: %s=%d/%d"
+        % (modality, len(selected), token_vectors.shape[0])
+    )
+
+    plt = setup_matplotlib()
+    plot_dir = os.path.join(out_dir, "plots")
+    ensure_dir(plot_dir)
+    color = "#93CD81" if modality == "Text" else "#8FC5DA"
+    edge = "#527A48" if modality == "Text" else "#567B89"
+    fig, ax = plt.subplots(figsize=(7.2, 6.2))
+    ax.scatter(
+        embedding[:, 0],
+        embedding[:, 1],
+        s=10,
+        c=color,
+        edgecolors=edge,
+        linewidths=0.2,
+        alpha=0.62,
+    )
+    ax.set_xlabel("t-SNE Dimension 1")
+    ax.set_ylabel("t-SNE Dimension 2")
+    ax.set_title(
+        "Token-Level %s Activation Representations\n(%s; Tokens=%d)"
+        % (modality, activation_label, len(selected))
+    )
+    ax.grid(alpha=0.18, linewidth=0.6)
+    fig.tight_layout()
+    plot_path = os.path.join(plot_dir, "%s_token_activation_tsne.png" % slug)
+    fig.savefig(plot_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+    csv_path = os.path.join(out_dir, "%s_token_activation_tsne.csv" % slug)
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "row_index",
+                "modality",
+                "token_position",
+                "tsne_dimension_1",
+                "tsne_dimension_2",
+            ],
+        )
+        writer.writeheader()
+        for row_index, token_position, xy in zip(
+            selected_rows, selected_positions, embedding
+        ):
+            writer.writerow(
+                {
+                    "row_index": int(row_index),
+                    "modality": modality,
+                    "token_position": int(token_position),
+                    "tsne_dimension_1": float(xy[0]),
+                    "tsne_dimension_2": float(xy[1]),
+                }
+            )
+    return plot_path, csv_path
+
+
+def make_single_modality_histogram(
+    out_dir: str,
+    token_vectors: np.ndarray,
+    modality: str,
+    activation_label: str,
+    num_bins: int,
+) -> Tuple[str, str]:
+    """Plot scalar activation values for one modality."""
+    values = np.nan_to_num(
+        token_vectors.astype(np.float32, copy=False).reshape(-1),
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0,
+    )
+    lower, upper = np.percentile(values, [0.5, 99.5])
+    if not np.isfinite(lower) or not np.isfinite(upper) or lower >= upper:
+        lower = float(np.min(values))
+        upper = float(np.max(values))
+    if lower >= upper:
+        lower -= 0.5
+        upper += 0.5
+
+    bin_edges = np.linspace(lower, upper, num_bins + 1)
+    density, _ = np.histogram(values, bins=bin_edges, density=True)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
+    slug = modality.lower()
+
+    plt = setup_matplotlib()
+    plot_dir = os.path.join(out_dir, "plots")
+    ensure_dir(plot_dir)
+    color = "#93CD81" if modality == "Text" else "#8FC5DA"
+    edge = "#527A48" if modality == "Text" else "#567B89"
+    fig, ax = plt.subplots(figsize=(8.2, 5.6))
+    ax.hist(
+        values,
+        bins=bin_edges,
+        density=True,
+        color=color,
+        edgecolor=edge,
+        linewidth=0.35,
+        alpha=0.7,
+    )
+    ax.axvline(
+        float(np.mean(values)),
+        color=edge,
+        linestyle="--",
+        linewidth=1.3,
+        label="%s Mean" % modality,
+    )
+    ax.set_xlim(lower, upper)
+    ax.set_xlabel("Activation Value")
+    ax.set_ylabel("Density")
+    ax.set_title(
+        "Token-Level %s Activation Value Distribution\n(%s)"
+        % (modality, activation_label)
+    )
+    ax.legend(frameon=True)
+    ax.grid(axis="y", alpha=0.18, linewidth=0.6)
+    fig.tight_layout()
+    plot_path = os.path.join(plot_dir, "%s_token_activation_histogram.png" % slug)
+    fig.savefig(plot_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+    csv_path = os.path.join(out_dir, "%s_token_activation_histogram.csv" % slug)
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["bin_left", "bin_right", "bin_center", "density"],
+        )
+        writer.writeheader()
+        for idx in range(num_bins):
+            writer.writerow(
+                {
+                    "bin_left": float(bin_edges[idx]),
+                    "bin_right": float(bin_edges[idx + 1]),
+                    "bin_center": float(bin_centers[idx]),
+                    "density": float(density[idx]),
+                }
+            )
+    return plot_path, csv_path
+
+
+def prepare_multimodal_batch(
     rows: Sequence[Dict[str, Any]],
     row_start: int,
     images_dir: str,
@@ -788,6 +1059,8 @@ def prepare_batch(
 
     for local_idx, row in enumerate(rows):
         row_index = row_start + local_idx
+        if not isinstance(row, dict):
+            raise TypeError("Row %d must be a JSON object in multimodal mode." % row_index)
         if args.question_field not in row:
             raise KeyError("Row %d missing question field %r" % (row_index, args.question_field))
         if args.image_field not in row:
@@ -808,7 +1081,49 @@ def prepare_batch(
     return image_tensor, questions, answers, row_indices, image_paths
 
 
-def forward_and_capture(
+def prepare_text_batch(
+    rows: Sequence[Any],
+    row_start: int,
+    args: argparse.Namespace,
+) -> Tuple[List[str], List[int]]:
+    texts = []
+    row_indices = []
+    for local_idx, row in enumerate(rows):
+        row_index = row_start + local_idx
+        texts.append(extract_text(row, args, row_index))
+        row_indices.append(row_index)
+    return texts, row_indices
+
+
+def prepare_image_batch(
+    rows: Sequence[Dict[str, Any]],
+    row_start: int,
+    images_dir: str,
+    vis_processor: Any,
+    args: argparse.Namespace,
+    torch: Any,
+    Image: Any,
+) -> Tuple[Any, List[int], List[str]]:
+    images = []
+    row_indices = []
+    image_paths = []
+    for local_idx, row in enumerate(rows):
+        row_index = row_start + local_idx
+        if not isinstance(row, dict):
+            raise TypeError("Row %d must be a JSON object in image-only mode." % row_index)
+        if args.image_field not in row:
+            raise KeyError("Row %d missing image field %r" % (row_index, args.image_field))
+        image_path = resolve_image_path(images_dir, row[args.image_field])
+        if not os.path.isfile(image_path):
+            raise FileNotFoundError("Image not found for row %d: %s" % (row_index, image_path))
+        image = Image.open(image_path).convert("RGB")
+        images.append(vis_processor(image))
+        row_indices.append(row_index)
+        image_paths.append(image_path)
+    return torch.stack(images), row_indices, image_paths
+
+
+def forward_multimodal_and_capture(
     model: Any,
     image_tensor: Any,
     questions: Sequence[str],
@@ -923,20 +1238,121 @@ def forward_and_capture(
             handle.remove()
 
 
+def forward_text_only_and_capture(
+    model: Any,
+    texts: Sequence[str],
+    args: argparse.Namespace,
+    torch: Any,
+) -> Dict[str, Any]:
+    captures: Dict[str, Any] = {}
+
+    def capture_t5_input(_module: Any, inputs: Tuple[Any, ...]) -> None:
+        if inputs and getattr(inputs[0], "detach", None) is not None:
+            captures["t5_first_block_input"] = inputs[0].detach()
+
+    handle = model.t5_model.encoder.block[0].register_forward_pre_hook(capture_t5_input)
+    try:
+        device = next(model.t5_model.parameters()).device
+        with torch.no_grad():
+            with model.maybe_autocast(dtype=torch.bfloat16):
+                input_tokens = model.t5_tokenizer(
+                    list(texts),
+                    padding="longest",
+                    truncation=True,
+                    max_length=model.max_txt_len,
+                    return_tensors="pt",
+                ).to(device)
+                output_tokens = model.t5_tokenizer(
+                    list(texts),
+                    padding="longest",
+                    truncation=True,
+                    max_length=model.max_txt_len,
+                    return_tensors="pt",
+                ).to(device)
+                text_embeds = model.t5_model.encoder.embed_tokens(input_tokens.input_ids)
+                bsz, seq_len = text_embeds.shape[:2]
+                model.temp_label = torch.zeros(
+                    (bsz, seq_len), dtype=torch.bool, device=device
+                )
+                targets = output_tokens.input_ids.masked_fill(
+                    output_tokens.input_ids == model.t5_tokenizer.pad_token_id,
+                    -100,
+                )
+                outputs = model.t5_model(
+                    inputs_embeds=text_embeds,
+                    attention_mask=input_tokens.attention_mask,
+                    decoder_attention_mask=output_tokens.attention_mask,
+                    return_dict=True,
+                    labels=targets,
+                    output_hidden_states=True,
+                )
+
+        encoder_last_hidden = getattr(outputs, "encoder_last_hidden_state", None)
+        if encoder_last_hidden is None and getattr(outputs, "encoder_hidden_states", None) is not None:
+            encoder_last_hidden = outputs.encoder_hidden_states[-1]
+        decoder_hidden_states = getattr(outputs, "decoder_hidden_states", None)
+        if encoder_last_hidden is None or decoder_hidden_states is None:
+            raise RuntimeError("T5 text-only output did not return hidden states.")
+        if "t5_first_block_input" not in captures:
+            captures["t5_first_block_input"] = text_embeds.detach()
+
+        return {
+            "t5_text_embedding": text_embeds.detach(),
+            "t5_first_block_input": captures["t5_first_block_input"],
+            "t5_encoder_last_hidden": encoder_last_hidden.detach(),
+            "t5_decoder_last_hidden": decoder_hidden_states[-1].detach(),
+            "final_logits": outputs.logits.detach(),
+            "input_attention_mask": input_tokens.attention_mask.detach(),
+            "encoder_attention_mask": input_tokens.attention_mask.detach(),
+            "decoder_attention_mask": output_tokens.attention_mask.detach(),
+        }
+    finally:
+        handle.remove()
+
+
+def forward_image_only_and_capture(
+    model: Any,
+    image_tensor: Any,
+    args: argparse.Namespace,
+    torch: Any,
+) -> Dict[str, Any]:
+    captures: Dict[str, Any] = {}
+
+    def capture_vit_input(_module: Any, inputs: Tuple[Any, ...]) -> None:
+        if inputs and getattr(inputs[0], "detach", None) is not None:
+            captures["vit_first_block_input"] = inputs[0].detach()
+
+    handle = model.visual_encoder.blocks[0].register_forward_pre_hook(capture_vit_input)
+    try:
+        image = image_tensor.to(args.device)
+        with torch.no_grad():
+            with model.maybe_autocast():
+                vit_last_hidden = model.ln_vision(model.visual_encoder(image))
+        if "vit_first_block_input" not in captures:
+            raise RuntimeError("Failed to capture ViT first-block input activation.")
+        return {
+            "vit_first_block_input": captures["vit_first_block_input"],
+            "vit_last_hidden": vit_last_hidden.detach(),
+        }
+    finally:
+        handle.remove()
+
+
 def append_metrics(
     metric_store: Dict[str, List[float]],
     activation_stats: Dict[str, Dict[str, np.ndarray]],
-    output_stats: Dict[str, np.ndarray],
+    output_stats: Optional[Dict[str, np.ndarray]],
 ) -> None:
     for name, stats in activation_stats.items():
         for key in ("mean", "std", "mean_abs", "rms", "token_count"):
             metric_store.setdefault("%s.%s" % (name, key), []).extend(
                 [float(v) for v in stats[key].tolist()]
             )
-    for key, values in output_stats.items():
-        metric_store.setdefault("final_probability_distribution.%s" % key, []).extend(
-            [float(v) for v in values.tolist()]
-        )
+    if output_stats is not None:
+        for key, values in output_stats.items():
+            metric_store.setdefault("final_probability_distribution.%s" % key, []).extend(
+                [float(v) for v in values.tolist()]
+            )
 
 
 def save_full_tensor_batch(
@@ -944,24 +1360,20 @@ def save_full_tensor_batch(
     row_indices: Sequence[int],
     image_paths: Sequence[str],
     captured: Dict[str, Any],
-    probs: Any,
+    probs: Optional[Any],
     torch: Any,
 ) -> None:
     payload = {
         "row_indices": torch.tensor(list(row_indices), dtype=torch.long),
         "image_paths": list(image_paths),
-        "t5_text_embedding": captured["t5_text_embedding"].detach().cpu(),
-        "vit_first_block_input": captured["vit_first_block_input"].detach().cpu(),
-        "t5_first_block_input": captured["t5_first_block_input"].detach().cpu(),
-        "num_query_tokens": int(captured["num_query_tokens"]),
-        "t5_encoder_last_hidden": captured["t5_encoder_last_hidden"].detach().cpu(),
-        "t5_decoder_last_hidden": captured["t5_decoder_last_hidden"].detach().cpu(),
-        "final_logits": captured["final_logits"].detach().cpu(),
-        "final_probabilities": probs.detach().cpu(),
-        "input_attention_mask": captured["input_attention_mask"].detach().cpu(),
-        "encoder_attention_mask": captured["encoder_attention_mask"].detach().cpu(),
-        "decoder_attention_mask": captured["decoder_attention_mask"].detach().cpu(),
     }
+    for name, value in captured.items():
+        if getattr(value, "detach", None) is not None:
+            payload[name] = value.detach().cpu()
+        else:
+            payload[name] = value
+    if probs is not None:
+        payload["final_probabilities"] = probs.detach().cpu()
     torch.save(payload, path)
 
 
@@ -1008,7 +1420,9 @@ def main() -> None:
         raise RuntimeError("No rows found in %s" % calib_json)
 
     print("Loaded %d rows from %s" % (len(rows), calib_json))
-    print("images_dir:", images_dir)
+    print("input_mode:", args.input_mode)
+    if args.input_mode != "t5_c4_text":
+        print("images_dir:", images_dir)
     print("out_dir:", out_dir)
     print("device:", args.device)
 
@@ -1022,17 +1436,13 @@ def main() -> None:
     model.eval()
     if args.max_txt_len is not None:
         model.max_txt_len = args.max_txt_len
-    vis_processor = load_processor("blip_image_eval").build(image_size=args.image_size)
+    vis_processor = None
+    if args.input_mode != "t5_c4_text":
+        vis_processor = load_processor("blip_image_eval").build(image_size=args.image_size)
 
     records: List[Dict[str, Any]] = []
     metric_store: Dict[str, List[float]] = {}
-    pooled_vectors: Dict[str, List[np.ndarray]] = {
-        "t5_text_embedding": [],
-        "vit_first_block_input": [],
-        "t5_first_block_input": [],
-        "t5_encoder_last_hidden": [],
-        "t5_decoder_last_hidden": [],
-    }
+    pooled_vectors: Dict[str, List[np.ndarray]] = {}
     visual_token_vectors: List[np.ndarray] = []
     visual_token_row_indices: List[np.ndarray] = []
     visual_token_positions: List[np.ndarray] = []
@@ -1041,6 +1451,7 @@ def main() -> None:
     text_token_positions: List[np.ndarray] = []
     row_index_values: List[int] = []
     image_values: List[str] = []
+    text_values: List[str] = []
     question_values: List[str] = []
     answer_values: List[str] = []
 
@@ -1051,99 +1462,147 @@ def main() -> None:
 
     with open(jsonl_path, "w", encoding="utf-8") as jsonl_f:
         for batch_start, batch_rows in iter_batches(rows, args.batch_size):
-            (
-                image_tensor,
-                questions,
-                answers,
-                row_indices,
-                image_paths,
-            ) = prepare_batch(
-                batch_rows,
-                batch_start,
-                images_dir,
-                vis_processor,
-                args,
-                torch,
-                Image,
-            )
+            output_stats: Optional[Dict[str, np.ndarray]] = None
+            topk_records: Optional[List[List[Dict[str, Any]]]] = None
+            probs: Optional[Any] = None
 
-            captured = forward_and_capture(model, image_tensor, questions, answers, args, torch)
+            if args.input_mode == "multimodal":
+                (
+                    image_tensor,
+                    questions,
+                    answers,
+                    row_indices,
+                    image_paths,
+                ) = prepare_multimodal_batch(
+                    batch_rows,
+                    batch_start,
+                    images_dir,
+                    vis_processor,
+                    args,
+                    torch,
+                    Image,
+                )
+                input_texts: List[Optional[str]] = list(questions)
+                captured = forward_multimodal_and_capture(
+                    model, image_tensor, questions, answers, args, torch
+                )
+                activation_masks = {
+                    "t5_text_embedding": captured["input_attention_mask"],
+                    "vit_first_block_input": None,
+                    "t5_first_block_input": captured["encoder_attention_mask"],
+                    "t5_encoder_last_hidden": captured["encoder_attention_mask"],
+                    "t5_decoder_last_hidden": captured["decoder_attention_mask"],
+                    "final_logits": captured["decoder_attention_mask"],
+                }
+
+                num_query = captured["num_query_tokens"]
+                first_block_input = captured["t5_first_block_input"]
+                visual_batch = first_block_input[:, :num_query, :].detach().float().cpu()
+                visual_token_vectors.append(
+                    visual_batch.reshape(-1, visual_batch.shape[-1]).numpy()
+                )
+                visual_token_row_indices.append(
+                    np.repeat(np.asarray(row_indices, dtype=np.int64), num_query)
+                )
+                visual_token_positions.append(
+                    np.tile(np.arange(num_query, dtype=np.int64), len(row_indices))
+                )
+
+                text_batch = first_block_input[:, num_query:, :].detach().float().cpu()
+                text_mask = captured["input_attention_mask"].detach().bool().cpu()
+                valid_text_positions = torch.nonzero(text_mask, as_tuple=False)
+                text_token_vectors.append(text_batch[text_mask].numpy())
+                text_token_row_indices.append(
+                    np.asarray(row_indices, dtype=np.int64)[
+                        valid_text_positions[:, 0].numpy()
+                    ]
+                )
+                text_token_positions.append(
+                    valid_text_positions[:, 1].numpy().astype(np.int64, copy=False)
+                )
+            elif args.input_mode == "t5_c4_text":
+                texts, row_indices = prepare_text_batch(batch_rows, batch_start, args)
+                image_paths = [None] * len(row_indices)
+                input_texts = list(texts)
+                captured = forward_text_only_and_capture(model, texts, args, torch)
+                activation_masks = {
+                    "t5_text_embedding": captured["input_attention_mask"],
+                    "t5_first_block_input": captured["encoder_attention_mask"],
+                    "t5_encoder_last_hidden": captured["encoder_attention_mask"],
+                    "t5_decoder_last_hidden": captured["decoder_attention_mask"],
+                    "final_logits": captured["decoder_attention_mask"],
+                }
+
+                text_batch = captured["t5_first_block_input"].detach().float().cpu()
+                text_mask = captured["input_attention_mask"].detach().bool().cpu()
+                valid_text_positions = torch.nonzero(text_mask, as_tuple=False)
+                text_token_vectors.append(text_batch[text_mask].numpy())
+                text_token_row_indices.append(
+                    np.asarray(row_indices, dtype=np.int64)[
+                        valid_text_positions[:, 0].numpy()
+                    ]
+                )
+                text_token_positions.append(
+                    valid_text_positions[:, 1].numpy().astype(np.int64, copy=False)
+                )
+            else:
+                image_tensor, row_indices, image_paths = prepare_image_batch(
+                    batch_rows,
+                    batch_start,
+                    images_dir,
+                    vis_processor,
+                    args,
+                    torch,
+                    Image,
+                )
+                input_texts = [None] * len(row_indices)
+                captured = forward_image_only_and_capture(
+                    model, image_tensor, args, torch
+                )
+                activation_masks = {
+                    "vit_first_block_input": None,
+                    "vit_last_hidden": None,
+                }
+
+                visual_batch = (
+                    captured["vit_first_block_input"].detach().float().cpu()
+                )
+                num_visual_tokens = visual_batch.shape[1]
+                visual_token_vectors.append(
+                    visual_batch.reshape(-1, visual_batch.shape[-1]).numpy()
+                )
+                visual_token_row_indices.append(
+                    np.repeat(
+                        np.asarray(row_indices, dtype=np.int64), num_visual_tokens
+                    )
+                )
+                visual_token_positions.append(
+                    np.tile(
+                        np.arange(num_visual_tokens, dtype=np.int64),
+                        len(row_indices),
+                    )
+                )
 
             activation_stats = {
-                "t5_text_embedding": sequence_stats(
-                    captured["t5_text_embedding"],
-                    captured["input_attention_mask"],
-                ),
-                "vit_first_block_input": sequence_stats(
-                    captured["vit_first_block_input"],
-                    None,
-                ),
-                "t5_first_block_input": sequence_stats(
-                    captured["t5_first_block_input"],
-                    captured["encoder_attention_mask"],
-                ),
-                "t5_encoder_last_hidden": sequence_stats(
-                    captured["t5_encoder_last_hidden"],
-                    captured["encoder_attention_mask"],
-                ),
-                "t5_decoder_last_hidden": sequence_stats(
-                    captured["t5_decoder_last_hidden"],
-                    captured["decoder_attention_mask"],
-                ),
-                "final_logits": sequence_stats(
+                name: sequence_stats(captured[name], mask)
+                for name, mask in activation_masks.items()
+            }
+            if "final_logits" in captured:
+                output_stats, topk_records, probs = output_distribution_stats(
                     captured["final_logits"],
                     captured["decoder_attention_mask"],
-                ),
-            }
-            output_stats, topk_records, probs = output_distribution_stats(
-                captured["final_logits"],
-                captured["decoder_attention_mask"],
-                model.t5_tokenizer,
-                args.top_k,
-                args.top_k_positions,
-            )
+                    model.t5_tokenizer,
+                    args.top_k,
+                    args.top_k_positions,
+                )
             append_metrics(metric_store, activation_stats, output_stats)
 
-            pooled_vectors["t5_text_embedding"].append(
-                masked_sequence_mean(captured["t5_text_embedding"], captured["input_attention_mask"])
-            )
-            pooled_vectors["vit_first_block_input"].append(
-                masked_sequence_mean(captured["vit_first_block_input"], None)
-            )
-            pooled_vectors["t5_first_block_input"].append(
-                masked_sequence_mean(captured["t5_first_block_input"], captured["encoder_attention_mask"])
-            )
-            num_query = captured["num_query_tokens"]
-            first_block_input = captured["t5_first_block_input"]
-            visual_batch = first_block_input[:, :num_query, :].detach().float().cpu()
-            visual_token_vectors.append(
-                visual_batch.reshape(-1, visual_batch.shape[-1]).numpy()
-            )
-            visual_token_row_indices.append(
-                np.repeat(np.asarray(row_indices, dtype=np.int64), num_query)
-            )
-            visual_token_positions.append(
-                np.tile(np.arange(num_query, dtype=np.int64), len(row_indices))
-            )
-
-            text_batch = first_block_input[:, num_query:, :].detach().float().cpu()
-            text_mask = captured["input_attention_mask"].detach().bool().cpu()
-            valid_text_positions = torch.nonzero(text_mask, as_tuple=False)
-            text_token_vectors.append(text_batch[text_mask].numpy())
-            text_token_row_indices.append(
-                np.asarray(row_indices, dtype=np.int64)[
-                    valid_text_positions[:, 0].numpy()
-                ]
-            )
-            text_token_positions.append(
-                valid_text_positions[:, 1].numpy().astype(np.int64, copy=False)
-            )
-            pooled_vectors["t5_encoder_last_hidden"].append(
-                masked_sequence_mean(captured["t5_encoder_last_hidden"], captured["encoder_attention_mask"])
-            )
-            pooled_vectors["t5_decoder_last_hidden"].append(
-                masked_sequence_mean(captured["t5_decoder_last_hidden"], captured["decoder_attention_mask"])
-            )
+            for name, mask in activation_masks.items():
+                if name == "final_logits":
+                    continue
+                pooled_vectors.setdefault(name, []).append(
+                    masked_sequence_mean(captured[name], mask)
+                )
 
             for local_idx, row in enumerate(batch_rows):
                 row_index = row_indices[local_idx]
@@ -1151,18 +1610,24 @@ def main() -> None:
                     row_index=row_index,
                     row=row,
                     image_path=image_paths[local_idx],
+                    input_text=input_texts[local_idx],
                     activation_stats=activation_stats,
                     output_stats=output_stats,
-                    topk_records=topk_records[local_idx],
+                    topk_records=(
+                        topk_records[local_idx]
+                        if topk_records is not None
+                        else None
+                    ),
                     local_idx=local_idx,
                     args=args,
                 )
                 records.append(record)
                 jsonl_f.write(json.dumps(record, ensure_ascii=False) + "\n")
                 row_index_values.append(row_index)
-                image_values.append(str(row.get(args.image_field)))
-                question_values.append(str(row.get(args.question_field, "")))
-                answer_values.append(answer_to_text(row.get(args.answer_field)))
+                image_values.append(str(row_value(row, args.image_field, "") or ""))
+                text_values.append(str(input_texts[local_idx] or ""))
+                question_values.append(str(row_value(row, args.question_field, "") or ""))
+                answer_values.append(answer_to_text(row_value(row, args.answer_field)))
 
             jsonl_f.flush()
 
@@ -1170,7 +1635,7 @@ def main() -> None:
                 save_full_tensor_batch(
                     os.path.join(full_dir, "batch_%06d.pt" % batch_start),
                     row_indices,
-                    image_paths,
+                    [path or "" for path in image_paths],
                     captured,
                     probs,
                     torch,
@@ -1182,7 +1647,9 @@ def main() -> None:
 
     npz_payload: Dict[str, Any] = {
         "row_index": np.asarray(row_index_values, dtype=np.int64),
+        "input_mode": np.asarray([args.input_mode] * len(row_index_values), dtype=str),
         "image": np.asarray(image_values, dtype=str),
+        "text": np.asarray(text_values, dtype=str),
         "question": np.asarray(question_values, dtype=str),
         "answer": np.asarray(answer_values, dtype=str),
     }
@@ -1192,18 +1659,49 @@ def main() -> None:
     }
     for name, values in concatenated_vectors.items():
         npz_payload[name + "_pooled"] = values
-    all_visual_token_vectors = np.concatenate(visual_token_vectors, axis=0)
-    all_visual_token_rows = np.concatenate(visual_token_row_indices, axis=0)
-    all_visual_token_positions = np.concatenate(visual_token_positions, axis=0)
-    all_text_token_vectors = np.concatenate(text_token_vectors, axis=0)
-    all_text_token_rows = np.concatenate(text_token_row_indices, axis=0)
-    all_text_token_positions = np.concatenate(text_token_positions, axis=0)
-    npz_payload["t5_visual_query_first_block_input_tokens"] = all_visual_token_vectors
-    npz_payload["t5_visual_query_token_row_index"] = all_visual_token_rows
-    npz_payload["t5_visual_query_token_position"] = all_visual_token_positions
-    npz_payload["t5_text_first_block_input_tokens"] = all_text_token_vectors
-    npz_payload["t5_text_token_row_index"] = all_text_token_rows
-    npz_payload["t5_text_token_position"] = all_text_token_positions
+    all_visual_token_vectors = (
+        np.concatenate(visual_token_vectors, axis=0)
+        if visual_token_vectors
+        else None
+    )
+    all_visual_token_rows = (
+        np.concatenate(visual_token_row_indices, axis=0)
+        if visual_token_row_indices
+        else None
+    )
+    all_visual_token_positions = (
+        np.concatenate(visual_token_positions, axis=0)
+        if visual_token_positions
+        else None
+    )
+    all_text_token_vectors = (
+        np.concatenate(text_token_vectors, axis=0)
+        if text_token_vectors
+        else None
+    )
+    all_text_token_rows = (
+        np.concatenate(text_token_row_indices, axis=0)
+        if text_token_row_indices
+        else None
+    )
+    all_text_token_positions = (
+        np.concatenate(text_token_positions, axis=0)
+        if text_token_positions
+        else None
+    )
+    if all_visual_token_vectors is not None:
+        visual_prefix = (
+            "vit_first_block_input"
+            if args.input_mode == "vit_image_only"
+            else "t5_visual_query_first_block_input"
+        )
+        npz_payload[visual_prefix + "_tokens"] = all_visual_token_vectors
+        npz_payload[visual_prefix + "_token_row_index"] = all_visual_token_rows
+        npz_payload[visual_prefix + "_token_position"] = all_visual_token_positions
+    if all_text_token_vectors is not None:
+        npz_payload["t5_text_first_block_input_tokens"] = all_text_token_vectors
+        npz_payload["t5_text_token_row_index"] = all_text_token_rows
+        npz_payload["t5_text_token_position"] = all_text_token_positions
     for metric_name, values in metric_store.items():
         npz_payload[metric_name.replace(".", "__")] = np.asarray(values, dtype=np.float32)
 
@@ -1215,24 +1713,64 @@ def main() -> None:
         f.write("\n")
 
     plot_paths = make_plots(out_dir, records)
-    tsne_plot_path, tsne_csv_path = make_visual_text_tsne(
-        out_dir=out_dir,
-        visual_vectors=all_visual_token_vectors,
-        text_vectors=all_text_token_vectors,
-        visual_row_indices=all_visual_token_rows,
-        visual_token_positions=all_visual_token_positions,
-        text_row_indices=all_text_token_rows,
-        text_token_positions=all_text_token_positions,
-        args=args,
-    )
-    if tsne_plot_path:
-        plot_paths.append(tsne_plot_path)
-    histogram_plot_path, histogram_csv_path = make_visual_text_activation_histogram(
-        out_dir=out_dir,
-        visual_vectors=all_visual_token_vectors,
-        text_vectors=all_text_token_vectors,
-        num_bins=args.activation_histogram_bins,
-    )
+    tsne_csv_path: Optional[str]
+    if args.input_mode == "multimodal":
+        tsne_plot_path, tsne_csv_path = make_visual_text_tsne(
+            out_dir=out_dir,
+            visual_vectors=all_visual_token_vectors,
+            text_vectors=all_text_token_vectors,
+            visual_row_indices=all_visual_token_rows,
+            visual_token_positions=all_visual_token_positions,
+            text_row_indices=all_text_token_rows,
+            text_token_positions=all_text_token_positions,
+            args=args,
+        )
+        if tsne_plot_path:
+            plot_paths.append(tsne_plot_path)
+        histogram_plot_path, histogram_csv_path = make_visual_text_activation_histogram(
+            out_dir=out_dir,
+            visual_vectors=all_visual_token_vectors,
+            text_vectors=all_text_token_vectors,
+            num_bins=args.activation_histogram_bins,
+        )
+    elif args.input_mode == "t5_c4_text":
+        tsne_plot_path, tsne_csv_path = make_single_modality_tsne(
+            out_dir,
+            all_text_token_vectors,
+            all_text_token_rows,
+            all_text_token_positions,
+            "Text",
+            "T5 First-Block Input",
+            args,
+        )
+        if tsne_plot_path:
+            plot_paths.append(tsne_plot_path)
+        histogram_plot_path, histogram_csv_path = make_single_modality_histogram(
+            out_dir,
+            all_text_token_vectors,
+            "Text",
+            "T5 First-Block Input",
+            args.activation_histogram_bins,
+        )
+    else:
+        tsne_plot_path, tsne_csv_path = make_single_modality_tsne(
+            out_dir,
+            all_visual_token_vectors,
+            all_visual_token_rows,
+            all_visual_token_positions,
+            "Visual",
+            "ViT First-Block Input",
+            args,
+        )
+        if tsne_plot_path:
+            plot_paths.append(tsne_plot_path)
+        histogram_plot_path, histogram_csv_path = make_single_modality_histogram(
+            out_dir,
+            all_visual_token_vectors,
+            "Visual",
+            "ViT First-Block Input",
+            args.activation_histogram_bins,
+        )
     plot_paths.append(histogram_plot_path)
     print("[OK] wrote:", jsonl_path)
     print("[OK] wrote:", os.path.join(out_dir, "activation_vectors_and_metrics.npz"))
