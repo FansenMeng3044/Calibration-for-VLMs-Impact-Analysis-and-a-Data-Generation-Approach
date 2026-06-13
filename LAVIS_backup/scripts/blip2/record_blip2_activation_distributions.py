@@ -25,6 +25,7 @@ Text-only C4 example:
 Image-only example:
   python scripts/blip2/record_blip2_activation_distributions.py \
     --input_mode vit_image_only \
+    --record_shared_t5_space \
     --calib_json /data/data2/mfs/CC3M_calib_128/cc3m_calib_128.json \
     --images_dir /data/data2/mfs/CC3M_calib_128/images \
     --ckpt /data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth \
@@ -69,6 +70,7 @@ ACTIVATION_LABELS = {
     "t5_text_embedding": "T5 Text Embedding",
     "vit_first_block_input": "ViT First-Block Input",
     "vit_last_hidden": "ViT Last Hidden (After ln_vision)",
+    "t5_visual_query_input": "Visual Query Input to T5",
     "t5_first_block_input": "T5 First-Block Input",
     "t5_encoder_last_hidden": "T5 Encoder Last Hidden",
     "t5_decoder_last_hidden": "T5 Decoder Last Hidden",
@@ -116,6 +118,14 @@ def parse_args() -> argparse.Namespace:
         "--text_field",
         default="auto",
         help="C4 dictionary field, or auto to try text/caption/text_input/output.",
+    )
+    ap.add_argument(
+        "--record_shared_t5_space",
+        action="store_true",
+        help=(
+            "In vit_image_only mode, additionally run Q-Former + t5_proj and save "
+            "visual query tokens in the shared T5 input space."
+        ),
     )
     ap.add_argument(
         "--max_txt_len",
@@ -431,6 +441,7 @@ def aggregate_summary(records: Sequence[Dict[str, Any]], args: argparse.Namespac
         "model_type": args.model_type,
         "checkpoint": os.path.abspath(args.ckpt),
         "input_mode": args.input_mode,
+        "record_shared_t5_space": bool(args.record_shared_t5_space),
         "metrics": {},
     }
     if not records:
@@ -1330,10 +1341,30 @@ def forward_image_only_and_capture(
                 vit_last_hidden = model.ln_vision(model.visual_encoder(image))
         if "vit_first_block_input" not in captures:
             raise RuntimeError("Failed to capture ViT first-block input activation.")
-        return {
+        result = {
             "vit_first_block_input": captures["vit_first_block_input"],
             "vit_last_hidden": vit_last_hidden.detach(),
         }
+        if args.record_shared_t5_space:
+            image_atts = torch.ones(
+                vit_last_hidden.size()[:-1],
+                dtype=torch.long,
+                device=vit_last_hidden.device,
+            )
+            query_tokens = model.query_tokens.expand(
+                vit_last_hidden.shape[0], -1, -1
+            )
+            with torch.no_grad():
+                query_output = model.Qformer.bert(
+                    query_embeds=query_tokens,
+                    encoder_hidden_states=vit_last_hidden,
+                    encoder_attention_mask=image_atts,
+                    return_dict=True,
+                )
+                result["t5_visual_query_input"] = model.t5_proj(
+                    query_output.last_hidden_state
+                ).detach()
+        return result
     finally:
         handle.remove()
 
@@ -1391,6 +1422,10 @@ def main() -> None:
         raise ValueError("--tsne_max_points_per_modality must be >= 2")
     if args.activation_histogram_bins < 2:
         raise ValueError("--activation_histogram_bins must be >= 2")
+    if args.record_shared_t5_space and args.input_mode != "vit_image_only":
+        raise ValueError(
+            "--record_shared_t5_space is only valid with --input_mode vit_image_only"
+        )
 
     try:
         import torch
@@ -1449,6 +1484,9 @@ def main() -> None:
     text_token_vectors: List[np.ndarray] = []
     text_token_row_indices: List[np.ndarray] = []
     text_token_positions: List[np.ndarray] = []
+    shared_visual_token_vectors: List[np.ndarray] = []
+    shared_visual_token_row_indices: List[np.ndarray] = []
+    shared_visual_token_positions: List[np.ndarray] = []
     row_index_values: List[int] = []
     image_values: List[str] = []
     text_values: List[str] = []
@@ -1563,6 +1601,8 @@ def main() -> None:
                     "vit_first_block_input": None,
                     "vit_last_hidden": None,
                 }
+                if "t5_visual_query_input" in captured:
+                    activation_masks["t5_visual_query_input"] = None
 
                 visual_batch = (
                     captured["vit_first_block_input"].detach().float().cpu()
@@ -1582,6 +1622,28 @@ def main() -> None:
                         len(row_indices),
                     )
                 )
+                if "t5_visual_query_input" in captured:
+                    shared_visual_batch = (
+                        captured["t5_visual_query_input"].detach().float().cpu()
+                    )
+                    num_query_tokens = shared_visual_batch.shape[1]
+                    shared_visual_token_vectors.append(
+                        shared_visual_batch.reshape(
+                            -1, shared_visual_batch.shape[-1]
+                        ).numpy()
+                    )
+                    shared_visual_token_row_indices.append(
+                        np.repeat(
+                            np.asarray(row_indices, dtype=np.int64),
+                            num_query_tokens,
+                        )
+                    )
+                    shared_visual_token_positions.append(
+                        np.tile(
+                            np.arange(num_query_tokens, dtype=np.int64),
+                            len(row_indices),
+                        )
+                    )
 
             activation_stats = {
                 name: sequence_stats(captured[name], mask)
@@ -1648,6 +1710,9 @@ def main() -> None:
     npz_payload: Dict[str, Any] = {
         "row_index": np.asarray(row_index_values, dtype=np.int64),
         "input_mode": np.asarray([args.input_mode] * len(row_index_values), dtype=str),
+        "record_shared_t5_space": np.asarray(
+            [bool(args.record_shared_t5_space)], dtype=np.bool_
+        ),
         "image": np.asarray(image_values, dtype=str),
         "text": np.asarray(text_values, dtype=str),
         "question": np.asarray(question_values, dtype=str),
@@ -1689,6 +1754,21 @@ def main() -> None:
         if text_token_positions
         else None
     )
+    all_shared_visual_token_vectors = (
+        np.concatenate(shared_visual_token_vectors, axis=0)
+        if shared_visual_token_vectors
+        else None
+    )
+    all_shared_visual_token_rows = (
+        np.concatenate(shared_visual_token_row_indices, axis=0)
+        if shared_visual_token_row_indices
+        else None
+    )
+    all_shared_visual_token_positions = (
+        np.concatenate(shared_visual_token_positions, axis=0)
+        if shared_visual_token_positions
+        else None
+    )
     if all_visual_token_vectors is not None:
         visual_prefix = (
             "vit_first_block_input"
@@ -1702,6 +1782,16 @@ def main() -> None:
         npz_payload["t5_text_first_block_input_tokens"] = all_text_token_vectors
         npz_payload["t5_text_token_row_index"] = all_text_token_rows
         npz_payload["t5_text_token_position"] = all_text_token_positions
+    if all_shared_visual_token_vectors is not None:
+        npz_payload[
+            "t5_visual_query_first_block_input_tokens"
+        ] = all_shared_visual_token_vectors
+        npz_payload[
+            "t5_visual_query_token_row_index"
+        ] = all_shared_visual_token_rows
+        npz_payload[
+            "t5_visual_query_token_position"
+        ] = all_shared_visual_token_positions
     for metric_name, values in metric_store.items():
         npz_payload[metric_name.replace(".", "__")] = np.asarray(values, dtype=np.float32)
 
