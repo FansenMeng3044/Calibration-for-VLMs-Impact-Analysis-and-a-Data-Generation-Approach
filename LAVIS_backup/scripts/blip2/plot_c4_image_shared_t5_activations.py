@@ -51,13 +51,28 @@ def parse_args() -> argparse.Namespace:
         "--coverage_threshold",
         type=float,
         default=3.0,
-        help="Absolute z-score threshold used for coverage bars and overlap.",
+        help="Absolute joint z-score threshold used for coverage bars and overlap.",
     )
     parser.add_argument(
         "--coverage_max_tokens_per_modality",
         type=int,
         default=5000,
         help="Equal token count cap used for each modality in coverage analysis.",
+    )
+    parser.add_argument(
+        "--coverage_statistic",
+        choices=["quantile", "max"],
+        default="quantile",
+        help=(
+            "Per-neuron statistic compared with the threshold. Quantile is "
+            "robust to token count; max reproduces the legacy any-token rule."
+        ),
+    )
+    parser.add_argument(
+        "--coverage_quantile",
+        type=float,
+        default=0.99,
+        help="Quantile of absolute z-scores used when coverage_statistic=quantile.",
     )
     return parser.parse_args()
 
@@ -139,8 +154,10 @@ def compute_neuron_coverage(
     image_vectors: np.ndarray,
     text_vectors: np.ndarray,
     thresholds: np.ndarray,
+    statistic: str = "quantile",
+    quantile: float = 0.99,
 ) -> Dict[str, Any]:
-    """Compute per-dimension coverage after joint per-neuron z-score scaling."""
+    """Compute robust per-dimension coverage after joint z-score scaling."""
     if image_vectors.ndim != 2 or text_vectors.ndim != 2:
         raise ValueError("Coverage vectors must be two-dimensional.")
     if image_vectors.shape[1] != text_vectors.shape[1]:
@@ -150,6 +167,10 @@ def compute_neuron_coverage(
             "Coverage requires equal token counts per modality, got %d and %d."
             % (len(image_vectors), len(text_vectors))
         )
+    if statistic not in ("quantile", "max"):
+        raise ValueError("Unsupported coverage statistic: %s" % statistic)
+    if not 0.0 < quantile <= 1.0:
+        raise ValueError("Coverage quantile must be in (0, 1].")
 
     image = finite_vectors(image_vectors).astype(np.float64, copy=False)
     text = finite_vectors(text_vectors).astype(np.float64, copy=False)
@@ -157,13 +178,23 @@ def compute_neuron_coverage(
     joint_mean = np.mean(combined, axis=0)
     joint_std = np.std(combined, axis=0)
     joint_std = np.where(joint_std > 1e-12, joint_std, 1.0)
-    image_max_abs_z = np.max(np.abs((image - joint_mean) / joint_std), axis=0)
-    text_max_abs_z = np.max(np.abs((text - joint_mean) / joint_std), axis=0)
+    image_abs_z = np.abs((image - joint_mean) / joint_std)
+    text_abs_z = np.abs((text - joint_mean) / joint_std)
+    if statistic == "max":
+        image_score = np.max(image_abs_z, axis=0)
+        text_score = np.max(text_abs_z, axis=0)
+        statistic_label = "Maximum Absolute Joint Z-Score"
+    else:
+        image_score = np.quantile(image_abs_z, quantile, axis=0)
+        text_score = np.quantile(text_abs_z, quantile, axis=0)
+        statistic_label = "%.1fth Percentile Absolute Joint Z-Score" % (
+            100.0 * quantile
+        )
 
     curve = []
     for threshold in thresholds:
-        image_covered = image_max_abs_z > float(threshold)
-        text_covered = text_max_abs_z > float(threshold)
+        image_covered = image_score > float(threshold)
+        text_covered = text_score > float(threshold)
         union = image_covered | text_covered
         intersection = image_covered & text_covered
         union_count = int(np.sum(union))
@@ -189,8 +220,11 @@ def compute_neuron_coverage(
     return {
         "hidden_size": int(image.shape[1]),
         "tokens_per_modality": int(len(image)),
-        "image_max_abs_z": image_max_abs_z,
-        "text_max_abs_z": text_max_abs_z,
+        "statistic": statistic,
+        "quantile": float(quantile),
+        "statistic_label": statistic_label,
+        "image_coverage_score": image_score,
+        "text_coverage_score": text_score,
         "curve": curve,
     }
 
@@ -339,10 +373,12 @@ def make_neuron_coverage_plots(
     """Write threshold curve, fixed-threshold bars, overlap, and CSV files."""
     curve = coverage["curve"]
     hidden_size = int(coverage["hidden_size"])
-    image_max = np.asarray(coverage["image_max_abs_z"])
-    text_max = np.asarray(coverage["text_max_abs_z"])
-    image_covered = image_max > fixed_threshold
-    text_covered = text_max > fixed_threshold
+    statistic = str(coverage["statistic"])
+    statistic_label = str(coverage["statistic_label"])
+    image_score = np.asarray(coverage["image_coverage_score"])
+    text_score = np.asarray(coverage["text_coverage_score"])
+    image_covered = image_score > fixed_threshold
+    text_covered = text_score > fixed_threshold
     both = image_covered & text_covered
     image_only = image_covered & ~text_covered
     text_only = text_covered & ~image_covered
@@ -379,8 +415,9 @@ def make_neuron_coverage_plots(
             handle,
             fieldnames=[
                 "neuron_index",
-                "image_max_abs_z",
-                "c4_text_max_abs_z",
+                "coverage_statistic",
+                "image_coverage_score",
+                "c4_text_coverage_score",
                 "image_covered",
                 "c4_text_covered",
                 "coverage_category",
@@ -399,8 +436,9 @@ def make_neuron_coverage_plots(
             writer.writerow(
                 {
                     "neuron_index": index,
-                    "image_max_abs_z": float(image_max[index]),
-                    "c4_text_max_abs_z": float(text_max[index]),
+                    "coverage_statistic": statistic,
+                    "image_coverage_score": float(image_score[index]),
+                    "c4_text_coverage_score": float(text_score[index]),
                     "image_covered": bool(image_covered[index]),
                     "c4_text_covered": bool(text_covered[index]),
                     "coverage_category": category,
@@ -442,12 +480,12 @@ def make_neuron_coverage_plots(
         color="#7A6F9B",
         label="Union",
     )
-    ax.set_xlabel("Coverage Threshold (Absolute Joint Z-Score)")
+    ax.set_xlabel("Coverage Threshold (%s)" % statistic_label)
     ax.set_ylabel("Covered Neurons (%)")
     ax.set_ylim(0, 102)
     ax.set_title(
         "Neuron Coverage Across Activation Thresholds\n"
-        "(Shared T5 First-Block Input Dimensions)"
+        "(%s)" % statistic_label
     )
     ax.legend(frameon=True)
     ax.grid(alpha=0.2, linewidth=0.6)
@@ -486,8 +524,9 @@ def make_neuron_coverage_plots(
     ax.set_ylim(0, 108)
     ax.set_ylabel("Covered Neurons (%)")
     ax.set_title(
-        "Neuron Coverage at |z| > %.2f\n"
-        "(%d Shared T5 Input Dimensions)" % (fixed_threshold, hidden_size)
+        "Neuron Coverage at Score > %.2f\n"
+        "(%s; %d T5 Input Dimensions)"
+        % (fixed_threshold, statistic_label, hidden_size)
     )
     ax.grid(axis="y", alpha=0.2, linewidth=0.6)
     fig.tight_layout()
@@ -527,8 +566,8 @@ def make_neuron_coverage_plots(
     ax.set_ylim(0, 108)
     ax.set_ylabel("All Neurons (%)")
     ax.set_title(
-        "Neuron Coverage Overlap at |z| > %.2f\n"
-        "(Image Visual Query vs. C4 Text)" % fixed_threshold
+        "Neuron Coverage Overlap at Score > %.2f\n"
+        "(%s)" % (fixed_threshold, statistic_label)
     )
     ax.grid(axis="y", alpha=0.2, linewidth=0.6)
     fig.tight_layout()
@@ -540,6 +579,9 @@ def make_neuron_coverage_plots(
 
     fixed_summary = {
         "threshold": float(fixed_threshold),
+        "coverage_statistic": statistic,
+        "coverage_quantile": float(coverage["quantile"]),
+        "coverage_statistic_label": statistic_label,
         "hidden_size": hidden_size,
         "tokens_per_modality": int(coverage["tokens_per_modality"]),
         "image_covered_count": int(np.sum(image_covered)),
@@ -580,6 +622,8 @@ def main() -> None:
         raise ValueError("--coverage_threshold must be >= 0")
     if args.coverage_max_tokens_per_modality < 2:
         raise ValueError("--coverage_max_tokens_per_modality must be >= 2")
+    if not 0.0 < args.coverage_quantile <= 1.0:
+        raise ValueError("--coverage_quantile must be in (0, 1]")
     coverage_thresholds = np.unique(
         np.append(parse_thresholds(args.coverage_thresholds), args.coverage_threshold)
     )
@@ -713,6 +757,8 @@ def main() -> None:
         image_vectors[coverage_image_indices],
         text_vectors[coverage_text_indices],
         coverage_thresholds,
+        statistic=args.coverage_statistic,
+        quantile=args.coverage_quantile,
     )
     coverage_paths, coverage_summary = make_neuron_coverage_plots(
         out_dir,
@@ -720,7 +766,7 @@ def main() -> None:
         args.coverage_threshold,
     )
     print(
-        "Neuron coverage at |z| > %.2f: Image=%.2f%% C4=%.2f%% "
+        "Neuron coverage at score > %.2f: Image=%.2f%% C4=%.2f%% "
         "Both=%.2f%% Jaccard=%.4f"
         % (
             args.coverage_threshold,
@@ -743,14 +789,17 @@ def main() -> None:
         "random_state": int(args.random_state),
         "neuron_coverage": {
             "definition": (
-                "A T5 input dimension is covered when its maximum absolute "
-                "jointly standardized activation exceeds the threshold."
+                "A T5 input dimension is covered when its selected statistic "
+                "over absolute jointly standardized activations exceeds the "
+                "threshold."
             ),
             "normalization": (
                 "Per-dimension mean and standard deviation from balanced image "
                 "and C4 token samples."
             ),
             "thresholds": [float(value) for value in coverage_thresholds],
+            "statistic": args.coverage_statistic,
+            "quantile": float(args.coverage_quantile),
             "fixed_threshold_summary": coverage_summary,
         },
     }
