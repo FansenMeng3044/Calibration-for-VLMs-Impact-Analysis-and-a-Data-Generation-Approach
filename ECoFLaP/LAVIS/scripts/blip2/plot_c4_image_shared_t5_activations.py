@@ -30,8 +30,8 @@ TEXT_POSITION_KEY = "t5_text_token_position"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Create one joint t-SNE and histogram for image visual-query tokens "
-            "and C4 text tokens in the shared T5 input space."
+            "Create joint t-SNE, histogram, and neuron-coverage plots for image "
+            "visual-query tokens and C4 text tokens in the shared T5 input space."
         ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -42,6 +42,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--perplexity", type=float, default=30.0)
     parser.add_argument("--random_state", type=int, default=42)
     parser.add_argument("--histogram_bins", type=int, default=80)
+    parser.add_argument(
+        "--coverage_thresholds",
+        default="0.5,1,1.5,2,2.5,3,3.5,4,5,6",
+        help="Comma-separated absolute z-score thresholds for the coverage curve.",
+    )
+    parser.add_argument(
+        "--coverage_threshold",
+        type=float,
+        default=3.0,
+        help="Absolute z-score threshold used for coverage bars and overlap.",
+    )
+    parser.add_argument(
+        "--coverage_max_tokens_per_modality",
+        type=int,
+        default=5000,
+        help="Equal token count cap used for each modality in coverage analysis.",
+    )
     return parser.parse_args()
 
 
@@ -103,6 +120,79 @@ def select_indices(
 
 def finite_vectors(vectors: np.ndarray) -> np.ndarray:
     return np.nan_to_num(vectors, nan=0.0, posinf=0.0, neginf=0.0)
+
+
+def parse_thresholds(value: str) -> np.ndarray:
+    try:
+        thresholds = np.asarray(
+            [float(item.strip()) for item in value.split(",") if item.strip()],
+            dtype=np.float32,
+        )
+    except ValueError as exc:
+        raise ValueError("--coverage_thresholds must contain numbers.") from exc
+    if thresholds.size == 0 or np.any(thresholds < 0):
+        raise ValueError("--coverage_thresholds must contain non-negative values.")
+    return np.unique(np.sort(thresholds))
+
+
+def compute_neuron_coverage(
+    image_vectors: np.ndarray,
+    text_vectors: np.ndarray,
+    thresholds: np.ndarray,
+) -> Dict[str, Any]:
+    """Compute per-dimension coverage after joint per-neuron z-score scaling."""
+    if image_vectors.ndim != 2 or text_vectors.ndim != 2:
+        raise ValueError("Coverage vectors must be two-dimensional.")
+    if image_vectors.shape[1] != text_vectors.shape[1]:
+        raise ValueError("Coverage vectors must have the same hidden size.")
+    if len(image_vectors) != len(text_vectors):
+        raise ValueError(
+            "Coverage requires equal token counts per modality, got %d and %d."
+            % (len(image_vectors), len(text_vectors))
+        )
+
+    image = finite_vectors(image_vectors).astype(np.float64, copy=False)
+    text = finite_vectors(text_vectors).astype(np.float64, copy=False)
+    combined = np.concatenate([image, text], axis=0)
+    joint_mean = np.mean(combined, axis=0)
+    joint_std = np.std(combined, axis=0)
+    joint_std = np.where(joint_std > 1e-12, joint_std, 1.0)
+    image_max_abs_z = np.max(np.abs((image - joint_mean) / joint_std), axis=0)
+    text_max_abs_z = np.max(np.abs((text - joint_mean) / joint_std), axis=0)
+
+    curve = []
+    for threshold in thresholds:
+        image_covered = image_max_abs_z > float(threshold)
+        text_covered = text_max_abs_z > float(threshold)
+        union = image_covered | text_covered
+        intersection = image_covered & text_covered
+        union_count = int(np.sum(union))
+        intersection_count = int(np.sum(intersection))
+        curve.append(
+            {
+                "threshold": float(threshold),
+                "image_count": int(np.sum(image_covered)),
+                "text_count": int(np.sum(text_covered)),
+                "union_count": union_count,
+                "intersection_count": intersection_count,
+                "image_rate": float(np.mean(image_covered)),
+                "text_rate": float(np.mean(text_covered)),
+                "union_rate": float(np.mean(union)),
+                "intersection_rate": float(np.mean(intersection)),
+                "jaccard": (
+                    float(intersection_count / union_count)
+                    if union_count
+                    else 1.0
+                ),
+            }
+        )
+    return {
+        "hidden_size": int(image.shape[1]),
+        "tokens_per_modality": int(len(image)),
+        "image_max_abs_z": image_max_abs_z,
+        "text_max_abs_z": text_max_abs_z,
+        "curve": curve,
+    }
 
 
 def write_tsne_csv(
@@ -241,6 +331,243 @@ def make_histogram(
     return plot_path, csv_path
 
 
+def make_neuron_coverage_plots(
+    out_dir: str,
+    coverage: Dict[str, Any],
+    fixed_threshold: float,
+) -> Tuple[Tuple[str, ...], Dict[str, Any]]:
+    """Write threshold curve, fixed-threshold bars, overlap, and CSV files."""
+    curve = coverage["curve"]
+    hidden_size = int(coverage["hidden_size"])
+    image_max = np.asarray(coverage["image_max_abs_z"])
+    text_max = np.asarray(coverage["text_max_abs_z"])
+    image_covered = image_max > fixed_threshold
+    text_covered = text_max > fixed_threshold
+    both = image_covered & text_covered
+    image_only = image_covered & ~text_covered
+    text_only = text_covered & ~image_covered
+    neither = ~image_covered & ~text_covered
+    union = image_covered | text_covered
+    union_count = int(np.sum(union))
+    both_count = int(np.sum(both))
+
+    curve_csv_path = os.path.join(
+        out_dir, "image_c4_neuron_coverage_curve.csv"
+    )
+    curve_fields = [
+        "threshold",
+        "image_count",
+        "text_count",
+        "union_count",
+        "intersection_count",
+        "image_rate",
+        "text_rate",
+        "union_rate",
+        "intersection_rate",
+        "jaccard",
+    ]
+    with open(curve_csv_path, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=curve_fields)
+        writer.writeheader()
+        writer.writerows(curve)
+
+    neuron_csv_path = os.path.join(
+        out_dir, "image_c4_neuron_coverage_by_dimension.csv"
+    )
+    with open(neuron_csv_path, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "neuron_index",
+                "image_max_abs_z",
+                "c4_text_max_abs_z",
+                "image_covered",
+                "c4_text_covered",
+                "coverage_category",
+            ],
+        )
+        writer.writeheader()
+        for index in range(hidden_size):
+            if both[index]:
+                category = "both"
+            elif image_only[index]:
+                category = "image_only"
+            elif text_only[index]:
+                category = "c4_text_only"
+            else:
+                category = "neither"
+            writer.writerow(
+                {
+                    "neuron_index": index,
+                    "image_max_abs_z": float(image_max[index]),
+                    "c4_text_max_abs_z": float(text_max[index]),
+                    "image_covered": bool(image_covered[index]),
+                    "c4_text_covered": bool(text_covered[index]),
+                    "coverage_category": category,
+                }
+            )
+
+    plt = setup_matplotlib()
+    thresholds = np.asarray([item["threshold"] for item in curve])
+    image_rates = 100.0 * np.asarray([item["image_rate"] for item in curve])
+    text_rates = 100.0 * np.asarray([item["text_rate"] for item in curve])
+    union_rates = 100.0 * np.asarray([item["union_rate"] for item in curve])
+
+    fig, ax = plt.subplots(figsize=(8.2, 5.6))
+    ax.plot(
+        thresholds,
+        image_rates,
+        marker="o",
+        markersize=4,
+        linewidth=1.8,
+        color="#4C91AC",
+        label="Image Visual Query",
+    )
+    ax.plot(
+        thresholds,
+        text_rates,
+        marker="s",
+        markersize=4,
+        linewidth=1.8,
+        color="#5B9B52",
+        label="C4 Text",
+    )
+    ax.plot(
+        thresholds,
+        union_rates,
+        marker="^",
+        markersize=4,
+        linewidth=1.5,
+        linestyle="--",
+        color="#7A6F9B",
+        label="Union",
+    )
+    ax.set_xlabel("Coverage Threshold (Absolute Joint Z-Score)")
+    ax.set_ylabel("Covered Neurons (%)")
+    ax.set_ylim(0, 102)
+    ax.set_title(
+        "Neuron Coverage Across Activation Thresholds\n"
+        "(Shared T5 First-Block Input Dimensions)"
+    )
+    ax.legend(frameon=True)
+    ax.grid(alpha=0.2, linewidth=0.6)
+    fig.tight_layout()
+    curve_plot_path = os.path.join(
+        out_dir, "image_c4_neuron_coverage_curve.png"
+    )
+    fig.savefig(curve_plot_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+    bar_labels = ["Image", "C4 Text", "Both", "Union"]
+    bar_counts = [
+        int(np.sum(image_covered)),
+        int(np.sum(text_covered)),
+        both_count,
+        union_count,
+    ]
+    bar_rates = 100.0 * np.asarray(bar_counts, dtype=np.float64) / hidden_size
+    fig, ax = plt.subplots(figsize=(7.4, 5.4))
+    bars = ax.bar(
+        bar_labels,
+        bar_rates,
+        color=["#8FC5DA", "#93CD81", "#8B9E78", "#9B91B8"],
+        edgecolor=["#567B89", "#527A48", "#596B4C", "#655D7A"],
+        linewidth=0.7,
+    )
+    for bar, rate, count in zip(bars, bar_rates, bar_counts):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            min(rate + 1.5, 100.0),
+            "%.1f%%\n(%d)" % (rate, count),
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+    ax.set_ylim(0, 108)
+    ax.set_ylabel("Covered Neurons (%)")
+    ax.set_title(
+        "Neuron Coverage at |z| > %.2f\n"
+        "(%d Shared T5 Input Dimensions)" % (fixed_threshold, hidden_size)
+    )
+    ax.grid(axis="y", alpha=0.2, linewidth=0.6)
+    fig.tight_layout()
+    bar_plot_path = os.path.join(
+        out_dir, "image_c4_neuron_coverage_bar.png"
+    )
+    fig.savefig(bar_plot_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+    overlap_labels = ["Image Only", "C4 Only", "Both", "Neither"]
+    overlap_counts = [
+        int(np.sum(image_only)),
+        int(np.sum(text_only)),
+        both_count,
+        int(np.sum(neither)),
+    ]
+    overlap_rates = (
+        100.0 * np.asarray(overlap_counts, dtype=np.float64) / hidden_size
+    )
+    fig, ax = plt.subplots(figsize=(7.6, 5.4))
+    bars = ax.bar(
+        overlap_labels,
+        overlap_rates,
+        color=["#8FC5DA", "#93CD81", "#8B9E78", "#C9C9C9"],
+        edgecolor=["#567B89", "#527A48", "#596B4C", "#777777"],
+        linewidth=0.7,
+    )
+    for bar, rate, count in zip(bars, overlap_rates, overlap_counts):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            min(rate + 1.5, 100.0),
+            "%.1f%%\n(%d)" % (rate, count),
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+    ax.set_ylim(0, 108)
+    ax.set_ylabel("All Neurons (%)")
+    ax.set_title(
+        "Neuron Coverage Overlap at |z| > %.2f\n"
+        "(Image Visual Query vs. C4 Text)" % fixed_threshold
+    )
+    ax.grid(axis="y", alpha=0.2, linewidth=0.6)
+    fig.tight_layout()
+    overlap_plot_path = os.path.join(
+        out_dir, "image_c4_neuron_coverage_overlap.png"
+    )
+    fig.savefig(overlap_plot_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+    fixed_summary = {
+        "threshold": float(fixed_threshold),
+        "hidden_size": hidden_size,
+        "tokens_per_modality": int(coverage["tokens_per_modality"]),
+        "image_covered_count": int(np.sum(image_covered)),
+        "image_covered_rate": float(np.mean(image_covered)),
+        "c4_text_covered_count": int(np.sum(text_covered)),
+        "c4_text_covered_rate": float(np.mean(text_covered)),
+        "both_count": both_count,
+        "both_rate": float(np.mean(both)),
+        "image_only_count": int(np.sum(image_only)),
+        "image_only_rate": float(np.mean(image_only)),
+        "c4_text_only_count": int(np.sum(text_only)),
+        "c4_text_only_rate": float(np.mean(text_only)),
+        "neither_count": int(np.sum(neither)),
+        "neither_rate": float(np.mean(neither)),
+        "union_count": union_count,
+        "union_rate": float(np.mean(union)),
+        "jaccard": float(both_count / union_count) if union_count else 1.0,
+    }
+    paths = (
+        curve_plot_path,
+        bar_plot_path,
+        overlap_plot_path,
+        curve_csv_path,
+        neuron_csv_path,
+    )
+    return paths, fixed_summary
+
+
 def main() -> None:
     args = parse_args()
     if args.max_points_per_modality < 2:
@@ -249,6 +576,13 @@ def main() -> None:
         raise ValueError("--perplexity must be > 0")
     if args.histogram_bins < 2:
         raise ValueError("--histogram_bins must be >= 2")
+    if args.coverage_threshold < 0:
+        raise ValueError("--coverage_threshold must be >= 0")
+    if args.coverage_max_tokens_per_modality < 2:
+        raise ValueError("--coverage_max_tokens_per_modality must be >= 2")
+    coverage_thresholds = np.unique(
+        np.append(parse_thresholds(args.coverage_thresholds), args.coverage_threshold)
+    )
 
     try:
         from sklearn.manifold import TSNE
@@ -363,6 +697,39 @@ def main() -> None:
         selected_text_vectors,
         args.histogram_bins,
     )
+    coverage_token_count = min(
+        len(image_vectors),
+        len(text_vectors),
+        args.coverage_max_tokens_per_modality,
+    )
+    coverage_rng = np.random.RandomState(args.random_state + 1)
+    coverage_image_indices = select_indices(
+        len(image_vectors), coverage_token_count, coverage_rng
+    )
+    coverage_text_indices = select_indices(
+        len(text_vectors), coverage_token_count, coverage_rng
+    )
+    coverage = compute_neuron_coverage(
+        image_vectors[coverage_image_indices],
+        text_vectors[coverage_text_indices],
+        coverage_thresholds,
+    )
+    coverage_paths, coverage_summary = make_neuron_coverage_plots(
+        out_dir,
+        coverage,
+        args.coverage_threshold,
+    )
+    print(
+        "Neuron coverage at |z| > %.2f: Image=%.2f%% C4=%.2f%% "
+        "Both=%.2f%% Jaccard=%.4f"
+        % (
+            args.coverage_threshold,
+            100.0 * coverage_summary["image_covered_rate"],
+            100.0 * coverage_summary["c4_text_covered_rate"],
+            100.0 * coverage_summary["both_rate"],
+            coverage_summary["jaccard"],
+        )
+    )
 
     summary: Dict[str, Any] = {
         "image_npz": os.path.abspath(args.image_npz),
@@ -374,6 +741,18 @@ def main() -> None:
         "c4_text_tokens_plotted": int(len(text_selected)),
         "perplexity": float(perplexity),
         "random_state": int(args.random_state),
+        "neuron_coverage": {
+            "definition": (
+                "A T5 input dimension is covered when its maximum absolute "
+                "jointly standardized activation exceeds the threshold."
+            ),
+            "normalization": (
+                "Per-dimension mean and standard deviation from balanced image "
+                "and C4 token samples."
+            ),
+            "thresholds": [float(value) for value in coverage_thresholds],
+            "fixed_threshold_summary": coverage_summary,
+        },
     }
     summary_path = os.path.join(out_dir, "image_c4_shared_t5_summary.json")
     with open(summary_path, "w", encoding="utf-8") as handle:
@@ -394,6 +773,7 @@ def main() -> None:
         tsne_csv_path,
         histogram_plot_path,
         histogram_csv_path,
+        *coverage_paths,
         summary_path,
     ):
         print("[OK] wrote:", path)
