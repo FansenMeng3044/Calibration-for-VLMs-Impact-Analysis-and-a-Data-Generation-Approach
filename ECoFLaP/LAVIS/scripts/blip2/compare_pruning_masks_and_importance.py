@@ -103,7 +103,27 @@ def unwrap_state_dict(obj: Any) -> Dict[str, Any]:
 
 def load_state_dict(path: str) -> Dict[str, Any]:
     state = unwrap_state_dict(torch_load(path))
-    return {str(k): v for k, v in state.items() if hasattr(v, "shape")}
+    out: Dict[str, Any] = {}
+    for key, value in state.items():
+        if hasattr(value, "shape"):
+            out[canonical_key(str(key))] = value
+    return out
+
+
+def canonical_key(key: str) -> str:
+    """Normalize common checkpoint wrappers while keeping model-internal names."""
+    changed = True
+    while changed:
+        changed = False
+        for prefix in ("module.", "model.", "_orig_mod.", "blip2.", "base_model."):
+            if key.startswith(prefix):
+                key = key[len(prefix) :]
+                changed = True
+
+    # Some T5-only checkpoints save the HF T5 module directly.
+    if key.startswith(("encoder.", "decoder.", "shared.", "lm_head.")):
+        key = "t5_model." + key
+    return key
 
 
 def tensor_to_numpy(tensor: Any) -> np.ndarray:
@@ -123,6 +143,7 @@ def is_float_tensor(tensor: Any) -> bool:
 
 
 def component_of_key(key: str) -> Optional[str]:
+    key = canonical_key(key)
     if key.startswith("t5_model."):
         return "t5"
     if key.startswith("visual_encoder.") or key.startswith("ln_vision."):
@@ -133,6 +154,7 @@ def component_of_key(key: str) -> Optional[str]:
 
 
 def layer_id_for_key(key: str, component: str) -> str:
+    key = canonical_key(key)
     if component == "t5":
         m = re.search(r"t5_model\.(encoder|decoder)\.block\.(\d+)", key)
         if m:
@@ -157,6 +179,7 @@ def layer_id_for_key(key: str, component: str) -> str:
 
 
 def should_include_param(key: str, tensor: Any, component: str, include_bias: bool) -> bool:
+    key = canonical_key(key)
     if component_of_key(key) != component:
         return False
     if not is_float_tensor(tensor):
@@ -178,6 +201,7 @@ def infer_masks(
 ) -> Dict[str, Dict[str, Any]]:
     masks: Dict[str, Dict[str, Any]] = {}
     for key, base_tensor in base_state.items():
+        key = canonical_key(key)
         if key not in pruned_state:
             continue
         if not should_include_param(key, base_tensor, component, include_bias):
@@ -199,6 +223,29 @@ def infer_masks(
             "shape": tuple(base_arr.shape),
         }
     return masks
+
+
+def checkpoint_diagnostics(name: str, state: Dict[str, Any], include_bias: bool) -> Dict[str, Any]:
+    keys = sorted(state.keys())
+    t5 = [
+        key
+        for key, value in state.items()
+        if should_include_param(key, value, "t5", include_bias)
+    ]
+    vit = [
+        key
+        for key, value in state.items()
+        if should_include_param(key, value, "vit", include_bias)
+    ]
+    return {
+        "name": name,
+        "num_tensors": len(keys),
+        "num_t5_candidate_tensors": len(t5),
+        "num_vit_candidate_tensors": len(vit),
+        "first_keys": keys[:20],
+        "first_t5_keys": sorted(t5)[:10],
+        "first_vit_keys": sorted(vit)[:10],
+    }
 
 
 def mask_iou(mask_a: np.ndarray, mask_b: np.ndarray, valid: np.ndarray) -> Tuple[float, int, int]:
@@ -494,6 +541,7 @@ def filter_importance(
 ) -> Dict[str, np.ndarray]:
     out = {}
     for key, arr in importance.items():
+        key = canonical_key(key)
         if component_of_key(key) != component:
             continue
         if not include_bias and np.asarray(arr).ndim < 2:
@@ -591,6 +639,25 @@ def main() -> None:
     c4_t5 = load_state_dict(args.c4_t5_ckpt)
     cc3m_multi = load_state_dict(args.cc3m_multimodal_ckpt)
     cc3m_img = load_state_dict(args.cc3m_image_vit_ckpt)
+    diagnostics = [
+        checkpoint_diagnostics("base", base, args.include_bias),
+        checkpoint_diagnostics("c4_t5", c4_t5, args.include_bias),
+        checkpoint_diagnostics("cc3m_multimodal", cc3m_multi, args.include_bias),
+        checkpoint_diagnostics("cc3m_image_vit", cc3m_img, args.include_bias),
+    ]
+    with open(os.path.join(args.out_dir, "checkpoint_key_diagnostics.json"), "w", encoding="utf-8") as handle:
+        json.dump(diagnostics, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    for item in diagnostics:
+        print(
+            "%s: tensors=%d t5_candidates=%d vit_candidates=%d"
+            % (
+                item["name"],
+                item["num_tensors"],
+                item["num_t5_candidate_tensors"],
+                item["num_vit_candidate_tensors"],
+            )
+        )
 
     mask_sets = {
         "c4_t5": {
@@ -607,6 +674,22 @@ def main() -> None:
     for label, comps in mask_sets.items():
         for component, masks in comps.items():
             print("%s %s tensors: %d" % (label, component, len(masks)))
+
+    required_counts = {
+        "c4_t5/t5": len(mask_sets["c4_t5"]["t5"]),
+        "cc3m_multimodal/t5": len(mask_sets["cc3m_multimodal"]["t5"]),
+        "cc3m_multimodal/vit": len(mask_sets["cc3m_multimodal"]["vit"]),
+        "cc3m_image_vit/vit": len(mask_sets["cc3m_image_vit"]["vit"]),
+    }
+    if any(count == 0 for count in required_counts.values()):
+        missing = [name for name, count in required_counts.items() if count == 0]
+        raise SystemExit(
+            "No comparable pruning masks found for: %s. "
+            "See checkpoint_key_diagnostics.json in --out_dir for key-prefix examples. "
+            "Common causes: wrong checkpoint path, wrapper-only checkpoint, or a checkpoint "
+            "that does not contain the requested module."
+            % ", ".join(missing)
+        )
 
     param_rows: List[Dict[str, Any]] = []
     layer_compare_rows: List[Dict[str, Any]] = []
@@ -680,6 +763,7 @@ def main() -> None:
                     "keep": "valid and pruned checkpoint abs(value) > zero_tol",
                 },
                 "summary": summary_rows,
+                "checkpoint_key_diagnostics": diagnostics,
             },
             handle,
             ensure_ascii=False,
