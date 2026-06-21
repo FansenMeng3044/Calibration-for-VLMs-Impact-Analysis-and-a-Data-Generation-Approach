@@ -36,6 +36,23 @@ def parse_args() -> argparse.Namespace:
         help="Restrict comparison to one component family.",
     )
     parser.add_argument("--no_plots", action="store_true")
+    parser.add_argument(
+        "--position_plot_count",
+        type=int,
+        default=12,
+        help="Number of most-different modules to render as position-level plots. Set 0 to disable.",
+    )
+    parser.add_argument(
+        "--position_module_regex",
+        default="",
+        help="Optional regex over module_name/role/component to choose modules for position plots.",
+    )
+    parser.add_argument(
+        "--position_downsample",
+        type=int,
+        default=256,
+        help="Maximum side length used when block-downsampling large matrix heatmaps.",
+    )
     return parser.parse_args()
 
 
@@ -197,6 +214,47 @@ def get_array(arrays: Any, key: str) -> Optional[np.ndarray]:
     return arrays[key] if key in arrays.files else None
 
 
+def array_percentile_clip(x: np.ndarray, low: float = 1.0, high: float = 99.0) -> Tuple[float, float]:
+    finite = x[np.isfinite(x)]
+    if finite.size == 0:
+        return 0.0, 1.0
+    lo = float(np.percentile(finite, low))
+    hi = float(np.percentile(finite, high))
+    if lo == hi:
+        hi = lo + 1e-12
+    return lo, hi
+
+
+def downsample_mean(x: np.ndarray, max_side: int) -> np.ndarray:
+    if x.ndim != 2:
+        return x
+    rows, cols = x.shape
+    if rows <= max_side and cols <= max_side:
+        return x
+    row_bins = min(rows, max_side)
+    col_bins = min(cols, max_side)
+    row_edges = np.linspace(0, rows, row_bins + 1, dtype=np.int64)
+    col_edges = np.linspace(0, cols, col_bins + 1, dtype=np.int64)
+    out = np.zeros((row_bins, col_bins), dtype=np.float32)
+    for i in range(row_bins):
+        r0, r1 = int(row_edges[i]), int(row_edges[i + 1])
+        for j in range(col_bins):
+            c0, c1 = int(col_edges[j]), int(col_edges[j + 1])
+            block = x[r0:r1, c0:c1]
+            out[i, j] = float(block.mean()) if block.size else 0.0
+    return out
+
+
+def make_position_safe_name(row: Dict[str, Any], index: int) -> str:
+    text = "%03d_%s_L%s_%s" % (
+        index,
+        str(row.get("component", "")),
+        str(row.get("layer", "")),
+        str(row.get("role", "")),
+    )
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", text)
+
+
 def compare_modules(args: argparse.Namespace) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     rows_a, arrays_a = load_run(args.run_a_dir)
     rows_b, arrays_b = load_run(args.run_b_dir)
@@ -342,6 +400,148 @@ def make_plots(out_dir: str, layer_rows: Sequence[Dict[str, Any]], module_rows: 
     return paths
 
 
+def select_position_rows(args: argparse.Namespace, module_rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows = list(module_rows)
+    if args.position_module_regex:
+        pattern = re.compile(args.position_module_regex)
+        rows = [
+            row
+            for row in rows
+            if pattern.search(
+                "%s %s %s"
+                % (str(row.get("module_name", "")), str(row.get("role", "")), str(row.get("component", "")))
+            )
+        ]
+    rows = [
+        row
+        for row in rows
+        if row.get("mask_available") and math.isfinite(float(row.get("pruned_iou", float("nan"))))
+    ]
+    rows.sort(key=lambda row: float(row.get("pruned_iou", 1.0)))
+    return rows[: max(int(args.position_plot_count), 0)]
+
+
+def make_position_plots(args: argparse.Namespace, module_rows: Sequence[Dict[str, Any]]) -> List[str]:
+    if args.position_plot_count <= 0:
+        return []
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception as exc:  # pragma: no cover
+        print("[WARN] matplotlib unavailable, skipping position plots: %s" % exc)
+        return []
+
+    _rows_a, arrays_a = load_run(args.run_a_dir)
+    _rows_b, arrays_b = load_run(args.run_b_dir)
+    selected = select_position_rows(args, module_rows)
+    if not selected:
+        return []
+
+    position_dir = os.path.join(args.out_dir, "position_level")
+    ensure_dir(position_dir)
+    paths: List[str] = []
+    manifest: List[Dict[str, Any]] = []
+
+    for index, row in enumerate(selected, start=1):
+        module_name = str(row["module_name"])
+        key = safe_key(module_name)
+        prefix = make_position_safe_name(row, index)
+
+        scaler_a = get_array(arrays_a, key + ".wanda_scaler")
+        scaler_b = get_array(arrays_b, key + ".wanda_scaler")
+        if scaler_a is not None and scaler_b is not None and scaler_a.shape == scaler_b.shape:
+            x = np.arange(scaler_a.reshape(-1).shape[0])
+            diff = np.abs(scaler_a.reshape(-1).astype(np.float64) - scaler_b.reshape(-1).astype(np.float64))
+            fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
+            axes[0].plot(x, scaler_a.reshape(-1), linewidth=0.8, label=args.label_a)
+            axes[0].plot(x, scaler_b.reshape(-1), linewidth=0.8, label=args.label_b, alpha=0.8)
+            axes[0].set_ylabel("scaler_row")
+            axes[0].legend()
+            axes[0].grid(True, alpha=0.2)
+            axes[1].plot(x, diff, linewidth=0.8, color="tab:red")
+            axes[1].set_xlabel("Input column index")
+            axes[1].set_ylabel("|A - B|")
+            axes[1].grid(True, alpha=0.2)
+            fig.suptitle("%s\n%s" % (module_name, "scaler_row position difference"))
+            fig.tight_layout()
+            path = os.path.join(position_dir, prefix + "_scaler_row_positions.png")
+            fig.savefig(path, dpi=200)
+            plt.close(fig)
+            paths.append(path)
+
+        mask_a = get_array(arrays_a, key + ".wanda_pruned_mask")
+        mask_b = get_array(arrays_b, key + ".wanda_pruned_mask")
+        if mask_a is not None and mask_b is not None and mask_a.shape == mask_b.shape and mask_a.ndim == 2:
+            a = mask_a.astype(bool)
+            b = mask_b.astype(bool)
+            disagree = np.logical_xor(a, b).astype(np.float32)
+            panels = [
+                (downsample_mean(a.astype(np.float32), args.position_downsample), args.label_a + " pruned fraction"),
+                (downsample_mean(b.astype(np.float32), args.position_downsample), args.label_b + " pruned fraction"),
+                (downsample_mean(disagree, args.position_downsample), "A/B mask disagreement"),
+            ]
+            fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
+            for ax, (mat, title) in zip(axes, panels):
+                im = ax.imshow(mat, aspect="auto", interpolation="nearest", vmin=0.0, vmax=1.0, cmap="viridis")
+                ax.set_title(title)
+                ax.set_xlabel("Input columns")
+                ax.set_ylabel("Output rows")
+                fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+            fig.suptitle("%s\n%s" % (module_name, "final Wanda mask position difference"))
+            fig.tight_layout()
+            path = os.path.join(position_dir, prefix + "_mask_matrix_positions.png")
+            fig.savefig(path, dpi=200)
+            plt.close(fig)
+            paths.append(path)
+
+        metric_a = get_array(arrays_a, key + ".wanda_metric")
+        metric_b = get_array(arrays_b, key + ".wanda_metric")
+        if metric_a is not None and metric_b is not None and metric_a.shape == metric_b.shape and metric_a.ndim == 2:
+            a = downsample_mean(metric_a.astype(np.float32), args.position_downsample)
+            b = downsample_mean(metric_b.astype(np.float32), args.position_downsample)
+            d = downsample_mean(np.abs(metric_a.astype(np.float32) - metric_b.astype(np.float32)), args.position_downsample)
+            vmin, vmax = array_percentile_clip(np.concatenate([a.reshape(-1), b.reshape(-1)]))
+            dmin, dmax = array_percentile_clip(d, 0.0, 99.0)
+            fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
+            for ax, mat, title, lo, hi in [
+                (axes[0], a, args.label_a + " W_metric", vmin, vmax),
+                (axes[1], b, args.label_b + " W_metric", vmin, vmax),
+                (axes[2], d, "|A - B| W_metric", dmin, dmax),
+            ]:
+                im = ax.imshow(mat, aspect="auto", interpolation="nearest", vmin=lo, vmax=hi, cmap="magma")
+                ax.set_title(title)
+                ax.set_xlabel("Input columns")
+                ax.set_ylabel("Output rows")
+                fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+            fig.suptitle("%s\n%s" % (module_name, "W_metric matrix position difference"))
+            fig.tight_layout()
+            path = os.path.join(position_dir, prefix + "_w_metric_matrix_positions.png")
+            fig.savefig(path, dpi=200)
+            plt.close(fig)
+            paths.append(path)
+
+        manifest.append(
+            {
+                "module_name": module_name,
+                "component": row.get("component"),
+                "layer": row.get("layer"),
+                "role": row.get("role"),
+                "pruned_iou": row.get("pruned_iou"),
+                "scaler_row_cosine": row.get("scaler_row_cosine"),
+                "w_metric_cosine": row.get("w_metric_cosine"),
+                "has_full_w_metric": bool(
+                    get_array(arrays_a, key + ".wanda_metric") is not None
+                    and get_array(arrays_b, key + ".wanda_metric") is not None
+                ),
+            }
+        )
+
+    write_json(os.path.join(position_dir, "position_level_manifest.json"), manifest)
+    return paths
+
+
 def main() -> None:
     args = parse_args()
     ensure_dir(args.out_dir)
@@ -357,6 +557,7 @@ def main() -> None:
     plot_paths: List[str] = []
     if not args.no_plots:
         plot_paths = make_plots(args.out_dir, layer_rows, module_rows)
+        plot_paths.extend(make_position_plots(args, module_rows))
 
     print("[OK] matched modules:", len(module_rows))
     print("[OK] mask modules:", sum(1 for row in module_rows if row.get("mask_available")))
