@@ -137,6 +137,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no_decoder", action="store_true", help="Skip T5 decoder path.")
     parser.add_argument("--max_txt_len", type=int, default=None)
     parser.add_argument("--importance_hist_bins", type=int, default=80)
+    parser.add_argument(
+        "--wanda_sparsity",
+        type=float,
+        default=0.5,
+        help="Sparsity ratio used when materializing Wanda pruned masks for comparison.",
+    )
+    parser.add_argument(
+        "--mask_style",
+        choices=["auto", "row", "global"],
+        default="auto",
+        help="Mask construction style. auto uses row-wise masks for T5 and global masks for ViT.",
+    )
+    parser.add_argument(
+        "--save_wanda_mask",
+        action="store_true",
+        help="Save full Wanda pruned-mask arrays. This can be large for T5-XL.",
+    )
+    parser.add_argument(
+        "--save_wanda_metric",
+        action="store_true",
+        help="Save full W_metric arrays. This is very large; disabled by default.",
+    )
     parser.add_argument("--log_every", type=int, default=20)
     return parser.parse_args()
 
@@ -362,6 +384,45 @@ def tensor_stats(x: Any, prefix: str) -> Dict[str, float]:
     }
 
 
+def infer_mask_style(target: TargetInfo, requested_style: str) -> str:
+    if requested_style != "auto":
+        return requested_style
+    if target.component.startswith("t5_"):
+        return "row"
+    return "global"
+
+
+def wanda_pruned_mask(importance: Any, sparsity: float, style: str) -> Any:
+    import torch
+
+    if sparsity <= 0:
+        return torch.zeros_like(importance, dtype=torch.bool)
+    if sparsity >= 1:
+        return torch.ones_like(importance, dtype=torch.bool)
+
+    mask = torch.zeros_like(importance, dtype=torch.bool)
+    if style == "row":
+        cols = int(importance.shape[1])
+        k = int(cols * sparsity)
+        if k <= 0:
+            return mask
+        if k >= cols:
+            return torch.ones_like(importance, dtype=torch.bool)
+        indices = torch.sort(importance, dim=-1, stable=True).indices[:, :k]
+        mask.scatter_(1, indices, True)
+        return mask
+
+    flat = importance.reshape(-1)
+    k = int(flat.numel() * sparsity)
+    if k <= 0:
+        return mask
+    if k >= flat.numel():
+        return torch.ones_like(importance, dtype=torch.bool)
+    indices = torch.sort(flat, stable=True).indices[:k]
+    mask.reshape(-1)[indices] = True
+    return mask
+
+
 def run_multimodal_batch(
     model: Any,
     batch_rows: Sequence[Any],
@@ -544,6 +605,10 @@ def summarize_collectors(
     targets: Sequence[TargetInfo],
     collectors: Dict[str, WandaInputCollector],
     hist_bins: int,
+    wanda_sparsity: float,
+    mask_style: str,
+    save_wanda_mask: bool,
+    save_wanda_metric: bool,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, np.ndarray]]:
     import torch
 
@@ -559,6 +624,8 @@ def summarize_collectors(
         importance = weight_abs * torch.sqrt(scaler.reshape(1, -1))
         weight_col_mean = weight_abs.mean(dim=0)
         importance_col_mean = importance.mean(dim=0)
+        resolved_mask_style = infer_mask_style(target, mask_style)
+        pruned_mask = wanda_pruned_mask(importance, wanda_sparsity, resolved_mask_style)
 
         row: Dict[str, Any] = {
             "component": target.component,
@@ -571,6 +638,10 @@ def summarize_collectors(
             "weight_numel": int(target.module.weight.numel()),
             "wanda_nsamples": int(collector.nsamples),
             "token_rows": int(collector.token_rows),
+            "wanda_sparsity": float(wanda_sparsity),
+            "wanda_mask_style": resolved_mask_style,
+            "wanda_pruned_numel": int(pruned_mask.sum().item()),
+            "wanda_pruned_fraction": float(pruned_mask.float().mean().item()) if pruned_mask.numel() else 0.0,
         }
         row.update(tensor_stats(scaler, "wanda_scaler"))
         row.update(tensor_stats(token_mean_sq, "token_mean_input_sq"))
@@ -594,6 +665,10 @@ def summarize_collectors(
         arrays[safe_key + ".weight_abs_col_mean"] = weight_col_mean.cpu().numpy().astype(np.float32)
         arrays[safe_key + ".wanda_importance_col_mean"] = importance_col_mean.cpu().numpy().astype(np.float32)
         arrays[safe_key + ".wanda_importance_hist"] = hist.cpu().numpy().astype(np.float32)
+        if save_wanda_mask:
+            arrays[safe_key + ".wanda_pruned_mask"] = pruned_mask.cpu().numpy().astype(np.uint8)
+        if save_wanda_metric:
+            arrays[safe_key + ".wanda_metric"] = importance.cpu().numpy().astype(np.float32)
 
         layer_key = (target.component, target.layer)
         acc = layer_acc.setdefault(
@@ -757,6 +832,11 @@ def main() -> None:
         "importance_definition": "abs(weight[o,i]) * sqrt(wanda_scaler[i])",
         "wanda_scaler_definition": "Matches WrappedGPT in lavis/compression/pruners/wanda_pruner.py: squared L2 norm of Linear input columns normalized by sample count.",
         "token_mean_input_sq_definition": "Squared Linear input activation averaged over flattened token rows; diagnostic only.",
+        "wanda_sparsity": args.wanda_sparsity,
+        "mask_style": args.mask_style,
+        "save_wanda_mask": bool(args.save_wanda_mask),
+        "save_wanda_metric": bool(args.save_wanda_metric),
+        "wanda_mask_definition": "T5 auto masks match Wanda row-wise lowest W_metric per output row; ViT auto masks match Wanda global lowest W_metric per Linear.",
     }
 
     try:
@@ -797,7 +877,15 @@ def main() -> None:
         for handle in handles:
             handle.remove()
 
-    module_rows, layer_rows, arrays = summarize_collectors(targets, collectors, args.importance_hist_bins)
+    module_rows, layer_rows, arrays = summarize_collectors(
+        targets,
+        collectors,
+        args.importance_hist_bins,
+        args.wanda_sparsity,
+        args.mask_style,
+        args.save_wanda_mask,
+        args.save_wanda_metric,
+    )
     module_csv = os.path.join(args.out_dir, "wanda_linear_input_importance_by_module.csv")
     layer_csv = os.path.join(args.out_dir, "wanda_linear_input_importance_by_layer.csv")
     write_csv(module_csv, module_rows)
