@@ -5,7 +5,9 @@ For each candidate sample, this script runs one forward pass through BLIP2-T5
 and records each target Linear layer's Wanda scaler_row.  It then computes:
 
   D_wmetric: exact normalized Frobenius distance between per-sample W_metric
-             matrices, using W_metric = abs(W) * sqrt(scaler_row).
+             matrices, using W_metric = abs(W) * sqrt(scaler_row), or a
+             lighter row-level approximation selected by
+             --wmetric_distance_level.
   D_mask:    sampled final-mask distance from per-sample Wanda pruning masks.
   D_final:   alpha * normalized(D_wmetric) + beta * normalized(D_mask).
 
@@ -127,6 +129,16 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=1024,
         help="Number of weight positions sampled per Linear module for D_mask.",
+    )
+    parser.add_argument(
+        "--wmetric_distance_level",
+        choices=["wmetric", "weighted_row", "scaler_row"],
+        default="wmetric",
+        help=(
+            "wmetric keeps the original exact W_metric Frobenius distance; "
+            "weighted_row compares sqrt(scaler_row) with column mean-|W| weights; "
+            "scaler_row compares only sqrt(scaler_row)."
+        ),
     )
     parser.add_argument("--alpha", type=float, default=0.7)
     parser.add_argument("--beta", type=float, default=0.3)
@@ -360,6 +372,49 @@ def compute_wmetric_distance(
     return d_wmetric, rows
 
 
+def compute_row_level_distance(
+    targets: Sequence[TargetInfo],
+    scalers: Dict[str, np.ndarray],
+    level: str,
+) -> Tuple[np.ndarray, List[Dict[str, Any]]]:
+    if level not in {"weighted_row", "scaler_row"}:
+        raise ValueError("Unsupported row-level distance: %s" % level)
+    n = next(iter(scalers.values())).shape[0]
+    dist_sq = np.zeros((n, n), dtype=np.float64)
+    denom = 0.0
+    rows: List[Dict[str, Any]] = []
+    for target in targets:
+        weight = target.module.weight.detach().float().abs()
+        g = np.sqrt(np.maximum(scalers[target.name].astype(np.float64), 0.0))
+        if level == "weighted_row":
+            col_weight = weight.mean(dim=0).cpu().numpy().astype(np.float64)
+            feature = g * col_weight.reshape(1, -1)
+        else:
+            feature = g
+
+        norm = (feature * feature).sum(axis=1)
+        module_dist_sq = np.maximum(norm[:, None] + norm[None, :] - 2.0 * np.matmul(feature, feature.T), 0.0)
+        dist_sq += module_dist_sq
+        denom += float(feature.shape[1])
+        rows.append(
+            {
+                "module_name": target.name,
+                "component": target.component,
+                "layer": target.layer,
+                "role": target.role,
+                "distance_level": level,
+                "in_dim": int(weight.shape[1]),
+                "out_dim": int(weight.shape[0]),
+                "weight_numel": int(weight.numel()),
+                "row_feature_dim": int(feature.shape[1]),
+                "row_dist_sq_mean": float(module_dist_sq.mean() / max(float(feature.shape[1]), 1.0)),
+            }
+        )
+    d_row = np.sqrt(np.maximum(dist_sq / max(denom, 1.0), 0.0))
+    np.fill_diagonal(d_row, 0.0)
+    return d_row, rows
+
+
 def sample_module_positions(target: TargetInfo, count: int, rng: np.random.RandomState) -> np.ndarray:
     rows = int(target.module.weight.shape[0])
     cols = int(target.module.weight.shape[1])
@@ -554,8 +609,15 @@ def main() -> None:
     scaler_arrays: Dict[str, np.ndarray] = {
         name: np.stack(values, axis=0).astype(np.float32) for name, values in scalers.items()
     }
-    print("[distance] computing D_wmetric")
-    d_wmetric, wmetric_rows = compute_wmetric_distance(targets, scaler_arrays)
+    print("[distance] computing D_wmetric level=%s" % args.wmetric_distance_level)
+    if args.wmetric_distance_level == "wmetric":
+        d_wmetric, wmetric_rows = compute_wmetric_distance(targets, scaler_arrays)
+    else:
+        d_wmetric, wmetric_rows = compute_row_level_distance(
+            targets,
+            scaler_arrays,
+            args.wmetric_distance_level,
+        )
 
     if args.mask_distance_mode == "none":
         d_mask = np.zeros_like(d_wmetric)
@@ -609,6 +671,7 @@ def main() -> None:
             "targets": len(targets),
             "component": args.component,
             "wanda_sparsity": args.wanda_sparsity,
+            "wmetric_distance_level": args.wmetric_distance_level,
             "mask_distance_mode": args.mask_distance_mode,
             "mask_sample_positions_per_module": args.mask_sample_positions_per_module,
             "alpha": args.alpha,
