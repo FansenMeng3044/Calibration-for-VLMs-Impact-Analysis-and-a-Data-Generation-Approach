@@ -211,6 +211,7 @@ class Blip2T5(Blip2Base):
             temp_label = torch.zeros((bsz, seq_len), dtype=torch.bool, device=inputs_embeds.device)
             temp_label[:, :num_query] = True
             self.temp_label = temp_label
+            self.temp_encoder_atts = encoder_atts.detach()
 
             outputs = self.t5_model(
                 inputs_embeds=inputs_embeds,
@@ -277,6 +278,7 @@ class Blip2T5(Blip2Base):
             temp_label = torch.zeros((bsz, seq_len), dtype=torch.bool, device=inputs_embeds.device)
             temp_label[:, :num_query] = True
             self.temp_label = temp_label
+            self.temp_encoder_atts = encoder_atts.detach()
 
             outputs = self.t5_model(
                 inputs_embeds=inputs_embeds,
@@ -334,6 +336,7 @@ class Blip2T5(Blip2Base):
             temp_label = torch.zeros((bsz, seq_len), dtype=torch.bool, device=inputs_embeds.device)
             temp_label[:, :num_query] = True
             self.temp_label = temp_label
+            self.temp_encoder_atts = encoder_atts.detach()
 
             outputs = self.t5_model(
                 inputs_embeds=inputs_embeds,
@@ -420,6 +423,7 @@ class Blip2T5(Blip2Base):
             temp_label = torch.zeros((bsz, seq_len), dtype=torch.bool, device=inputs_embeds.device)
             temp_label[:, :num_query] = True
             self.temp_label = temp_label
+            self.temp_encoder_atts = encoder_atts.detach()
 
             outputs = self.t5_model.generate(
                 inputs_embeds=inputs_embeds,
@@ -494,6 +498,7 @@ class Blip2T5(Blip2Base):
             temp_label = torch.zeros((bsz, seq_len), dtype=torch.bool, device=inputs_embeds.device)
             temp_label[:, :num_query] = True
             self.temp_label = temp_label
+            self.temp_encoder_atts = encoder_atts.detach()
 
             outputs = self.t5_model.generate(
                 inputs_embeds=inputs_embeds,

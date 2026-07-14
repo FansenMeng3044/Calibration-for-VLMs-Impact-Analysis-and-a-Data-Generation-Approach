@@ -93,7 +93,11 @@ def main() -> None:
         default=None,
         help="Override image directory (default: sibling images/ next to eval_json)",
     )
-    ap.add_argument("--ckpt", default=None, help="Full pruned .pth (mutually exclusive with --vit_ckpt/--t5_ckpt)")
+    ap.add_argument(
+        "--ckpt",
+        default=None,
+        help="Full pruned .pth. Omit it to evaluate the dense LAVIS BLIP2-T5 model.",
+    )
     ap.add_argument(
         "--vit_ckpt",
         default=None,
@@ -113,8 +117,6 @@ def main() -> None:
         ap.error("Use either --ckpt or (--vit_ckpt and --t5_ckpt), not both")
     if (args.vit_ckpt or args.t5_ckpt) and not (args.vit_ckpt and args.t5_ckpt):
         ap.error("Both --vit_ckpt and --t5_ckpt are required together")
-    if not args.ckpt and not (args.vit_ckpt and args.t5_ckpt):
-        ap.error("Provide --ckpt or both --vit_ckpt and --t5_ckpt")
 
     json_path = os.path.abspath(args.eval_json)
     base = os.path.dirname(json_path)

@@ -231,10 +231,17 @@ def parse_args():
         "--token_selection",
         type=str,
         default="naive",
-        choices=["naive", "amia"],
-        help="T5 encoder Wanda calibration: naive (all tokens) or amia (adaptive multimodal).",
+        choices=["naive", "amia", "atv"],
+        help="T5 encoder Wanda calibration: naive (all tokens), amia (TAMP adaptive multimodal), "
+             "or atv (ATV-Pruning: all text tokens + top-k salient query tokens).",
     )
-    
+    parser.add_argument(
+        "--atv_alpha",
+        type=float,
+        default=1.0,
+        help="ATV-Pruning alpha: k = round(min(1, alpha*avg_cosdist) * #text_tokens), clamp <= #query_tokens.",
+    )
+
     parser.add_argument(
         "--save_pruned_model", action="store_true"
     )
@@ -432,6 +439,13 @@ def main():
         args.sparsity_ratio_granularity = "layer"
         args.pruning_method = "blipt5_wanda_pruner"
 
+    if args.pruning_method == "blipt5_atv_pruner":
+        # ATV-Pruning: token_selection='atv', UNIFORM sparsity (no DAS layer allocation).
+        # Unlike TAMP, ATV is evaluated only under the uniform-sparsity condition (paper README).
+        args.token_selection = "atv"
+        args.sparsity_ratio_granularity = None
+        args.pruning_method = "blipt5_wanda_pruner"
+
     if args.importance_scope is None:
         if args.prune_calib_mode == "t5_c4_text":
             args.importance_scope = "llm_only"
@@ -609,6 +623,7 @@ def main():
         "max_sparsity_per_layer": args.max_sparsity_per_layer,
         "score_method": args.score_method,
         "token_selection": args.token_selection,
+        "alpha": args.atv_alpha,
         "num_data_first_stage": args.num_data_first_stage,
         "num_noise": args.num_noise,
         "noise_eps": args.noise_eps,

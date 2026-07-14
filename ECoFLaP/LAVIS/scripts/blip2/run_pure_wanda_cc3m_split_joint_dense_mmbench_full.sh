@@ -89,6 +89,11 @@ JID_T5="pure_wanda_cc3m_t5only_${JOB_STAMP}_seed${SEED}"
 CKPT_JOINT="${CKPT_JOINT:-$REPO_ROOT/pruned_checkpoint/${JID_JOINT}.pth}"
 CKPT_VIT="${CKPT_VIT:-$REPO_ROOT/pruned_checkpoint/${JID_VIT}.pth}"
 CKPT_T5="${CKPT_T5:-$REPO_ROOT/pruned_checkpoint/${JID_T5}.pth}"
+# 对照方法（各自剪枝脚本产出的整模 pth，只作评测输入，用 CKPT_ATV/CKPT_TAMP 指定）：
+#   ATV : run_atv_cc3m_prune_then_eval.sh 产出（CC3M 标定 / 只剪 T5 / 均匀）
+#   TAMP: blipt5_tamp_pruner CC3M 标定 / 只剪 T5 的 pth
+CKPT_ATV="${CKPT_ATV:-}"
+CKPT_TAMP="${CKPT_TAMP:-}"
 
 SUMMARY_DIR="$REPO_ROOT/lavis/output/BLIP2"
 mkdir -p "$SUMMARY_DIR"
@@ -162,6 +167,7 @@ echo "[INFO] MODELS=$MODELS  RUN_PRUNE=$RUN_PRUNE RUN_EVAL=$RUN_EVAL  MAX_SAMPLE
 echo "[INFO] CC3M_CFG=$CC3M_CFG  T5_SPEC=$T5_SPEC VIT_SPEC=$VIT_SPEC" | tee -a "$SUMMARY_LOG"
 echo "[INFO] joint=$CKPT_JOINT" | tee -a "$SUMMARY_LOG"
 echo "[INFO] split=vit:$CKPT_VIT + t5:$CKPT_T5" | tee -a "$SUMMARY_LOG"
+echo "[INFO] atv=${CKPT_ATV:-<未设 CKPT_ATV>}  tamp=${CKPT_TAMP:-<未设 CKPT_TAMP>}" | tee -a "$SUMMARY_LOG"
 
 if [[ "$RUN_PRUNE" == "1" ]]; then
   p=$MASTER_PORT_START
@@ -192,6 +198,27 @@ if _wants split; then
   mmbench_full "cc3m_split_wanda_${JOB_STAMP}" --vit_ckpt "$CKPT_VIT" --t5_ckpt "$CKPT_T5"
 fi
 
+# 4) ATV（只剪 T5，CC3M 标定，均匀）：单 ckpt，与 naive Wanda 同口径对比
+if _wants atv; then
+  [[ -n "$CKPT_ATV" && -f "$CKPT_ATV" ]] || { echo "[FATAL] MODELS 含 atv 但 CKPT_ATV 无效: ${CKPT_ATV:-<空>}（先跑 run_atv_cc3m_prune_then_eval.sh）" >&2; exit 1; }
+  mmbench_full "cc3m_atv_t5only_${JOB_STAMP}" --ckpt "$CKPT_ATV"
+fi
+
+# 5) TAMP（只剪 T5，CC3M 标定）：单 ckpt
+if _wants tamp; then
+  [[ -n "$CKPT_TAMP" && -f "$CKPT_TAMP" ]] || { echo "[FATAL] MODELS 含 tamp 但 CKPT_TAMP 无效: ${CKPT_TAMP:-<空>}" >&2; exit 1; }
+  mmbench_full "cc3m_tamp_t5only_${JOB_STAMP}" --ckpt "$CKPT_TAMP"
+fi
+
 echo "" | tee -a "$SUMMARY_LOG"
 echo "========== 全部完成 ==========" | tee -a "$SUMMARY_LOG"
 echo "[INFO] 汇总日志: $SUMMARY_LOG" | tee -a "$SUMMARY_LOG"
+
+# 解析日志 → 方法 × (Overall + 各学科) 一张对照表
+TABLE_MD="$SUMMARY_DIR/mmbench_full_table_${JOB_STAMP}_seed${SEED}.md"
+TABLE_TSV="$SUMMARY_DIR/mmbench_full_table_${JOB_STAMP}_seed${SEED}.tsv"
+if python scripts/blip2/collect_mmbench_table.py --log "$SUMMARY_LOG" --out-md "$TABLE_MD" --out-tsv "$TABLE_TSV"; then
+  echo "[INFO] 对照表: $TABLE_MD | $TABLE_TSV" | tee -a "$SUMMARY_LOG"
+else
+  echo "[WARN] 汇总表生成失败（日志中未解析到评测段）" | tee -a "$SUMMARY_LOG"
+fi
