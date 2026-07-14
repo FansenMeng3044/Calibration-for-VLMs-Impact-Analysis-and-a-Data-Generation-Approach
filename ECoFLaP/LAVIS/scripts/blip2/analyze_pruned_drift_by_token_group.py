@@ -149,6 +149,8 @@ def run_model_pass(
     cos_acc: Dict[tuple, List[float]] = {}
     l2_acc: Dict[tuple, List[float]] = {}
     kl_acc: List[float] = []
+    token_census: Dict[str, float] = {g: 0.0 for g in GROUPS}
+    nonfinite: Dict[tuple, int] = {}
 
     try:
         for batch_index, (start, batch_rows) in enumerate(iter_batches(rows, args.batch_size)):
@@ -169,13 +171,19 @@ def run_model_pass(
                 "text": out["text_mask"],
             }
 
+            for group in GROUPS:
+                token_census[group] += float(masks[group].sum().item())
+
             if is_dense:
                 cache["masks"][batch_index] = {
                     g: masks[g].detach().cpu().numpy() for g in GROUPS
                 }
                 for block_index, hidden in capture.buffers.items():
+                    # float32, NOT float16: T5's activation outliers routinely exceed
+                    # fp16's 65504 ceiling, which silently turns the cache into inf and
+                    # every downstream cosine into nan.
                     cache["blocks"].setdefault(block_index, {})[batch_index] = (
-                        hidden.detach().to(torch.float16).cpu().numpy()
+                        hidden.detach().to(torch.float32).cpu().numpy()
                     )
             else:
                 for block_index, hidden in capture.buffers.items():
@@ -196,12 +204,15 @@ def run_model_pass(
                         mask = masks[group]
                         if not bool(mask.any()):
                             continue
-                        cos_acc.setdefault((block_index, group), []).extend(
-                            cos[mask].detach().cpu().numpy().tolist()
-                        )
-                        l2_acc.setdefault((block_index, group), []).extend(
-                            rel[mask].detach().cpu().numpy().tolist()
-                        )
+                        cos_values = cos[mask].detach().cpu().numpy()
+                        rel_values = rel[mask].detach().cpu().numpy()
+                        bad = int((~np.isfinite(cos_values)).sum())
+                        if bad:
+                            nonfinite[(block_index, group)] = (
+                                nonfinite.get((block_index, group), 0) + bad
+                            )
+                        cos_acc.setdefault((block_index, group), []).extend(cos_values.tolist())
+                        l2_acc.setdefault((block_index, group), []).extend(rel_values.tolist())
 
             if args.logit_kl:
                 answers = [
@@ -253,6 +264,26 @@ def run_model_pass(
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+    total_tokens = sum(token_census.values())
+    print("  token census: " + "  ".join(
+        "%s=%.0f (%.1f%%)" % (g, token_census[g], 100.0 * token_census[g] / max(total_tokens, 1.0))
+        for g in GROUPS
+    ))
+    for group in GROUPS:
+        if token_census[group] <= 0:
+            raise SystemExit(
+                "[FATAL] token group %r is empty -- the mask is broken, not the model. "
+                "Every metric for it would be nan." % group
+            )
+    if nonfinite:
+        total_bad = sum(nonfinite.values())
+        raise SystemExit(
+            "[FATAL] %d non-finite cosine values (e.g. inf/nan hidden states). This is a\n"
+            "        numerics bug in the analysis, not a property of the checkpoints -- do not\n"
+            "        interpret the output. Affected (block, group): %s"
+            % (total_bad, sorted(nonfinite)[:8])
+        )
 
     if is_dense:
         return cache
