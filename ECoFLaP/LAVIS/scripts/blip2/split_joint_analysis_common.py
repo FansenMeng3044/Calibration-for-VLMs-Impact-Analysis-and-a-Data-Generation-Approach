@@ -272,10 +272,24 @@ class EncoderForward:
         is what you need to compare activations position-by-position (step 2).
     """
 
-    def __init__(self, model: Any, torch: Any, padding: str = "longest"):
+    def __init__(self, model: Any, torch: Any, padding: str = "longest", fp32: bool = False):
         self.model = model
         self.torch = torch
         self.padding = padding
+        # fp32=True bypasses blip2's autocast (fp16 for ViT/Q-Former, bf16 for T5) and
+        # runs the whole forward in float32. Needed when the split-vs-joint activation
+        # difference is smaller than bf16's ~3-decimal resolution. The caller must have
+        # cast the model with model.float() first.
+        self.fp32 = fp32
+
+    def _amp(self, dtype=None):
+        if self.fp32:
+            import contextlib
+
+            return contextlib.nullcontext()
+        if dtype is None:
+            return self.model.maybe_autocast()
+        return self.model.maybe_autocast(dtype=dtype)
 
     def tokenize(self, texts: Sequence[str], device: str):
         return self.model.t5_tokenizer(
@@ -291,7 +305,7 @@ class EncoderForward:
         model = self.model
 
         with torch.no_grad():
-            with model.maybe_autocast():
+            with self._amp():
                 image_hidden = model.ln_vision(model.visual_encoder(image_tensor))
                 image_atts = torch.ones(
                     image_hidden.size()[:-1], dtype=torch.long, device=image_hidden.device
@@ -305,7 +319,7 @@ class EncoderForward:
                 )
                 visual_tokens = model.t5_proj(query_output.last_hidden_state)
 
-            with model.maybe_autocast(dtype=torch.bfloat16):
+            with self._amp(torch.bfloat16):
                 input_tokens = self.tokenize(texts, device)
                 visual_attention = torch.ones(
                     visual_tokens.size()[:-1], dtype=torch.long, device=visual_tokens.device
