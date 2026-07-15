@@ -241,7 +241,7 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
         return inps, outs, caches
     
     @print_time
-    def _prune(self, model, dataloader, device, model_prefix, module_to_process="encoder.block", n_samples=64, sparsity_ratio=0.5, wanda_token_offset=0):
+    def _prune(self, model, dataloader, device, model_prefix, module_to_process="encoder.block", n_samples=64, sparsity_ratio=0.5, wanda_token_offset=0, wanda_scaler_clip_pct=None):
         use_cache = getattr(model, model_prefix).config.use_cache
         getattr(model, model_prefix).config.use_cache = False
 
@@ -251,6 +251,11 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
 
         n_samples = min(n_samples, len(inps))
 
+        if wanda_scaler_clip_pct is not None:
+            print(
+                f"[wanda] winsorizing scaler_row above the {wanda_scaler_clip_pct}th percentile "
+                f"(per layer) of {module_to_process} -- causal test of statistic concentration"
+            )
         if wanda_token_offset:
             print(
                 f"[wanda] excluding the first {wanda_token_offset} sequence positions "
@@ -289,7 +294,14 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
             for name in subset:
                 assert wrapped_layers[name].nsamples == len(inps) * inps[0].shape[0]
                 print(f"pruning layer {i} name {name}")
-                W_metric = torch.abs(subset[name].weight.data) * torch.sqrt(wrapped_layers[name].scaler_row.reshape((1,-1)))
+                scaler = wrapped_layers[name].scaler_row
+                if wanda_scaler_clip_pct is not None:
+                    # Winsorize the calibration statistic: clamp the top channels down to the
+                    # pct-th percentile, directly lowering top1pct_energy. Causal test: doing
+                    # this to a concentrated (bad) calibration should improve pruned accuracy.
+                    thr = torch.quantile(scaler.float(), wanda_scaler_clip_pct / 100.0).to(scaler.dtype)
+                    scaler = torch.clamp(scaler, max=thr)
+                W_metric = torch.abs(subset[name].weight.data) * torch.sqrt(scaler.reshape((1,-1)))
 
                 # setattr(subset[name].weight, "importance_score", W_metric.cpu().abs().mean().item())
                 
@@ -723,6 +735,7 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         prune_vit=True,
         t5_unimodal_text_skip_decoder=False,
         t5_wanda_exclude_visual_prefix=False,
+        t5_wanda_scaler_clip_pct=None,
         importance_scope="joint",
         **kwargs,
     ):
@@ -757,6 +770,7 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         self.prune_t5 = prune_t5
         self.prune_vit = prune_vit
         self.t5_wanda_exclude_visual_prefix = t5_wanda_exclude_visual_prefix
+        self.t5_wanda_scaler_clip_pct = t5_wanda_scaler_clip_pct
         self.t5_unimodal_text_skip_decoder = t5_unimodal_text_skip_decoder
         assert importance_scope in (
             "joint",
@@ -973,6 +987,7 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                 module_to_process=f"{self.t5_model_prefix}.encoder.block",
                 n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
                 wanda_token_offset=encoder_token_offset,
+                wanda_scaler_clip_pct=self.t5_wanda_scaler_clip_pct,
             )
 
             if not self.t5_unimodal_text_skip_decoder:
@@ -981,6 +996,7 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                     model_prefix=self.t5_model_prefix,
                     module_to_process=f"{self.t5_model_prefix}.decoder.block",
                     n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
+                    wanda_scaler_clip_pct=self.t5_wanda_scaler_clip_pct,
                 )
 
         # let the pruned model has the original

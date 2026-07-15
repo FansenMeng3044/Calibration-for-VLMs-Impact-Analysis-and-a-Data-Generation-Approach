@@ -318,6 +318,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--t5_wanda_scaler_clip_pct",
+        type=float,
+        default=None,
+        help=(
+            "blipt5_wanda_pruner causal test of statistic concentration: winsorize T5's Wanda "
+            "scaler_row, clamping channels above this percentile (per layer) down to it (e.g. 99 "
+            "clips the top 1%%). Directly lowers top1pct_energy. If concentration is what makes a "
+            "calibration good/bad, clipping a concentrated (bad) calibration should raise its accuracy."
+        ),
+    )
+
+    parser.add_argument(
         "--t5_wanda_exclude_visual_prefix",
         action="store_true",
         help=(
@@ -612,6 +624,7 @@ def main():
         ),
         "importance_scope": args.importance_scope,
         "t5_wanda_exclude_visual_prefix": args.t5_wanda_exclude_visual_prefix,
+        "t5_wanda_scaler_clip_pct": args.t5_wanda_scaler_clip_pct,
     }
     
     pruner = load_pruner(
