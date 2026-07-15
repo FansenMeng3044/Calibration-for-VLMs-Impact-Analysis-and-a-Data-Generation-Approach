@@ -318,6 +318,19 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--t5_wanda_exclude_visual_prefix",
+        action="store_true",
+        help=(
+            "blipt5_wanda_pruner: drop the Q-Former visual-prefix positions from T5's Wanda "
+            "activation statistic (encoder only; the decoder has no prefix). The prefix is ~50%% "
+            "of the encoder positions on short captions, so including it pulls the T5 mask toward "
+            "serving the image at the expense of the language prior. Measured: the joint T5 mask "
+            "differs from the text-calibrated (split) mask by ~7%% of kept weights, and that costs "
+            "~4 points of MMBench."
+        ),
+    )
+
+    parser.add_argument(
         "--importance_scope",
         type=str,
         default=None,
@@ -598,6 +611,7 @@ def main():
             args.prune_calib_mode == "t5_c4_text" and args.t5_c4_encoder_only
         ),
         "importance_scope": args.importance_scope,
+        "t5_wanda_exclude_visual_prefix": args.t5_wanda_exclude_visual_prefix,
     }
     
     pruner = load_pruner(

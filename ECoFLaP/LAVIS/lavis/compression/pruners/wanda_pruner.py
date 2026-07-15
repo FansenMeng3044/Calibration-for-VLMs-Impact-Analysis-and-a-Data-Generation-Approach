@@ -60,7 +60,7 @@ class WrappedGPT:
     This class wraps a GPT layer for specific operations.
     """
 
-    def __init__(self, layer, layer_id=0, layer_name="none"):
+    def __init__(self, layer, layer_id=0, layer_name="none", token_offset=0):
         self.layer = layer
         self.dev = self.layer.weight.device
         self.rows = layer.weight.data.shape[0]
@@ -69,12 +69,25 @@ class WrappedGPT:
         self.scaler_row = torch.zeros((self.columns), device=self.dev)
         self.nsamples = 0
 
-        self.layer_id = layer_id 
+        self.layer_id = layer_id
         self.layer_name = layer_name
+        # Drop the first `token_offset` sequence positions before accumulating the
+        # activation norm. For the BLIP2-T5 encoder those positions are the Q-Former
+        # visual prefix, which otherwise dominates scaler_row (it outnumbers the text
+        # on short captions) and pulls the mask toward serving the image instead of
+        # preserving the language prior.
+        self.token_offset = token_offset
 
     def add_batch(self, inp, out):
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
+        if self.token_offset > 0 and len(inp.shape) == 3:
+            if inp.shape[1] <= self.token_offset:
+                raise ValueError(
+                    f"token_offset={self.token_offset} >= sequence length {inp.shape[1]} "
+                    f"for layer {self.layer_name}: nothing would be left to calibrate on."
+                )
+            inp = inp[:, self.token_offset:, :]
         tmp = inp.shape[0]
         if isinstance(self.layer, nn.Linear):
             if len(inp.shape) == 3:
@@ -228,15 +241,21 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
         return inps, outs, caches
     
     @print_time
-    def _prune(self, model, dataloader, device, model_prefix, module_to_process="encoder.block", n_samples=64, sparsity_ratio=0.5):
-        use_cache = getattr(model, model_prefix).config.use_cache 
-        getattr(model, model_prefix).config.use_cache = False 
+    def _prune(self, model, dataloader, device, model_prefix, module_to_process="encoder.block", n_samples=64, sparsity_ratio=0.5, wanda_token_offset=0):
+        use_cache = getattr(model, model_prefix).config.use_cache
+        getattr(model, model_prefix).config.use_cache = False
 
         print("loading calibdation data")
         with torch.no_grad():
             inps, outs, caches = self.prepare_calibration_input_encoder(model, dataloader, device, model_prefix, n_samples, module_to_process)
 
         n_samples = min(n_samples, len(inps))
+
+        if wanda_token_offset:
+            print(
+                f"[wanda] excluding the first {wanda_token_offset} sequence positions "
+                f"(visual prefix) from the calibration statistic of {module_to_process}"
+            )
 
         layers = get_module_recursive(model, module_to_process)
         for i in range(len(layers)):
@@ -249,7 +268,7 @@ class T5LayerWandaPruner(LayerWiseBasePruner):
 
             wrapped_layers = {}
             for name in subset:
-                wrapped_layers[name] = WrappedGPT(subset[name])
+                wrapped_layers[name] = WrappedGPT(subset[name], token_offset=wanda_token_offset)
 
             def add_batch(name):
                 def tmp(_, inp, out):
@@ -703,6 +722,7 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         prune_t5=True,
         prune_vit=True,
         t5_unimodal_text_skip_decoder=False,
+        t5_wanda_exclude_visual_prefix=False,
         importance_scope="joint",
         **kwargs,
     ):
@@ -736,6 +756,7 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
         self.vit_model_prefix = vit_model_prefix
         self.prune_t5 = prune_t5
         self.prune_vit = prune_vit
+        self.t5_wanda_exclude_visual_prefix = t5_wanda_exclude_visual_prefix
         self.t5_unimodal_text_skip_decoder = t5_unimodal_text_skip_decoder
         assert importance_scope in (
             "joint",
@@ -933,17 +954,30 @@ class BLIPT5LayerWandaPruner(LayerWiseBasePruner):
                 T5LayerWandaPruner.prepare_calibration_input_encoder,
                 self,
                 )
-            
+
+            # The T5 encoder sequence is [visual prefix] + [text]; the decoder sequence has
+            # no visual prefix, so the offset applies to the encoder only.
+            encoder_token_offset = 0
+            if self.t5_wanda_exclude_visual_prefix:
+                query_tokens = getattr(self.model, "query_tokens", None)
+                if query_tokens is None:
+                    raise ValueError(
+                        "t5_wanda_exclude_visual_prefix=True but the model has no query_tokens; "
+                        "cannot tell where the visual prefix ends."
+                    )
+                encoder_token_offset = int(query_tokens.shape[1])
+
             self.model = _t5_prune(
-                self.model, self.data_loader, device, 
+                self.model, self.data_loader, device,
                 model_prefix=self.t5_model_prefix,
                 module_to_process=f"{self.t5_model_prefix}.encoder.block",
                 n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
+                wanda_token_offset=encoder_token_offset,
             )
-            
+
             if not self.t5_unimodal_text_skip_decoder:
                 self.model = _t5_prune(
-                    self.model, self.data_loader, device, 
+                    self.model, self.data_loader, device,
                     model_prefix=self.t5_model_prefix,
                     module_to_process=f"{self.t5_model_prefix}.decoder.block",
                     n_samples=self.num_samples, sparsity_ratio=sparsity_dict,
