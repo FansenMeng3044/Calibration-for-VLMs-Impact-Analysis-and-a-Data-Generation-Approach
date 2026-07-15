@@ -184,10 +184,13 @@ def main() -> None:
             out, enc_masks, logits, amask = run_forward(
                 model, forward, args, batch_rows, start, original_indices, torch, Image, vis_processor,
                 capture, want_logits=True)
+            # Block activations MUST be float32: T5's text-position activation outliers
+            # exceed fp16's 65504 ceiling, turning the cache into inf and every text-token
+            # rel-L2 into nan. Logits (~+-30) are safe in fp16.
             save = {"vmask": enc_masks["visual"].cpu().numpy(), "tmask": enc_masks["text"].cpu().numpy(),
                     "amask": amask.cpu().numpy(), "logits": logits.to(torch.float16).cpu().numpy()}
             for (part, i), h in capture.buffers.items():
-                save["blk__%s__%d" % (part, i)] = h.to(torch.float16).cpu().numpy()
+                save["blk__%s__%d" % (part, i)] = h.to(torch.float32).cpu().numpy()
             np.savez(os.path.join(cache_dir, "batch_%d.npz" % bi), **save)
             n_batches += 1
     finally:
@@ -228,11 +231,20 @@ def main() -> None:
                             mask_key = "vmask" if g == "visual" else "tmask"
                             m = torch.from_numpy(dense[mask_key]).to(h.device)
                             if bool(m.any()):
-                                acc[("enc", g)].extend(rel[m].detach().cpu().numpy().tolist())
+                                vals = rel[m].detach().cpu().numpy()
+                                if not np.all(np.isfinite(vals)):
+                                    raise SystemExit(
+                                        "[FATAL] non-finite rel-L2 at enc/%s block %d -- numerics bug "
+                                        "(fp16 overflow?), do NOT interpret." % (g, i))
+                                acc[("enc", g)].extend(vals.tolist())
                     else:
                         am = torch.from_numpy(dense["amask"]).to(h.device)
                         if bool(am.any()):
-                            acc[("dec", "answer")].extend(rel[am].detach().cpu().numpy().tolist())
+                            vals = rel[am].detach().cpu().numpy()
+                            if not np.all(np.isfinite(vals)):
+                                raise SystemExit(
+                                    "[FATAL] non-finite rel-L2 at dec block %d -- numerics bug." % i)
+                            acc[("dec", "answer")].extend(vals.tolist())
                 # answer-logit KL + top1 (fp32 recompute)
                 dl = torch.from_numpy(dense["logits"]).to(logits.device, torch.float32)
                 am = torch.from_numpy(dense["amask"]).to(logits.device)
