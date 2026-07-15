@@ -210,3 +210,41 @@ $OUT_ROOT/fidelity_summary_all_evals.csv
   last-layer output similarity to see the pruning effect inside the LLM.
 - For multimodal BLIP2-T5, `visual_prefix` means the 32 Q-Former query tokens
   after `t5_proj`; it is not raw ViT patch tokens.
+
+## Example D: T5 Layer-Wise Hidden-State Fidelity
+
+The LLM-input fidelity above only compares the embedding before T5 encoder
+block 0.  To see how pruning drift accumulates inside the T5 encoder, use the
+layer-wise wrapper:
+
+```bash
+cd /data/data2/mfs/2/ECoFLaP/LAVIS
+export PYTHONPATH=$PWD:${PYTHONPATH:-}
+
+export DENSE_CKPT=/data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth
+export OUT_ROOT=/data/data2/mfs/t5_layer_fidelity_fourbench
+
+export PRUNED_CKPTS="MMBench=/path/pruned_by_mmbench.pth,MMMU=/path/pruned_by_mmmu.pth,OKVQA=/path/pruned_by_okvqa.pth,MathVista=/path/pruned_by_mathvista.pth,CC3M=/path/pruned_by_cc3m.pth"
+
+export EVAL_SPECS=$'MMBench|/path/mmbench_eval.json_or.parquet|/path/mmbench_images|question|multimodal|512
+MMMU|/path/mmmu_eval.json_or.parquet|/path/mmmu_images|question|multimodal|512
+OKVQA|/path/okvqa_eval.json|/path/okvqa_images|question|multimodal|512
+MathVista|/path/mathvista_eval.json|/path/mathvista_images|question|multimodal|512'
+
+T5_LAYER_PARTS="both" BATCH_SIZE=4 \
+  bash scripts/blip2/run_t5_layer_fidelity_fourbench.sh
+```
+
+This produces one main curve plot per eval dataset:
+
+```text
+$OUT_ROOT/MMBench/t5_layer_both/t5_layer_fidelity_both.png
+$OUT_ROOT/MMMU/t5_layer_both/t5_layer_fidelity_both.png
+$OUT_ROOT/OKVQA/t5_layer_both/t5_layer_fidelity_both.png
+$OUT_ROOT/MathVista/t5_layer_both/t5_layer_fidelity_both.png
+$OUT_ROOT/t5_layer_fidelity_summary_all_evals.csv
+```
+
+Each plot has five calibration curves.  The x-axis is the T5 encoder layer
+after each encoder block, and the y-axis is mean cosine similarity between the
+pruned model and dense model hidden states on the same eval rows.

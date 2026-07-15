@@ -307,7 +307,13 @@ class EncoderForward:
             return_tensors="pt",
         ).to(device)
 
-    def run(self, image_tensor: Any, texts: Sequence[str], device: str) -> Dict[str, Any]:
+    def run(
+        self,
+        image_tensor: Any,
+        texts: Sequence[str],
+        device: str,
+        output_hidden_states: bool = False,
+    ) -> Dict[str, Any]:
         torch = self.torch
         model = self.model
 
@@ -357,10 +363,11 @@ class EncoderForward:
                 encoder_outputs = model.t5_model.encoder(
                     inputs_embeds=encoder_embeddings,
                     attention_mask=encoder_attention,
+                    output_hidden_states=output_hidden_states,
                     return_dict=True,
                 )
 
-        return {
+        result = {
             "encoder_hidden": encoder_outputs.last_hidden_state,
             "encoder_attention": encoder_attention,
             "input_tokens": input_tokens,
@@ -375,6 +382,9 @@ class EncoderForward:
             "visual_tokens": visual_tokens,
             "text_embeddings": text_embeddings,
         }
+        if output_hidden_states:
+            result["encoder_hidden_states"] = encoder_outputs.hidden_states
+        return result
 
     # Hooks read the current token grouping from here.
     _masks: Dict[str, Any] = {}
