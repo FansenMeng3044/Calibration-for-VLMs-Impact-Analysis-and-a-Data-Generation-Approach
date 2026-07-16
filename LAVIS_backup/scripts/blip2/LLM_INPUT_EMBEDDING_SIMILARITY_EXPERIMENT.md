@@ -248,3 +248,43 @@ $OUT_ROOT/t5_layer_fidelity_summary_all_evals.csv
 Each plot has five calibration curves.  The x-axis is the T5 encoder layer
 after each encoder block, and the y-axis is mean cosine similarity between the
 pruned model and dense model hidden states on the same eval rows.
+
+## Example E: Teacher-Forced Decoder and Logit Fidelity
+
+Encoder fidelity still does not directly measure answer generation.  To inspect
+the decoder, use teacher forcing with the ground-truth output field.  This keeps
+dense and pruned decoder token positions aligned, then compares decoder hidden
+states and compact logit summaries.
+
+```bash
+cd /data/data2/mfs/2/ECoFLaP/LAVIS
+export PYTHONPATH=$PWD:${PYTHONPATH:-}
+
+export DENSE_CKPT=/data/data2/mfs/model_cache/torch/hub/checkpoints/blip2_pretrained_flant5xl.pth
+export OUT_ROOT=/data/data2/mfs/t5_decoder_logits_fidelity_fourbench
+
+export PRUNED_CKPTS="MMBench=/path/pruned_by_mmbench.pth,MMMU=/path/pruned_by_mmmu.pth,OKVQA=/path/pruned_by_okvqa.pth,MathVista=/path/pruned_by_mathvista.pth,CC3M=/path/pruned_by_cc3m.pth"
+
+export EVAL_SPECS=$'MMBench|/path/mmbench_eval.json_or.parquet|/path/mmbench_images|question|multimodal|512|answer
+MMMU|/path/mmmu_eval.json_or.parquet|/path/mmmu_images|question|multimodal|512|answer
+OKVQA|/path/okvqa_eval.json|/path/okvqa_images|question|multimodal|512|answer
+MathVista|/path/mathvista_eval.json|/path/mathvista_images|question|multimodal|512|answer'
+
+BATCH_SIZE=2 MAX_OUTPUT_LEN=32 TOP_K=10 \
+  bash scripts/blip2/run_t5_decoder_logits_fidelity_fourbench.sh
+```
+
+The wrapper writes:
+
+```text
+$OUT_ROOT/MMBench/decoder_logits/t5_decoder_layer_fidelity.png
+$OUT_ROOT/MMBench/decoder_logits/t5_logit_fidelity.csv
+$OUT_ROOT/t5_decoder_layer_fidelity_summary_all_evals.csv
+$OUT_ROOT/t5_decoder_final_layer_fidelity_summary_all_evals.csv
+$OUT_ROOT/t5_logit_fidelity_summary_all_evals.csv
+```
+
+Logit fidelity is compact: the script does not save full vocabulary logits.
+Instead it compares ground-truth token log probability, top-1 agreement, and
+top-k overlap against the dense model.  These are closer to answer likelihood
+than encoder-only hidden-state fidelity.
