@@ -176,7 +176,7 @@ def draw_heatmap(ax, fig, row_labels: Sequence[str], col_labels: Sequence[str], 
     ax.set_xticklabels([pretty_label(label) for label in col_labels], rotation=32, ha="right")
     from matplotlib.transforms import ScaledTranslation
 
-    x_tick_offset = ScaledTranslation(5 / 72.0, 0, fig.dpi_scale_trans)
+    x_tick_offset = ScaledTranslation(14 / 72.0, 0, fig.dpi_scale_trans)
     for tick_label in ax.get_xticklabels():
         tick_label.set_transform(tick_label.get_transform() + x_tick_offset)
     ax.set_yticks(range(len(row_labels)))
@@ -197,11 +197,11 @@ def draw_heatmap(ax, fig, row_labels: Sequence[str], col_labels: Sequence[str], 
         fontsize=10.5,
     )
     ax.text(
-        -0.075,
+        -0.14,
         -0.18,
         "Evaluation Set",
         transform=ax.transAxes,
-        ha="right",
+        ha="center",
         va="center",
         fontsize=10.5,
     )
@@ -271,7 +271,7 @@ def main() -> None:
 
     fig = plt.figure(figsize=(13.2, 5.85))
     grid = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.55], wspace=0.27)
-    right_grid = grid[0, 1].subgridspec(3, 1, height_ratios=[0.11, 1.08, 1.08], hspace=0.30)
+    right_grid = grid[0, 1].subgridspec(3, 1, height_ratios=[0.06, 1.1, 1.1], hspace=0.30)
     ax_heat = fig.add_subplot(grid[0, 0])
     ax_legend = fig.add_subplot(right_grid[0, 0])
     ax_okvqa = fig.add_subplot(right_grid[1, 0])
@@ -283,10 +283,11 @@ def main() -> None:
     draw_l2_panel(ax_mmbench, mmbench_series, "(c) MMBench Decoder Layer-wise L2 Drift", show_xlabel=True)
 
     if handles:
-        ax_legend.legend(
+        fig.legend(
             handles,
             labels,
             loc="upper left",
+            bbox_to_anchor=(0.52, 0.925),
             ncol=min(len(labels), 5),
             frameon=False,
             columnspacing=1.35,
