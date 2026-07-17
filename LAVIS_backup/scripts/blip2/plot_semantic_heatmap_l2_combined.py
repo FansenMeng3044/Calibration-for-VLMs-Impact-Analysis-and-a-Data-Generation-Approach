@@ -174,6 +174,11 @@ def draw_heatmap(ax, fig, row_labels: Sequence[str], col_labels: Sequence[str], 
     )
     ax.set_xticks(range(len(col_labels)))
     ax.set_xticklabels([pretty_label(label) for label in col_labels], rotation=32, ha="right")
+    from matplotlib.transforms import ScaledTranslation
+
+    x_tick_offset = ScaledTranslation(5 / 72.0, 0, fig.dpi_scale_trans)
+    for tick_label in ax.get_xticklabels():
+        tick_label.set_transform(tick_label.get_transform() + x_tick_offset)
     ax.set_yticks(range(len(row_labels)))
     ax.set_yticklabels([pretty_label(label) for label in row_labels])
     ax.set_xlabel("")
@@ -184,20 +189,20 @@ def draw_heatmap(ax, fig, row_labels: Sequence[str], col_labels: Sequence[str], 
         spine.set_visible(False)
     ax.text(
         -0.14,
-        1.015,
+        1.0,
         "Calibration\nSet",
         transform=ax.transAxes,
         ha="center",
-        va="bottom",
+        va="center",
         fontsize=10.5,
     )
     ax.text(
-        -0.065,
-        -0.155,
-        "Evaluation\nSet",
+        -0.075,
+        -0.18,
+        "Evaluation Set",
         transform=ax.transAxes,
         ha="right",
-        va="top",
+        va="center",
         fontsize=10.5,
     )
 
@@ -239,7 +244,7 @@ def draw_l2_panel(ax, series: Dict[str, List[Tuple[int, float]]], title: str, sh
     ax.set_title(title, pad=9)
     ax.set_ylabel("Relative L2 to Dense")
     if show_xlabel:
-        ax.set_xlabel("T5 Decoder Layer")
+        ax.set_xlabel("T5 Decoder Layer", labelpad=7)
     else:
         ax.tick_params(axis="x", labelbottom=False)
     ax.grid(True, alpha=0.26, linewidth=0.7)
@@ -264,9 +269,9 @@ def main() -> None:
     if plt is None:
         raise RuntimeError("matplotlib is required to draw this combined figure.")
 
-    fig = plt.figure(figsize=(13.2, 5.7))
+    fig = plt.figure(figsize=(13.2, 5.85))
     grid = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.55], wspace=0.27)
-    right_grid = grid[0, 1].subgridspec(3, 1, height_ratios=[0.18, 1.0, 1.0], hspace=0.36)
+    right_grid = grid[0, 1].subgridspec(3, 1, height_ratios=[0.11, 1.08, 1.08], hspace=0.30)
     ax_heat = fig.add_subplot(grid[0, 0])
     ax_legend = fig.add_subplot(right_grid[0, 0])
     ax_okvqa = fig.add_subplot(right_grid[1, 0])
@@ -281,7 +286,7 @@ def main() -> None:
         ax_legend.legend(
             handles,
             labels,
-            loc="center left",
+            loc="upper left",
             ncol=min(len(labels), 5),
             frameon=False,
             columnspacing=1.35,
@@ -289,7 +294,7 @@ def main() -> None:
             borderaxespad=0.0,
         )
 
-    fig.subplots_adjust(top=0.91, left=0.075, right=0.98, bottom=0.14)
+    fig.subplots_adjust(top=0.90, left=0.075, right=0.98, bottom=0.155)
     for ext in ("png", "pdf"):
         out_path = os.path.join(args.out_dir, "%s.%s" % (args.fig_name, ext))
         fig.savefig(out_path, dpi=args.dpi, bbox_inches="tight")
