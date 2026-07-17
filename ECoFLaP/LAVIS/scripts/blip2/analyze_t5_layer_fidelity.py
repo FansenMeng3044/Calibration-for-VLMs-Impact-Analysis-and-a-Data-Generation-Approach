@@ -19,6 +19,10 @@ import numpy as np
 from split_joint_analysis_common import ensure_dir, parse_labeled_paths, setup_matplotlib, write_csv
 
 
+LINE_COLORS = ["#2aa7b8", "#19b89e", "#62d4c6", "#168ca1", "#79b86f", "#7bb7d8"]
+LINE_MARKERS = ["o", "s", "^", "D", "P", "X"]
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Plot layer-wise T5 hidden-state fidelity curves.",
@@ -98,14 +102,15 @@ def plot_metric(plt, rows: Sequence[Dict[str, object]], metric: str, ylabel: str
         if label not in labels:
             labels.append(label)
     fig, ax = plt.subplots(figsize=(10.5, 6.0))
-    for label in labels:
+    for idx, label in enumerate(labels):
         subset = [row for row in rows if row["calibration"] == label]
         subset.sort(key=lambda row: int(row["layer"]))
         ax.plot(
             [int(row["layer"]) for row in subset],
             [float(row[metric]) for row in subset],
-            marker="o",
-            linewidth=2.0,
+            color=LINE_COLORS[idx % len(LINE_COLORS)],
+            marker=LINE_MARKERS[idx % len(LINE_MARKERS)],
+            linewidth=2.2,
             markersize=4.5,
             label=label,
         )

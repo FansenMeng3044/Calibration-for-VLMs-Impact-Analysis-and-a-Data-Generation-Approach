@@ -58,6 +58,15 @@ def parse_args() -> argparse.Namespace:
                    help="Which LLM-input embedding to use. Use both/text for semantic similarity; visual is often most sensitive for pruning fidelity.")
     p.add_argument("--accuracy_csv", default=None)
     p.add_argument("--out_dir", required=True)
+    p.add_argument(
+        "--heatmap_cmap",
+        default="soft_blue_green",
+        help=(
+            "Matplotlib colormap for semantic similarity heatmaps. Custom light palettes: "
+            "soft_blue_green, mint_teal, aqua_blue, seafoam_green, cyan_mint, paper_teal, "
+            "pale_lagoon, mist_cyan, glacier_teal, sage_blue, robin_mint, porcelain_blue."
+        ),
+    )
     p.add_argument("--no_plots", action="store_true")
     return p.parse_args()
 
@@ -142,12 +151,35 @@ def split_labels(value: Optional[str], labels: Sequence[str], what: str) -> List
     return wanted
 
 
-def heatmap(plt, labels, mat, title, path, evals=None):
+def resolve_heatmap_cmap(cmap_name: str):
+    palettes = {
+        "soft_blue_green": ["#f7fffc", "#ddf8ee", "#a9ecd9", "#62d4c6", "#2aa7b8"],
+        "soft_bugn": ["#f7fffc", "#ddf8ee", "#a9ecd9", "#62d4c6", "#2aa7b8"],
+        "mint_teal": ["#f7fcf9", "#dff4ec", "#bde7dc", "#7ccfc2", "#2a9d9f"],
+        "aqua_blue": ["#f6fbff", "#dceff7", "#b9e0ee", "#79c7dd", "#2f8fc6"],
+        "seafoam_green": ["#f8fcf9", "#e5f5e9", "#c7e9c0", "#8fd3a6", "#41ab7a"],
+        "cyan_mint": ["#f7fcfd", "#e0f3f8", "#ccece6", "#99d8c9", "#4eb3d3"],
+        "paper_teal": ["#f6fbfa", "#e2f2ef", "#c4e6df", "#8ccdc3", "#4a9dae"],
+        "pale_lagoon": ["#f7fbfb", "#e5f3f4", "#c8e6e8", "#91cdd4", "#5aa9bd"],
+        "mist_cyan": ["#f8fcfd", "#e9f6f8", "#d3edf0", "#a8d9df", "#6bb8c8"],
+        "glacier_teal": ["#f7fbff", "#e7f1f7", "#cce4ef", "#9bcfe0", "#5ba5c6"],
+        "sage_blue": ["#f8fbf7", "#e8f1e8", "#cddfce", "#9ec8bd", "#6fa6b5"],
+        "robin_mint": ["#f7fcfb", "#e1f5f1", "#c7ebe4", "#8dd8d1", "#45b8c7"],
+        "porcelain_blue": ["#f8fbff", "#e9f2fb", "#d5e8f5", "#afd3ea", "#78afd5"],
+    }
+    if cmap_name not in palettes:
+        return cmap_name
+    from matplotlib.colors import LinearSegmentedColormap
+
+    return LinearSegmentedColormap.from_list(cmap_name, palettes[cmap_name])
+
+
+def heatmap(plt, labels, mat, title, path, cmap="soft_blue_green", evals=None):
     if plt is None:
         return
     n = len(labels)
     fig, ax = plt.subplots(figsize=(1.15 * n + 2.5, 1.15 * n + 2))
-    im = ax.imshow(mat, cmap="viridis", vmin=float(np.nanmin(mat)), vmax=float(np.nanmax(mat)))
+    im = ax.imshow(mat, cmap=resolve_heatmap_cmap(cmap), vmin=float(np.nanmin(mat)), vmax=float(np.nanmax(mat)))
     ax.set_xticks(range(n)); ax.set_xticklabels(labels, rotation=30, ha="right")
     ax.set_yticks(range(n)); ax.set_yticklabels(labels)
     for i in range(n):
@@ -161,13 +193,13 @@ def heatmap(plt, labels, mat, title, path, evals=None):
     fig.tight_layout(); fig.savefig(path, dpi=220, bbox_inches="tight"); plt.close(fig)
 
 
-def rect_heatmap(plt, row_labels, col_labels, mat, title, path):
+def rect_heatmap(plt, row_labels, col_labels, mat, title, path, cmap="soft_blue_green"):
     if plt is None:
         return
     nr = len(row_labels)
     nc = len(col_labels)
     fig, ax = plt.subplots(figsize=(1.1 * nc + 3.2, 0.62 * nr + 2.6))
-    im = ax.imshow(mat, cmap="viridis", vmin=float(np.nanmin(mat)), vmax=float(np.nanmax(mat)))
+    im = ax.imshow(mat, cmap=resolve_heatmap_cmap(cmap), vmin=float(np.nanmin(mat)), vmax=float(np.nanmax(mat)))
     ax.set_xticks(range(nc)); ax.set_xticklabels(col_labels, rotation=30, ha="right")
     ax.set_yticks(range(nr)); ax.set_yticklabels(row_labels)
     mid = (np.nanmin(mat) + np.nanmax(mat)) / 2.0
@@ -239,10 +271,12 @@ def run_semantic(args, plt):
 
     if plt is not None and not args.no_plots:
         heatmap(plt, labels, sim, "Calibration vs eval semantic similarity (%s)" % args.part,
-                os.path.join(args.out_dir, "semantic_similarity_%s.png" % args.part), evals)
+                os.path.join(args.out_dir, "semantic_similarity_%s.png" % args.part),
+                args.heatmap_cmap, evals)
         rect_heatmap(plt, calibs, evals, calib_eval,
                      "Calibration-to-eval semantic similarity (%s)" % args.part,
-                     os.path.join(args.out_dir, "calib_eval_semantic_similarity_%s.png" % args.part))
+                     os.path.join(args.out_dir, "calib_eval_semantic_similarity_%s.png" % args.part),
+                     args.heatmap_cmap)
 
     corr = None
     if args.accuracy_csv:

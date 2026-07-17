@@ -142,6 +142,14 @@ def setup_matplotlib():
 
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
+        matplotlib.rcParams.update(
+            {
+                "font.family": "serif",
+                "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
+                "mathtext.fontset": "stix",
+                "axes.unicode_minus": False,
+            }
+        )
     except Exception as exc:  # pragma: no cover
         print("[WARN] matplotlib unavailable; CSVs will still be written: %s" % exc)
         return None

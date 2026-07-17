@@ -13,6 +13,10 @@ import numpy as np
 from split_joint_analysis_common import ensure_dir, parse_labeled_paths, setup_matplotlib, write_csv
 
 
+LINE_COLORS = ["#2aa7b8", "#19b89e", "#62d4c6", "#168ca1", "#79b86f", "#7bb7d8"]
+LINE_MARKERS = ["o", "s", "^", "D", "P", "X"]
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Compare decoder hidden states and compact logits to dense.",
@@ -172,13 +176,14 @@ def plot_decoder_curves(plt, rows: Sequence[Dict[str, object]], metric: str, yla
         if label not in labels:
             labels.append(label)
     fig, ax = plt.subplots(figsize=(10.5, 6.0))
-    for label in labels:
+    for idx, label in enumerate(labels):
         subset = [row for row in rows if row["calibration"] == label]
         subset.sort(key=lambda row: int(row["layer"]))
         ax.plot(
             [int(row["layer"]) for row in subset],
             [float(row[metric]) for row in subset],
-            marker="o",
+            color=LINE_COLORS[idx % len(LINE_COLORS)],
+            marker=LINE_MARKERS[idx % len(LINE_MARKERS)],
             linewidth=2.0,
             markersize=4.5,
             label=label,
@@ -200,7 +205,7 @@ def plot_logit_bars(plt, rows: Sequence[Dict[str, object]], metric: str, ylabel:
     labels = [str(row["calibration"]) for row in ordered]
     vals = [float(row[metric]) for row in ordered]
     fig, ax = plt.subplots(figsize=(8.5, 5.0))
-    ax.bar(range(len(labels)), vals, color="#4C78A8")
+    ax.bar(range(len(labels)), vals, color="#2aa7b8")
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, rotation=25, ha="right")
     ax.set_ylabel(ylabel)
