@@ -22,6 +22,13 @@ LINE_COLORS = ["#0072B2", "#009E73", "#56B4E9", "#CC79A7", "#E69F00"]
 LINE_MARKERS = ["o", "s", "^", "D", "P"]
 CALIB_ORDER = ["MMBench", "MMMU", "OKVQA", "mathvista", "MathVista", "cc3m", "CC3M"]
 EVAL_ORDER = ["MMBench", "MMMU", "OKVQA", "mathvista", "MathVista"]
+DISPLAY_LABELS = {
+    "mmbench": "MMBench",
+    "mmmu": "MMMU",
+    "okvqa": "OKVQA",
+    "mathvista": "MathVista",
+    "cc3m": "CC3M",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -86,13 +93,30 @@ def resolve_layer_csv(path: str, part: str) -> str:
     raise FileNotFoundError("Could not find T5 layer fidelity CSV under %s" % path)
 
 
+def pretty_label(label: str) -> str:
+    text = str(label).strip()
+    lowered = text.casefold()
+    for prefix in ("eval_", "calib_", "calibration_", "reference_"):
+        if lowered.startswith(prefix):
+            text = text[len(prefix) :]
+            lowered = text.casefold()
+            break
+    return DISPLAY_LABELS.get(lowered, text)
+
+
 def ordered_labels(labels: Iterable[str], preferred: Sequence[str]) -> List[str]:
     seen = []
     for label in labels:
         if label not in seen:
             seen.append(label)
-    preferred_present = [label for label in preferred if label in seen]
-    return preferred_present + [label for label in seen if label not in preferred_present]
+    preferred_rank = {pretty_label(label).casefold(): idx for idx, label in enumerate(preferred)}
+    return sorted(
+        seen,
+        key=lambda label: (
+            preferred_rank.get(pretty_label(label).casefold(), len(preferred_rank)),
+            seen.index(label),
+        ),
+    )
 
 
 def read_semantic_matrix(path: str, metric: str) -> Tuple[List[str], List[str], np.ndarray]:
@@ -149,12 +173,33 @@ def draw_heatmap(ax, fig, row_labels: Sequence[str], col_labels: Sequence[str], 
         aspect="auto",
     )
     ax.set_xticks(range(len(col_labels)))
-    ax.set_xticklabels(col_labels, rotation=32, ha="right")
+    ax.set_xticklabels([pretty_label(label) for label in col_labels], rotation=32, ha="right")
     ax.set_yticks(range(len(row_labels)))
-    ax.set_yticklabels(row_labels)
-    ax.set_xlabel("Evaluation Dataset")
-    ax.set_ylabel("Calibration Dataset")
+    ax.set_yticklabels([pretty_label(label) for label in row_labels])
+    ax.set_xlabel("")
+    ax.set_ylabel("")
     ax.set_title("(a) Semantic Similarity", pad=10)
+    ax.tick_params(axis="both", length=0)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.text(
+        -0.14,
+        1.015,
+        "Calibration\nSet",
+        transform=ax.transAxes,
+        ha="center",
+        va="bottom",
+        fontsize=10.5,
+    )
+    ax.text(
+        -0.065,
+        -0.155,
+        "Evaluation\nSet",
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        fontsize=10.5,
+    )
 
     vmin = float(np.nanmin(matrix))
     vmax = float(np.nanmax(matrix))
@@ -184,16 +229,17 @@ def draw_l2_panel(ax, series: Dict[str, List[Tuple[int, float]]], title: str, sh
             [y for _, y in points],
             color=LINE_COLORS[idx % len(LINE_COLORS)],
             marker=LINE_MARKERS[idx % len(LINE_MARKERS)],
-            linewidth=2.15,
-            markersize=4.2,
-            label=label,
+            linewidth=1.55,
+            markersize=3.7,
+            markeredgewidth=0.8,
+            label=pretty_label(label),
         )[0]
         handles.append(handle)
-        plotted_labels.append(label)
+        plotted_labels.append(pretty_label(label))
     ax.set_title(title, pad=9)
     ax.set_ylabel("Relative L2 to Dense")
     if show_xlabel:
-        ax.set_xlabel("T5 Encoder Layer")
+        ax.set_xlabel("T5 Decoder Layer")
     else:
         ax.tick_params(axis="x", labelbottom=False)
     ax.grid(True, alpha=0.26, linewidth=0.7)
@@ -219,28 +265,31 @@ def main() -> None:
         raise RuntimeError("matplotlib is required to draw this combined figure.")
 
     fig = plt.figure(figsize=(13.2, 5.7))
-    grid = fig.add_gridspec(2, 2, width_ratios=[1.05, 1.55], height_ratios=[1.0, 1.0], wspace=0.27, hspace=0.34)
-    ax_heat = fig.add_subplot(grid[:, 0])
-    ax_okvqa = fig.add_subplot(grid[0, 1])
-    ax_mmbench = fig.add_subplot(grid[1, 1], sharex=ax_okvqa)
+    grid = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.55], wspace=0.27)
+    right_grid = grid[0, 1].subgridspec(3, 1, height_ratios=[0.18, 1.0, 1.0], hspace=0.36)
+    ax_heat = fig.add_subplot(grid[0, 0])
+    ax_legend = fig.add_subplot(right_grid[0, 0])
+    ax_okvqa = fig.add_subplot(right_grid[1, 0])
+    ax_mmbench = fig.add_subplot(right_grid[2, 0], sharex=ax_okvqa)
+    ax_legend.axis("off")
 
     draw_heatmap(ax_heat, fig, row_labels, col_labels, semantic_matrix)
-    handles, labels = draw_l2_panel(ax_okvqa, okvqa_series, "(b) OKVQA Layer-wise L2 Drift", show_xlabel=False)
-    draw_l2_panel(ax_mmbench, mmbench_series, "(c) MMBench Layer-wise L2 Drift", show_xlabel=True)
+    handles, labels = draw_l2_panel(ax_okvqa, okvqa_series, "(b) OKVQA Decoder Layer-wise L2 Drift", show_xlabel=False)
+    draw_l2_panel(ax_mmbench, mmbench_series, "(c) MMBench Decoder Layer-wise L2 Drift", show_xlabel=True)
 
     if handles:
-        fig.legend(
+        ax_legend.legend(
             handles,
             labels,
-            loc="upper center",
-            bbox_to_anchor=(0.70, 1.015),
+            loc="center left",
             ncol=min(len(labels), 5),
             frameon=False,
             columnspacing=1.35,
-            handlelength=2.0,
+            handlelength=1.8,
+            borderaxespad=0.0,
         )
 
-    fig.subplots_adjust(top=0.88, left=0.07, right=0.97, bottom=0.13)
+    fig.subplots_adjust(top=0.91, left=0.075, right=0.98, bottom=0.14)
     for ext in ("png", "pdf"):
         out_path = os.path.join(args.out_dir, "%s.%s" % (args.fig_name, ext))
         fig.savefig(out_path, dpi=args.dpi, bbox_inches="tight")
