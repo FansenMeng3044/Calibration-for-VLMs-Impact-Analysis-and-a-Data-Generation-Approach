@@ -173,12 +173,19 @@ def draw_heatmap(ax, fig, row_labels: Sequence[str], col_labels: Sequence[str], 
         aspect="auto",
     )
     ax.set_xticks(range(len(col_labels)))
-    ax.set_xticklabels([pretty_label(label) for label in col_labels], rotation=32, ha="right")
-    from matplotlib.transforms import ScaledTranslation
-
-    x_tick_offset = ScaledTranslation(14 / 72.0, 0, fig.dpi_scale_trans)
-    for tick_label in ax.get_xticklabels():
-        tick_label.set_transform(tick_label.get_transform() + x_tick_offset)
+    ax.set_xticklabels([])
+    for col_idx, label in enumerate(col_labels):
+        ax.text(
+            col_idx + 0.32,
+            -0.045,
+            pretty_label(label),
+            transform=ax.get_xaxis_transform(),
+            rotation=32,
+            ha="center",
+            va="top",
+            fontsize=10.5,
+            clip_on=False,
+        )
     ax.set_yticks(range(len(row_labels)))
     ax.set_yticklabels([pretty_label(label) for label in row_labels])
     ax.set_xlabel("")
