@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 from typing import Any, Iterable, Optional, Sequence
 
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
 
 PINK = "#F88988"
@@ -40,8 +40,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--c4_index", type=int, default=0)
     parser.add_argument("--out_dir", default="/data/data2/mfs/calibration_intro_cards")
     parser.add_argument("--out_prefix", default="calibration_intro_cards")
-    parser.add_argument("--width", type=int, default=2400)
-    parser.add_argument("--height", type=int, default=1500)
+    parser.add_argument("--width", type=int, default=1400)
+    parser.add_argument("--height", type=int, default=2250)
     parser.add_argument("--font", default=None, help="Optional path to a .ttf/.otf font.")
     parser.add_argument("--hide_titles", action="store_true")
     parser.add_argument("--show_connectors", action="store_true", help="Draw light connector lines from the multimodal card to the split cards.")
@@ -146,14 +146,18 @@ def pick_c4_text(rows: Sequence[Any], index: int) -> str:
 
 def font_candidates() -> Iterable[Path]:
     paths = [
-        "C:/Windows/Fonts/times.ttf",
-        "C:/Windows/Fonts/timesbd.ttf",
-        "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf",
-        "/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman_Bold.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+        "C:/Windows/Fonts/msyh.ttc",
+        "C:/Windows/Fonts/msyhbd.ttc",
+        "C:/Windows/Fonts/msyhl.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/opentype/source-han-sans/SourceHanSansCN-Regular.otf",
+        "/usr/share/fonts/opentype/source-han-sans/SourceHanSansCN-Bold.otf",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     ]
     for path in paths:
         p = Path(path)
@@ -166,7 +170,11 @@ def load_font(size: int, requested: Optional[str] = None, bold: bool = False) ->
         return ImageFont.truetype(requested, size=size)
     candidates = list(font_candidates())
     if bold:
-        bold_candidates = [p for p in candidates if "Bold" in p.name or "bd" in p.stem.lower()]
+        bold_candidates = [
+            p
+            for p in candidates
+            if "Bold" in p.name or "bd" in p.stem.lower() or p.name.lower() == "msyhbd.ttc"
+        ]
         for path in bold_candidates:
             return ImageFont.truetype(str(path), size=size)
     for path in candidates:
@@ -207,15 +215,6 @@ def rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
 def paste_round(canvas: Image.Image, image: Image.Image, xy: tuple[int, int], radius: int) -> None:
     mask = rounded_mask(image.size, radius)
     canvas.paste(image, xy, mask)
-
-
-def draw_shadow(canvas: Image.Image, box: tuple[int, int, int, int], radius: int, blur: int = 24) -> None:
-    x0, y0, x1, y1 = box
-    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(layer)
-    draw.rounded_rectangle((x0 + 8, y0 + 14, x1 + 8, y1 + 14), radius=radius, fill=(*hex_to_rgb(SHADOW), 90))
-    layer = layer.filter(ImageFilter.GaussianBlur(blur))
-    canvas.alpha_composite(layer)
 
 
 def cover_resize(image: Image.Image, target: tuple[int, int]) -> Image.Image:
@@ -343,7 +342,6 @@ def draw_multimodal_card(
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     radius = 42
-    draw_shadow(canvas, box, radius)
 
     top_h = int(h * 0.58)
     grad_h = 72
@@ -378,11 +376,9 @@ def draw_text_card(
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     radius = 42
-    draw_shadow(canvas, box, radius)
     card = vertical_gradient((w, h), "#B9D9EA", BLUE)
     d = ImageDraw.Draw(card)
-    d.rounded_rectangle((34, 34, w - 34, h - 34), radius=30, outline=(255, 255, 255), width=3)
-    text_box = (70, 78, w - 70, h - 78)
+    text_box = (70, 66, w - 70, h - 66)
     draw_centered_lines(d, text_box, shorten(text, max_chars), fonts["body"], INK, line_gap=12)
     paste_round(canvas, card, (x0, y0), radius)
     if title:
@@ -400,7 +396,6 @@ def draw_image_only_card(
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     radius = 38
-    draw_shadow(canvas, box, radius, blur=20)
     card = Image.new("RGB", (w, h), PINK)
     margin = 28
     image = cover_resize(Image.open(image_path), (w - 2 * margin, h - 2 * margin))
@@ -421,7 +416,6 @@ def draw_caption_only_card(
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     radius = 38
-    draw_shadow(canvas, box, radius, blur=20)
     card = Image.new("RGB", (w, h), BLUE)
     d = ImageDraw.Draw(card)
     text_box = (44, 46, w - 44, h - 46)
@@ -442,6 +436,18 @@ def draw_connector(draw: ImageDraw.ImageDraw, start: tuple[int, int], end: tuple
     draw.ellipse((x1 - r, y1 - r, x1 + r, y1 + r), fill=color)
 
 
+def draw_dash_dot_line(draw: ImageDraw.ImageDraw, x0: int, x1: int, y: int, color: str = "#8FA8B5") -> None:
+    x = x0
+    while x < x1:
+        dash_end = min(x + 34, x1)
+        draw.line((x, y, dash_end, y), fill=color, width=3)
+        x = dash_end + 16
+        if x < x1:
+            r = 4
+            draw.ellipse((x - r, y - r, x + r, y + r), fill=color)
+            x += 22
+
+
 def main() -> int:
     args = parse_args()
     cc3m_rows = rows_from_json(load_json(args.cc3m_json))
@@ -450,9 +456,9 @@ def main() -> int:
     c4_text = pick_c4_text(c4_rows, args.c4_index)
 
     fonts = {
-        "title": load_font(42, args.font, bold=True),
-        "small_title": load_font(34, args.font, bold=True),
-        "body": load_font(34, args.font),
+        "title": load_font(40, args.font, bold=True),
+        "small_title": load_font(30, args.font, bold=True),
+        "body": load_font(31, args.font),
         "small_body": load_font(28, args.font),
         "caption": load_font(26, args.font),
     }
@@ -460,20 +466,27 @@ def main() -> int:
     canvas = Image.new("RGBA", (args.width, args.height), PAPER)
     draw = ImageDraw.Draw(canvas)
 
-    if not args.hide_titles:
-        draw_title(draw, "Multimodal Calibration", 610, 92, fonts["title"])
-        draw_title(draw, "Text-only Calibration", 1785, 92, fonts["title"])
-        draw_title(draw, "Separated CC3M Calibration", args.width // 2, 930, fonts["title"])
+    card_w = min(900, args.width - 220)
+    card_x = (args.width - card_w) // 2
+    title_x = args.width // 2
 
-    mm_box = (220, 170, 1000, 810)
-    c4_box = (1400, 170, 2180, 810)
-    image_box = (620, 1045, 1030, 1395)
-    caption_box = (1370, 1045, 1780, 1395)
+    mm_box = (card_x, 150, card_x + card_w, 700)
+    c4_box = (card_x, 840, card_x + card_w, 1225)
+    image_box = (card_x, 1425, card_x + card_w, 1735)
+    caption_box = (card_x, 1782, card_x + card_w, 2092)
+
+    if not args.hide_titles:
+        draw_title(draw, "Multimodal Calibration", title_x, 84, fonts["title"])
+        draw_title(draw, "Unimodal Calibration", title_x, 774, fonts["title"])
+        draw_title(draw, "Split Multimodal Calibration", title_x, 1358, fonts["title"])
 
     draw_multimodal_card(canvas, mm_box, cc3m_image, shorten(cc3m_caption, args.max_caption_chars), fonts)
     draw_text_card(canvas, c4_box, shorten(c4_text, args.max_c4_chars), fonts)
-    draw_image_only_card(canvas, image_box, cc3m_image, fonts, title="Image-only")
-    draw_caption_only_card(canvas, caption_box, shorten(cc3m_caption, args.max_caption_chars), fonts, title="Caption-only")
+    draw_image_only_card(canvas, image_box, cc3m_image, fonts)
+    draw_caption_only_card(canvas, caption_box, shorten(cc3m_caption, args.max_caption_chars), fonts)
+
+    draw = ImageDraw.Draw(canvas)
+    draw_dash_dot_line(draw, card_x + 96, card_x + card_w - 96, (image_box[3] + caption_box[1]) // 2)
 
     if args.show_connectors:
         draw = ImageDraw.Draw(canvas)
