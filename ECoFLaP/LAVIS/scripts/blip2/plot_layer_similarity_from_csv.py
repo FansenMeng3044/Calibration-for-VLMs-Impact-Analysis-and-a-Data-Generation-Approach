@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import csv
 import os
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 from split_joint_analysis_common import ensure_dir, setup_matplotlib
 
@@ -23,13 +23,16 @@ DEFAULT_CSV = (
     "layer_similarity/per_layer_similarity_to_dense.csv"
 )
 
-MODEL_COLORS = {
-    "split": "#0072B2",
-    "joint": "#009E73",
-    "merged": "#0072B2",
-    "multimodal": "#009E73",
+PALETTES = {
+    # Stronger than the old blue/green while still living in the paper palette.
+    "blue_gold": ["#1D5D9B", "#E69F00", "#56B4E9", "#009E73", "#CC79A7"],
+    # Best choice when you want to stay strictly blue-green.
+    "deep_blue_teal": ["#174A7C", "#00A087", "#56B4E9", "#2AA7B8", "#4A9DAE"],
+    # Colorblind-safe, very clear in print.
+    "blue_vermillion": ["#0072B2", "#D55E00", "#009E73", "#56B4E9", "#CC79A7"],
+    # Softer, closer to the semantic heatmap.
+    "paper_teal": ["#2A6F97", "#4A9D8F", "#61A5C2", "#89C2B8", "#B279A2"],
 }
-FALLBACK_COLORS = ["#0072B2", "#009E73", "#56B4E9", "#2AA7B8", "#4A9DAE"]
 MODEL_MARKERS = {
     "split": "o",
     "joint": "s",
@@ -37,6 +40,12 @@ MODEL_MARKERS = {
     "multimodal": "s",
 }
 FALLBACK_MARKERS = ["o", "s", "^", "D", "P"]
+MODEL_LINESTYLES = {
+    "split": "-",
+    "joint": "--",
+    "merged": "-",
+    "multimodal": "--",
+}
 
 TOKEN_GROUP_TITLES = {
     "visual": "Visual Prefix",
@@ -67,7 +76,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--metrics",
-        default="rel_l2,cosine",
+        default="rel_l2",
         help="Comma-separated metric names. Uses <metric>_mean columns.",
     )
     parser.add_argument(
@@ -82,6 +91,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--xlabel", default="Layer Index")
     parser.add_argument("--fig_prefix", default="encoder_similarity")
+    parser.add_argument(
+        "--palette",
+        choices=sorted(PALETTES),
+        default="blue_gold",
+        help="Line/bar color pair. blue_gold is the most visibly separated.",
+    )
     parser.add_argument("--dpi", type=int, default=300)
     parser.add_argument("--no_combined", action="store_true", help="Only write individual figures.")
     return parser.parse_args()
@@ -155,12 +170,18 @@ def collect_series(
     return {model: sorted(points) for model, points in series.items() if points}
 
 
-def color_for_model(model: str, index: int) -> str:
+def palette_slot(model: str, index: int) -> int:
     lowered = model.casefold()
-    for key, color in MODEL_COLORS.items():
-        if key in lowered:
-            return color
-    return FALLBACK_COLORS[index % len(FALLBACK_COLORS)]
+    if "split" in lowered or "merged" in lowered:
+        return 0
+    if "joint" in lowered or "multimodal" in lowered:
+        return 1
+    return index
+
+
+def color_for_model(model: str, index: int, palette: str) -> str:
+    colors = PALETTES[palette]
+    return colors[palette_slot(model, index) % len(colors)]
 
 
 def marker_for_model(model: str, index: int) -> str:
@@ -169,6 +190,14 @@ def marker_for_model(model: str, index: int) -> str:
         if key in lowered:
             return marker
     return FALLBACK_MARKERS[index % len(FALLBACK_MARKERS)]
+
+
+def linestyle_for_model(model: str) -> str:
+    lowered = model.casefold()
+    for key, linestyle in MODEL_LINESTYLES.items():
+        if key in lowered:
+            return linestyle
+    return "-"
 
 
 def style_axis(ax, xlabel: str, metric: str) -> None:
@@ -188,6 +217,7 @@ def plot_one(
     xlabel: str,
     path: str,
     dpi: int,
+    palette: str,
 ) -> None:
     series = collect_series(rows, metric, token_group, models)
     if not series:
@@ -202,9 +232,10 @@ def plot_one(
         ax.plot(
             [x for x, _ in points],
             [y for _, y in points],
-            color=color_for_model(model, idx),
+            color=color_for_model(model, idx, palette),
+            linestyle=linestyle_for_model(model),
             marker=marker_for_model(model, idx),
-            linewidth=1.65,
+            linewidth=1.8,
             markersize=4.2,
             markeredgewidth=0.8,
             label=pretty_model(model),
@@ -232,47 +263,85 @@ def plot_combined(
     xlabel: str,
     path: str,
     dpi: int,
+    palette: str,
 ) -> None:
-    panels = [(metric, group) for metric in metrics for group in token_groups]
-    if not panels:
+    if not metrics or not token_groups:
         return
+    line_metric = metrics[0]
     ncols = len(token_groups)
-    nrows = len(metrics)
-    fig, axes = plt.subplots(nrows, ncols, figsize=(5.0 * ncols, 3.25 * nrows), squeeze=False)
+    fig, axes = plt.subplots(2, ncols, figsize=(5.25 * ncols, 6.7), squeeze=False)
     legend_handles = []
     legend_labels = []
 
-    for row_idx, metric in enumerate(metrics):
-        for col_idx, token_group in enumerate(token_groups):
-            ax = axes[row_idx][col_idx]
-            series = collect_series(rows, metric, token_group, models)
-            for idx, model in enumerate(models):
-                points = series.get(model, [])
-                if not points:
-                    continue
-                handle = ax.plot(
-                    [x for x, _ in points],
-                    [y for _, y in points],
-                    color=color_for_model(model, idx),
-                    marker=marker_for_model(model, idx),
-                    linewidth=1.55,
-                    markersize=3.9,
-                    markeredgewidth=0.8,
-                    label=pretty_model(model),
-                )[0]
-                label = pretty_model(model)
-                if label not in legend_labels:
-                    legend_handles.append(handle)
-                    legend_labels.append(label)
-            ax.set_title(
-                "%s / %s"
-                % (
-                    TOKEN_GROUP_TITLES.get(token_group, token_group),
-                    METRIC_TITLES.get(metric, metric),
-                ),
-                pad=7,
+    # The bottom-row bars share one y-axis range across token groups. This makes
+    # cross-panel magnitude differences visually honest.
+    bar_values: List[float] = []
+    for token_group in token_groups:
+        series = collect_series(rows, line_metric, token_group, models)
+        for points in series.values():
+            bar_values.extend([value for _, value in points])
+    bar_ymax = max(bar_values) * 1.12 if bar_values else None
+
+    for col_idx, token_group in enumerate(token_groups):
+        series = collect_series(rows, line_metric, token_group, models)
+
+        ax = axes[0][col_idx]
+        for idx, model in enumerate(models):
+            points = series.get(model, [])
+            if not points:
+                continue
+            handle = ax.plot(
+                [x for x, _ in points],
+                [y for _, y in points],
+                color=color_for_model(model, idx, palette),
+                linestyle=linestyle_for_model(model),
+                marker=marker_for_model(model, idx),
+                linewidth=1.75,
+                markersize=3.9,
+                markeredgewidth=0.8,
+                label=pretty_model(model),
+            )[0]
+            label = pretty_model(model)
+            if label not in legend_labels:
+                legend_handles.append(handle)
+                legend_labels.append(label)
+        ax.set_title(
+            "%s / %s"
+            % (
+                TOKEN_GROUP_TITLES.get(token_group, token_group),
+                METRIC_TITLES.get(line_metric, line_metric),
+            ),
+            pad=7,
+        )
+        style_axis(ax, xlabel, line_metric)
+
+        ax_bar = axes[1][col_idx]
+        present_models = [model for model in models if series.get(model)]
+        width = 0.34 if len(present_models) <= 2 else 0.72 / max(len(present_models), 1)
+        for model_idx, model in enumerate(present_models):
+            points = series[model]
+            offset = (model_idx - (len(present_models) - 1) / 2.0) * width
+            ax_bar.bar(
+                [x + offset for x, _ in points],
+                [y for _, y in points],
+                width=width,
+                color=color_for_model(model, models.index(model), palette),
+                alpha=0.82,
+                edgecolor=color_for_model(model, models.index(model), palette),
+                linewidth=0.45,
+                label=pretty_model(model),
             )
-            style_axis(ax, xlabel, metric)
+        ax_bar.set_title(
+            "%s / %s (Bars)"
+            % (
+                TOKEN_GROUP_TITLES.get(token_group, token_group),
+                METRIC_TITLES.get(line_metric, line_metric),
+            ),
+            pad=7,
+        )
+        style_axis(ax_bar, xlabel, line_metric)
+        if bar_ymax is not None:
+            ax_bar.set_ylim(0, bar_ymax)
 
     if legend_handles:
         fig.legend(
@@ -318,7 +387,17 @@ def main() -> None:
                 out_dir,
                 "%s_encoder_%s_%s.png" % (args.fig_prefix, token_group, metric),
             )
-            plot_one(plt, rows, models, metric, token_group, args.xlabel, out_path, args.dpi)
+            plot_one(
+                plt,
+                rows,
+                models,
+                metric,
+                token_group,
+                args.xlabel,
+                out_path,
+                args.dpi,
+                args.palette,
+            )
 
     if not args.no_combined:
         plot_combined(
@@ -330,6 +409,7 @@ def main() -> None:
             args.xlabel,
             os.path.join(out_dir, "%s_encoder_2x2.png" % args.fig_prefix),
             args.dpi,
+            args.palette,
         )
 
     print("[OK] wrote encoder-only figures to:", out_dir)
