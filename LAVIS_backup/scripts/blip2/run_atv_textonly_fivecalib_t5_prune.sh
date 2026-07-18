@@ -8,6 +8,8 @@
 #   -> evaluate_blip.py --prune_calib_mode t5_c4_text
 #   -> --pruning_method blipt5_atv_pruner
 #   -> prune T5 only, save one full-model checkpoint per source.
+#   -> run four evals for every checkpoint:
+#      MMBench / OKVQA / MMMU / MathVista.
 #
 # Important:
 #   This deliberately passes no images into the calibration dataloader.
@@ -21,13 +23,14 @@
 #   bash scripts/blip2/run_atv_textonly_fivecalib_t5_prune.sh
 #
 # Run a subset:
-#   SOURCES="cc3m mmbench mmmu" bash scripts/blip2/run_atv_textonly_fivecalib_t5_prune.sh
+#   SOURCES="mmbench mmmu" bash scripts/blip2/run_atv_textonly_fivecalib_t5_prune.sh
 #
 # Common overrides:
 #   BASE=/data/data2/mfs
 #   NUM_DATA=128 BS=8 T5_SPEC=24-0.5-1.0-1.0 ATV_ALPHA=1.0
 #   RAW_CC3M=... RAW_MATHVISTA=... RAW_OKVQA=... RAW_MMBENCH=... RAW_MMMU=...
 #   TEXT_DIR=/data/data2/mfs/atv_textonly_calib_128
+#   RUN_EVAL=0
 # =============================================================================
 
 set -euo pipefail
@@ -78,12 +81,28 @@ SEED="${SEED:-42}"
 JOB_STAMP="${JOB_STAMP:-$(date +%Y%m%d_%H%M%S)}"
 RUN_BUILD="${RUN_BUILD:-1}"
 RUN_PRUNE="${RUN_PRUNE:-1}"
+RUN_EVAL="${RUN_EVAL:-1}"
 FORCE_BUILD="${FORCE_BUILD:-0}"
 
-SOURCES="${SOURCES:-cc3m mathvista okvqa mmbench mmmu}"
+SOURCES="${SOURCES:-mmbench mathvista mmmu okvqa cc3m}"
+if [[ "$SOURCES" == "all" ]]; then
+  SOURCES="mmbench mathvista mmmu okvqa cc3m"
+fi
 TEXT_DIR="${TEXT_DIR:-$BASE/atv_textonly_calib_${NUM_DATA}}"
 LOG_DIR="${LOG_DIR:-$REPO_ROOT/lavis/output/BLIP2/atv_textonly_logs_${JOB_STAMP}_seed${SEED}}"
-mkdir -p "$TEXT_DIR" "$LOG_DIR" "$REPO_ROOT/pruned_checkpoint"
+SUMMARY_DIR="${SUMMARY_DIR:-$REPO_ROOT/lavis/output/BLIP2}"
+mkdir -p "$TEXT_DIR" "$LOG_DIR" "$SUMMARY_DIR" "$REPO_ROOT/pruned_checkpoint"
+
+MMBENCH_ROOT="${MMBENCH_ROOT:-$BASE/MMBench_eval}"
+MMMU_ROOT="${MMMU_ROOT:-$BASE/MMMU_single_image}"
+MMBENCH_SPLIT="${MMBENCH_SPLIT:-dev}"
+MMMU_SPLIT="${MMMU_SPLIT:-test}"
+MATHVISTA_EVAL_JSON="${MATHVISTA_EVAL_JSON:-$BASE/MathVista_eval_testmini_mc/mathvista_multi_choice_eval.json}"
+MATHVISTA_IMAGES_DIR="${MATHVISTA_IMAGES_DIR:-$BASE/MathVista_eval_testmini_mc/images}"
+OKVQA_EVAL_CFG="${OKVQA_EVAL_CFG:-$REPO_ROOT/lavis/projects/blip2/eval/okvqa_zeroshot_flant5xl_eval_overall.yaml}"
+OKVQA_EVAL_NUM_WORKERS="${OKVQA_EVAL_NUM_WORKERS:-0}"
+EVAL_BATCH_SIZE="${EVAL_BATCH_SIZE:-2}"
+MASTER_PORT="${MASTER_PORT:-29700}"
 
 if (( NUM_DATA % BS != 0 )); then
   echo "[FATAL] NUM_DATA ($NUM_DATA) must be divisible by BS ($BS)." >&2
@@ -137,6 +156,50 @@ preflight() {
     echo "[FATAL] flan-t5-xl snapshot not found. Set FLAN_T5_XL_SNAPSHOT or HF_HOME." >&2
     exit 1
   }
+
+  if [[ "$RUN_EVAL" == "1" ]]; then
+    [[ -d "$MMBENCH_ROOT" ]] || {
+      echo "[FATAL] MMBENCH_ROOT not found: $MMBENCH_ROOT" >&2
+      exit 1
+    }
+    [[ -d "$MMMU_ROOT" ]] || {
+      echo "[FATAL] MMMU_ROOT not found: $MMMU_ROOT" >&2
+      exit 1
+    }
+    [[ -f "$OKVQA_EVAL_CFG" ]] || {
+      echo "[FATAL] OKVQA_EVAL_CFG not found: $OKVQA_EVAL_CFG" >&2
+      exit 1
+    }
+    [[ -f "$MATHVISTA_EVAL_JSON" ]] || {
+      echo "[FATAL] MATHVISTA_EVAL_JSON not found: $MATHVISTA_EVAL_JSON" >&2
+      exit 1
+    }
+    [[ -d "$MATHVISTA_IMAGES_DIR" ]] || {
+      echo "[FATAL] MATHVISTA_IMAGES_DIR not found: $MATHVISTA_IMAGES_DIR" >&2
+      exit 1
+    }
+  fi
+}
+
+job_for() {
+  local source="$1"
+  echo "atv_textonly_${source}_t5only_${JOB_STAMP}_seed${SEED}"
+}
+
+ckpt_for() {
+  local source="$1"
+  echo "$REPO_ROOT/pruned_checkpoint/$(job_for "$source").pth"
+}
+
+eval_label_for() {
+  case "$1" in
+    mmbench) echo "MMBench" ;;
+    mathvista) echo "MathVista" ;;
+    mmmu) echo "MMMU" ;;
+    okvqa) echo "OKVQA" ;;
+    cc3m) echo "CC3M" ;;
+    *) echo "$1" ;;
+  esac
 }
 
 build_text_json() {
@@ -281,8 +344,8 @@ prune_one() {
   local source="$1"
   local text job ckpt log
   text="$(text_for "$source")"
-  job="atv_textonly_${source}_t5only_${JOB_STAMP}_seed${SEED}"
-  ckpt="$REPO_ROOT/pruned_checkpoint/${job}.pth"
+  job="$(job_for "$source")"
+  ckpt="$(ckpt_for "$source")"
   log="$LOG_DIR/${job}.log"
 
   [[ -f "$text" ]] || {
@@ -316,6 +379,92 @@ prune_one() {
   echo "[OK] $source checkpoint: $ckpt"
 }
 
+eval_four_bench() {
+  local source="$1"
+  local label eval_tag ckpt metrics_jsonl summary_md summary_tsv okvqa_job okvqa_port
+  label="$(eval_label_for "$source")"
+  eval_tag="atv_textonly_${source}_${JOB_STAMP}_seed${SEED}"
+  ckpt="$(ckpt_for "$source")"
+  metrics_jsonl="$SUMMARY_DIR/atv_textonly_${source}_fourbench_${JOB_STAMP}_seed${SEED}.jsonl"
+  summary_md="$SUMMARY_DIR/atv_textonly_${source}_fourbench_${JOB_STAMP}_seed${SEED}.md"
+  summary_tsv="$SUMMARY_DIR/atv_textonly_${source}_fourbench_${JOB_STAMP}_seed${SEED}.tsv"
+  okvqa_job="okvqa_eval_${eval_tag}_fullval"
+
+  [[ -f "$ckpt" ]] || {
+    echo "[FATAL] eval checkpoint not found for $source: $ckpt" >&2
+    echo "        If reusing an old checkpoint, set JOB_STAMP/SEED to match it or run RUN_PRUNE=1." >&2
+    exit 1
+  }
+
+  export LAVIS_METRICS_JSONL="$metrics_jsonl"
+  export LAVIS_EVAL_CALIB_TAG="$eval_tag"
+  : > "$LAVIS_METRICS_JSONL"
+
+  echo ""
+  echo ">>> [eval] $label ATV text-only checkpoint on four benchmarks"
+  echo "    ckpt=$ckpt"
+  echo "    metrics_jsonl=$LAVIS_METRICS_JSONL"
+
+  echo ""
+  echo ">>> [$eval_tag] MMBench"
+  export LAVIS_METRICS_BENCHMARK="MMBench"
+  python scripts/blip2/mmmu_eval_by_discipline.py \
+    --mmmu_root "$MMBENCH_ROOT" \
+    --split "$MMBENCH_SPLIT" \
+    --ckpt "$ckpt" \
+    --batch_size "$EVAL_BATCH_SIZE" \
+    --device cuda \
+    --overall_only
+
+  echo ""
+  echo ">>> [$eval_tag] OKVQA full val"
+  export LAVIS_METRICS_BENCHMARK="OKVQA"
+  okvqa_port="$MASTER_PORT"
+  MASTER_PORT=$((MASTER_PORT + 1))
+  python -m torch.distributed.run --nproc_per_node=1 --master_port="$okvqa_port" evaluate_blip.py \
+    --cfg-path "$OKVQA_EVAL_CFG" \
+    --options "run.num_workers=${OKVQA_EVAL_NUM_WORKERS}" \
+    --t5_pruned_checkpoint "$ckpt" \
+    --vit_pruned_checkpoint "$ckpt" \
+    --job_id "$okvqa_job"
+
+  echo ""
+  echo ">>> [$eval_tag] MMMU"
+  export LAVIS_METRICS_BENCHMARK="MMMU"
+  python scripts/blip2/mmmu_eval_by_discipline.py \
+    --mmmu_root "$MMMU_ROOT" \
+    --split "$MMMU_SPLIT" \
+    --ckpt "$ckpt" \
+    --batch_size "$EVAL_BATCH_SIZE" \
+    --device cuda \
+    --overall_only
+
+  echo ""
+  echo ">>> [$eval_tag] MathVista MC"
+  export LAVIS_METRICS_BENCHMARK="MathVista_MC"
+  python scripts/blip2/mathvista_mc_eval.py \
+    --eval_json "$MATHVISTA_EVAL_JSON" \
+    --images_dir "$MATHVISTA_IMAGES_DIR" \
+    --ckpt "$ckpt" \
+    --batch_size "$EVAL_BATCH_SIZE" \
+    --device cuda
+
+  if [[ -f "$SCRIPT_DIR/collect_lavisbackup_eval_summary.py" ]]; then
+    echo ""
+    echo ">>> [summary] $source"
+    python "$SCRIPT_DIR/collect_lavisbackup_eval_summary.py" \
+      --repo-root "$REPO_ROOT" \
+      --metrics-jsonl "$LAVIS_METRICS_JSONL" \
+      --out-md "$summary_md" \
+      --out-tsv "$summary_tsv" \
+      --suites "${eval_tag}:${okvqa_job}" || true
+  fi
+
+  echo "[OK] $source four-benchmark eval finished"
+  echo "     summary_md=$summary_md"
+  echo "     summary_tsv=$summary_tsv"
+}
+
 preflight
 
 echo "========== text-only ATV-entry T5 pruning =========="
@@ -323,6 +472,9 @@ echo "[INFO] REPO_ROOT=$REPO_ROOT"
 echo "[INFO] SOURCES=$SOURCES"
 echo "[INFO] NUM_DATA=$NUM_DATA BS=$BS T5_SPEC=$T5_SPEC ATV_ALPHA=$ATV_ALPHA"
 echo "[INFO] TEXT_DIR=$TEXT_DIR"
+echo "[INFO] RUN_BUILD=$RUN_BUILD RUN_PRUNE=$RUN_PRUNE RUN_EVAL=$RUN_EVAL"
+echo "[INFO] eval roots: MMBENCH_ROOT=$MMBENCH_ROOT | MMMU_ROOT=$MMMU_ROOT"
+echo "[INFO] MathVista eval: $MATHVISTA_EVAL_JSON"
 echo "[INFO] JOB_STAMP=$JOB_STAMP seed=$SEED"
 echo "[WARN] No images are passed; ATV query-token selection degenerates to text-only Wanda-style scaling."
 echo "===================================================="
@@ -345,6 +497,16 @@ for source in $SOURCES; do
     prune_one "$source"
   else
     echo "[INFO] RUN_PRUNE=0, skip pruning for $source"
+    [[ -f "$(ckpt_for "$source")" ]] || {
+      echo "[FATAL] RUN_PRUNE=0 but checkpoint is missing: $(ckpt_for "$source")" >&2
+      exit 1
+    }
+  fi
+
+  if [[ "$RUN_EVAL" == "1" ]]; then
+    eval_four_bench "$source"
+  else
+    echo "[INFO] RUN_EVAL=0, skip four-benchmark eval for $source"
   fi
 done
 
@@ -353,3 +515,4 @@ echo "========== all requested text-only ATV-entry pruning jobs finished =======
 echo "[INFO] text JSONs: $TEXT_DIR/<source>_text_calib_${NUM_DATA}.json"
 echo "[INFO] ckpts:      $REPO_ROOT/pruned_checkpoint/atv_textonly_<source>_t5only_${JOB_STAMP}_seed${SEED}.pth"
 echo "[INFO] logs:       $LOG_DIR"
+echo "[INFO] eval jsonl: $SUMMARY_DIR/atv_textonly_<source>_fourbench_${JOB_STAMP}_seed${SEED}.jsonl"

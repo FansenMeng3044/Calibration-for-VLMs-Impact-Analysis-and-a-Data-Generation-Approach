@@ -13,6 +13,7 @@ import argparse
 import json
 import math
 import os
+import textwrap
 from pathlib import Path
 from typing import Any, Iterable, Optional, Sequence
 
@@ -45,6 +46,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--font", default=None, help="Optional path to a .ttf/.otf font.")
     parser.add_argument("--hide_titles", action="store_true")
     parser.add_argument("--show_connectors", action="store_true", help="Draw light connector lines from the multimodal card to the split cards.")
+    parser.add_argument("--no_split_vector", action="store_true", help="Do not export the three separate SVG/PDF vector panels.")
     parser.add_argument("--max_caption_chars", type=int, default=175)
     parser.add_argument("--max_c4_chars", type=int, default=330)
     return parser.parse_args()
@@ -166,8 +168,15 @@ def font_candidates() -> Iterable[Path]:
 
 
 def load_font(size: int, requested: Optional[str] = None, bold: bool = False) -> ImageFont.FreeTypeFont:
+    path = pick_font_path(requested, bold=bold)
+    if path:
+        return ImageFont.truetype(str(path), size=size)
+    return ImageFont.load_default()
+
+
+def pick_font_path(requested: Optional[str] = None, bold: bool = False) -> Optional[Path]:
     if requested:
-        return ImageFont.truetype(requested, size=size)
+        return Path(requested)
     candidates = list(font_candidates())
     if bold:
         bold_candidates = [
@@ -176,10 +185,10 @@ def load_font(size: int, requested: Optional[str] = None, bold: bool = False) ->
             if "Bold" in p.name or "bd" in p.stem.lower() or p.name.lower() == "msyhbd.ttc"
         ]
         for path in bold_candidates:
-            return ImageFont.truetype(str(path), size=size)
+            return path
     for path in candidates:
-        return ImageFont.truetype(str(path), size=size)
-    return ImageFont.load_default()
+        return path
+    return None
 
 
 def hex_to_rgb(color: str) -> tuple[int, int, int]:
@@ -448,6 +457,229 @@ def draw_dash_dot_line(draw: ImageDraw.ImageDraw, x0: int, x1: int, y: int, colo
             x += 22
 
 
+def vector_wrap(text: str, max_chars: int) -> str:
+    return "\n".join(textwrap.wrap(" ".join(text.split()), width=max_chars, break_long_words=False))
+
+
+def add_round_rect(ax: Any, box: tuple[float, float, float, float], radius: float, color: str) -> Any:
+    from matplotlib.patches import FancyBboxPatch
+
+    x0, y0, x1, y1 = box
+    patch = FancyBboxPatch(
+        (x0, y0),
+        x1 - x0,
+        y1 - y0,
+        boxstyle=f"round,pad=0,rounding_size={radius}",
+        linewidth=0,
+        facecolor=color,
+    )
+    ax.add_patch(patch)
+    return patch
+
+
+def add_clipped_rect(ax: Any, clip: Any, box: tuple[float, float, float, float], color: str) -> None:
+    from matplotlib.patches import Rectangle
+
+    x0, y0, x1, y1 = box
+    patch = Rectangle((x0, y0), x1 - x0, y1 - y0, linewidth=0, facecolor=color)
+    patch.set_clip_path(clip)
+    ax.add_patch(patch)
+
+
+def add_clipped_vertical_gradient(
+    ax: Any,
+    clip: Any,
+    box: tuple[float, float, float, float],
+    top: str,
+    bottom: str,
+    steps: int = 80,
+) -> None:
+    x0, y0, x1, y1 = box
+    top_rgb = hex_to_rgb(top)
+    bottom_rgb = hex_to_rgb(bottom)
+    h = y1 - y0
+    for i in range(steps):
+        t0 = i / steps
+        t1 = (i + 1) / steps
+        rgb = tuple(lerp(top_rgb[j], bottom_rgb[j], (t0 + t1) / 2) / 255.0 for j in range(3))
+        add_clipped_rect(ax, clip, (x0, y0 + h * t0, x1, y0 + h * t1 + 0.5), rgb)
+
+
+def add_vector_image(ax: Any, image_path: Path, box: tuple[float, float, float, float], radius: float) -> None:
+    from matplotlib.patches import FancyBboxPatch
+    import numpy as np
+
+    x0, y0, x1, y1 = box
+    image = cover_resize(Image.open(image_path), (int(x1 - x0), int(y1 - y0)))
+    arr = np.asarray(image)
+    im = ax.imshow(arr, extent=(x0, x1, y1, y0), origin="upper", zorder=3)
+    clip = FancyBboxPatch(
+        (x0, y0),
+        x1 - x0,
+        y1 - y0,
+        boxstyle=f"round,pad=0,rounding_size={radius}",
+        linewidth=0,
+        facecolor="none",
+    )
+    ax.add_patch(clip)
+    im.set_clip_path(clip)
+
+
+def add_vector_title(ax: Any, title: str, center_x: float, y: float, fontprops: Any, size: int = 27) -> None:
+    ax.text(center_x, y, title, ha="center", va="center", color=INK, fontsize=size, fontproperties=fontprops)
+
+
+def setup_vector_ax(width: int, height: int) -> tuple[Any, Any]:
+    import matplotlib.pyplot as plt
+
+    fig = plt.figure(figsize=(width / 100, height / 100), dpi=100)
+    ax = fig.add_axes((0, 0, 1, 1))
+    ax.set_xlim(0, width)
+    ax.set_ylim(height, 0)
+    ax.axis("off")
+    return fig, ax
+
+
+def draw_vector_multimodal(
+    ax: Any,
+    box: tuple[float, float, float, float],
+    image_path: Path,
+    caption: str,
+    fontprops: dict[str, Any],
+) -> None:
+    x0, y0, x1, y1 = box
+    w = x1 - x0
+    h = y1 - y0
+    radius = 42
+    top_h = h * 0.58
+    grad_h = 72
+    clip = add_round_rect(ax, box, radius, BLUE)
+    add_clipped_rect(ax, clip, (x0, y0, x1, y0 + top_h), PINK)
+    add_clipped_vertical_gradient(ax, clip, (x0, y0 + top_h - grad_h / 2, x1, y0 + top_h + grad_h / 2), PINK, BLUE)
+    add_vector_image(ax, image_path, (x0 + 34, y0 + 56, x1 - 34, y0 + top_h - 28), 26)
+    ax.text(
+        x0 + 54,
+        y0 + top_h + 62,
+        vector_wrap(shorten(caption, 175), 48),
+        ha="left",
+        va="top",
+        color=INK,
+        fontsize=23,
+        linespacing=1.35,
+        fontproperties=fontprops["body"],
+    )
+
+
+def draw_vector_text(
+    ax: Any,
+    box: tuple[float, float, float, float],
+    text: str,
+    fontprops: dict[str, Any],
+    max_chars: int,
+    wrap_chars: int,
+    font_size: int = 23,
+) -> None:
+    clip = add_round_rect(ax, box, 42, BLUE)
+    add_clipped_vertical_gradient(ax, clip, box, "#B9D9EA", BLUE)
+    x0, y0, x1, y1 = box
+    ax.text(
+        (x0 + x1) / 2,
+        (y0 + y1) / 2,
+        vector_wrap(shorten(text, max_chars), wrap_chars),
+        ha="center",
+        va="center",
+        color=INK,
+        fontsize=font_size,
+        linespacing=1.35,
+        fontproperties=fontprops["body"],
+    )
+
+
+def draw_vector_image_only(ax: Any, box: tuple[float, float, float, float], image_path: Path) -> None:
+    x0, y0, x1, y1 = box
+    add_round_rect(ax, box, 38, PINK)
+    add_vector_image(ax, image_path, (x0 + 28, y0 + 28, x1 - 28, y1 - 28), 24)
+
+
+def draw_vector_dash_dot(ax: Any, x0: float, x1: float, y: float, color: str = "#8FA8B5") -> None:
+    x = x0
+    while x < x1:
+        dash_end = min(x + 34, x1)
+        ax.plot([x, dash_end], [y, y], color=color, linewidth=2.2, solid_capstyle="round")
+        x = dash_end + 16
+        if x < x1:
+            ax.scatter([x], [y], s=18, color=color)
+            x += 22
+
+
+def save_vector(fig: Any, out_svg: Path, out_pdf: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    fig.savefig(out_svg, format="svg", transparent=False)
+    fig.savefig(out_pdf, format="pdf", transparent=False)
+    plt.close(fig)
+
+
+def export_split_vector_panels(
+    args: argparse.Namespace,
+    out_dir: Path,
+    cc3m_image: Path,
+    cc3m_caption: str,
+    c4_text: str,
+) -> dict[str, dict[str, str]]:
+    import matplotlib as mpl
+    from matplotlib.font_manager import FontProperties
+
+    mpl.rcParams["svg.fonttype"] = "none"
+    mpl.rcParams["pdf.fonttype"] = 42
+    mpl.rcParams["ps.fonttype"] = 42
+
+    regular_font = pick_font_path(args.font, bold=False)
+    bold_font = pick_font_path(args.font, bold=True)
+    fontprops = {
+        "title": FontProperties(fname=str(bold_font)) if bold_font else FontProperties(weight="bold"),
+        "body": FontProperties(fname=str(regular_font)) if regular_font else FontProperties(),
+    }
+
+    outputs: dict[str, dict[str, str]] = {}
+
+    width, height = 1000, 730
+    fig, ax = setup_vector_ax(width, height)
+    if not args.hide_titles:
+        add_vector_title(ax, "Multimodal Calibration", width / 2, 58, fontprops["title"])
+    draw_vector_multimodal(ax, (60, 120, 940, 670), cc3m_image, shorten(cc3m_caption, args.max_caption_chars), fontprops)
+    svg = out_dir / f"{args.out_prefix}_multimodal.svg"
+    pdf = out_dir / f"{args.out_prefix}_multimodal.pdf"
+    save_vector(fig, svg, pdf)
+    outputs["multimodal"] = {"svg": str(svg), "pdf": str(pdf)}
+
+    width, height = 1000, 560
+    fig, ax = setup_vector_ax(width, height)
+    if not args.hide_titles:
+        add_vector_title(ax, "Unimodal Calibration", width / 2, 58, fontprops["title"])
+    draw_vector_text(ax, (60, 120, 940, 500), c4_text, fontprops, args.max_c4_chars, wrap_chars=54)
+    svg = out_dir / f"{args.out_prefix}_unimodal.svg"
+    pdf = out_dir / f"{args.out_prefix}_unimodal.pdf"
+    save_vector(fig, svg, pdf)
+    outputs["unimodal"] = {"svg": str(svg), "pdf": str(pdf)}
+
+    width, height = 1000, 850
+    fig, ax = setup_vector_ax(width, height)
+    if not args.hide_titles:
+        add_vector_title(ax, "Split Multimodal Calibration", width / 2, 58, fontprops["title"])
+    image_box = (60, 120, 940, 430)
+    caption_box = (60, 500, 940, 810)
+    draw_vector_image_only(ax, image_box, cc3m_image)
+    draw_vector_dash_dot(ax, 156, 844, 465)
+    draw_vector_text(ax, caption_box, cc3m_caption, fontprops, args.max_caption_chars, wrap_chars=48, font_size=21)
+    svg = out_dir / f"{args.out_prefix}_split_multimodal.svg"
+    pdf = out_dir / f"{args.out_prefix}_split_multimodal.pdf"
+    save_vector(fig, svg, pdf)
+    outputs["split_multimodal"] = {"svg": str(svg), "pdf": str(pdf)}
+
+    return outputs
+
+
 def main() -> int:
     args = parse_args()
     cc3m_rows = rows_from_json(load_json(args.cc3m_json))
@@ -501,6 +733,9 @@ def main() -> int:
     rgb = canvas.convert("RGB")
     rgb.save(out_png, quality=95)
     rgb.save(out_pdf)
+    vector_outputs = {}
+    if not args.no_split_vector:
+        vector_outputs = export_split_vector_panels(args, out_dir, cc3m_image, cc3m_caption, c4_text)
 
     meta = {
         "cc3m_json": str(args.cc3m_json),
@@ -513,7 +748,7 @@ def main() -> int:
         "c4_index_requested": args.c4_index,
         "c4_text": c4_text,
         "colors": {"image_background": PINK, "text_background": BLUE},
-        "outputs": {"png": str(out_png), "pdf": str(out_pdf)},
+        "outputs": {"png": str(out_png), "pdf": str(out_pdf), "split_vector": vector_outputs},
     }
     with open(out_meta, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
@@ -521,6 +756,9 @@ def main() -> int:
 
     print("[OK] wrote:", out_png)
     print("[OK] wrote:", out_pdf)
+    for panel, paths in vector_outputs.items():
+        print("[OK] wrote %s SVG:" % panel, paths["svg"])
+        print("[OK] wrote %s PDF:" % panel, paths["pdf"])
     print("[OK] wrote:", out_meta)
     return 0
 
