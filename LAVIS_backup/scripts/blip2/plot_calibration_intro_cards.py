@@ -20,8 +20,10 @@ from typing import Any, Iterable, Optional, Sequence
 from PIL import Image, ImageDraw, ImageFont
 
 
-PINK = "#F88988"
-BLUE = "#A5CDE2"
+LLM_PURPLE = "#C8CDF9"
+TEXT_BG_ALPHA = 0.30
+# #C8CDF9 at 30% opacity over the white paper background.
+TEXT_BG = "#EFF0FD"
 INK = "#23313B"
 MUTED = "#5A6A73"
 PAPER = "#FFFFFF"
@@ -353,16 +355,12 @@ def draw_multimodal_card(
     radius = 42
 
     top_h = int(h * 0.58)
-    grad_h = 72
-    card = Image.new("RGB", (w, h), BLUE)
+    card = Image.new("RGB", (w, h), TEXT_BG)
     d = ImageDraw.Draw(card)
-    d.rectangle((0, 0, w, top_h), fill=PINK)
-    card.paste(vertical_gradient((w, grad_h), PINK, BLUE), (0, top_h - grad_h // 2))
 
-    image_margin = 34
-    img_box = (image_margin, image_margin + 22, w - image_margin, top_h - 28)
+    img_box = (0, 0, w, top_h)
     image = cover_resize(Image.open(image_path), (img_box[2] - img_box[0], img_box[3] - img_box[1]))
-    paste_round(card, image, (img_box[0], img_box[1]), 26)
+    card.paste(image, (img_box[0], img_box[1]))
 
     text = shorten(caption, 175)
     text_box = (54, top_h + 42, w - 54, h - 62)
@@ -385,7 +383,7 @@ def draw_text_card(
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     radius = 42
-    card = vertical_gradient((w, h), "#B9D9EA", BLUE)
+    card = Image.new("RGB", (w, h), TEXT_BG)
     d = ImageDraw.Draw(card)
     text_box = (70, 66, w - 70, h - 66)
     draw_centered_lines(d, text_box, shorten(text, max_chars), fonts["body"], INK, line_gap=12)
@@ -405,11 +403,8 @@ def draw_image_only_card(
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     radius = 38
-    card = Image.new("RGB", (w, h), PINK)
-    margin = 28
-    image = cover_resize(Image.open(image_path), (w - 2 * margin, h - 2 * margin))
-    paste_round(card, image, (margin, margin), 24)
-    paste_round(canvas, card, (x0, y0), radius)
+    image = cover_resize(Image.open(image_path), (w, h))
+    paste_round(canvas, image, (x0, y0), radius)
     if title:
         draw = ImageDraw.Draw(canvas)
         draw_title(draw, title, x0 + w // 2, y0 - 62, fonts["small_title"])
@@ -425,7 +420,7 @@ def draw_caption_only_card(
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     radius = 38
-    card = Image.new("RGB", (w, h), BLUE)
+    card = Image.new("RGB", (w, h), TEXT_BG)
     d = ImageDraw.Draw(card)
     text_box = (44, 46, w - 44, h - 46)
     draw_centered_lines(d, text_box, shorten(caption, 145), fonts["small_body"], INK, line_gap=9)
@@ -505,7 +500,13 @@ def add_clipped_vertical_gradient(
         add_clipped_rect(ax, clip, (x0, y0 + h * t0, x1, y0 + h * t1 + 0.5), rgb)
 
 
-def add_vector_image(ax: Any, image_path: Path, box: tuple[float, float, float, float], radius: float) -> None:
+def add_vector_image(
+    ax: Any,
+    image_path: Path,
+    box: tuple[float, float, float, float],
+    radius: float,
+    clip_path: Optional[Any] = None,
+) -> None:
     from matplotlib.patches import FancyBboxPatch
     import numpy as np
 
@@ -513,6 +514,9 @@ def add_vector_image(ax: Any, image_path: Path, box: tuple[float, float, float, 
     image = cover_resize(Image.open(image_path), (int(x1 - x0), int(y1 - y0)))
     arr = np.asarray(image)
     im = ax.imshow(arr, extent=(x0, x1, y1, y0), origin="upper", zorder=3)
+    if clip_path is not None:
+        im.set_clip_path(clip_path)
+        return
     clip = FancyBboxPatch(
         (x0, y0),
         x1 - x0,
@@ -552,11 +556,8 @@ def draw_vector_multimodal(
     h = y1 - y0
     radius = 42
     top_h = h * 0.58
-    grad_h = 72
-    clip = add_round_rect(ax, box, radius, BLUE)
-    add_clipped_rect(ax, clip, (x0, y0, x1, y0 + top_h), PINK)
-    add_clipped_vertical_gradient(ax, clip, (x0, y0 + top_h - grad_h / 2, x1, y0 + top_h + grad_h / 2), PINK, BLUE)
-    add_vector_image(ax, image_path, (x0 + 34, y0 + 56, x1 - 34, y0 + top_h - 28), 26)
+    clip = add_round_rect(ax, box, radius, TEXT_BG)
+    add_vector_image(ax, image_path, (x0, y0, x1, y0 + top_h), 0, clip_path=clip)
     ax.text(
         x0 + 54,
         y0 + top_h + 62,
@@ -579,8 +580,7 @@ def draw_vector_text(
     wrap_chars: int,
     font_size: int = 23,
 ) -> None:
-    clip = add_round_rect(ax, box, 42, BLUE)
-    add_clipped_vertical_gradient(ax, clip, box, "#B9D9EA", BLUE)
+    add_round_rect(ax, box, 42, TEXT_BG)
     x0, y0, x1, y1 = box
     ax.text(
         (x0 + x1) / 2,
@@ -596,9 +596,7 @@ def draw_vector_text(
 
 
 def draw_vector_image_only(ax: Any, box: tuple[float, float, float, float], image_path: Path) -> None:
-    x0, y0, x1, y1 = box
-    add_round_rect(ax, box, 38, PINK)
-    add_vector_image(ax, image_path, (x0 + 28, y0 + 28, x1 - 28, y1 - 28), 24)
+    add_vector_image(ax, image_path, box, 38)
 
 
 def draw_vector_dash_dot(ax: Any, x0: float, x1: float, y: float, color: str = "#8FA8B5") -> None:
@@ -747,7 +745,12 @@ def main() -> int:
         "c4_json": str(args.c4_json),
         "c4_index_requested": args.c4_index,
         "c4_text": c4_text,
-        "colors": {"image_background": PINK, "text_background": BLUE},
+        "colors": {
+            "image_background": "none",
+            "text_background_source": LLM_PURPLE,
+            "text_background_alpha": TEXT_BG_ALPHA,
+            "text_background_rendered_on_white": TEXT_BG,
+        },
         "outputs": {"png": str(out_png), "pdf": str(out_pdf), "split_vector": vector_outputs},
     }
     with open(out_meta, "w", encoding="utf-8") as f:
