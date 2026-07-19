@@ -25,7 +25,53 @@ def _get_module_by_path(model, path):
     return obj
 
 
-def cos_pairwise_density(embeddings, image_mask, eps=1e-8):
+def find_layers(module, layers=(nn.Linear,), name=""):
+    if type(module) in layers:
+        return {name: module}
+    res = {}
+    for child_name, child in module.named_children():
+        full_name = child_name if name == "" else name + "." + child_name
+        res.update(find_layers(child, layers=layers, name=full_name))
+    return res
+
+
+def _align_bool_vector(mask, length, device, fill_value=False):
+    if mask is None:
+        return None
+    mask = mask.reshape(-1).to(device).bool()
+    if mask.numel() > length:
+        mask = mask[:length]
+    elif mask.numel() < length:
+        pad = torch.full(
+            (length - mask.numel(),),
+            bool(fill_value),
+            dtype=torch.bool,
+            device=device,
+        )
+        mask = torch.cat([mask, pad], dim=0)
+    return mask
+
+
+def _normal_t5_block_forward(layer, hidden_states, cache, output_attentions=False):
+    kwargs = dict(cache)
+    if output_attentions:
+        kwargs["output_attentions"] = True
+    outputs = layer(hidden_states, **kwargs)
+    if not isinstance(outputs, (tuple, list)):
+        return outputs, dict(cache)
+    uses_cache = bool(kwargs.get("use_cache", False))
+    bias_offset = 2 if uses_cache else 1
+    next_cache = dict(cache)
+    if len(outputs) > bias_offset and outputs[bias_offset] is not None:
+        next_cache["position_bias"] = outputs[bias_offset].detach()
+    if next_cache.get("encoder_hidden_states") is not None:
+        cross_bias_index = bias_offset + 2 if output_attentions else bias_offset + 1
+        if len(outputs) > cross_bias_index and outputs[cross_bias_index] is not None:
+            next_cache["encoder_decoder_position_bias"] = outputs[cross_bias_index].detach()
+    return outputs[0], next_cache
+
+
+def cos_pairwise_density(embeddings, image_mask, attention_mask=None, eps=1e-8):
     """
     Vision-vision, language-language, and vision-language mean cosine similarities (TAMP / DAS).
     """
@@ -49,9 +95,19 @@ def cos_pairwise_density(embeddings, image_mask, eps=1e-8):
 
         for b in range(B):
             emb = embeddings[b]
-            mask = image_mask[b]
+            mask = _align_bool_vector(image_mask[b], S, device, fill_value=False)
+            valid = None
+            if attention_mask is not None:
+                if attention_mask.dim() == 1:
+                    attn_b = attention_mask
+                else:
+                    attn_b = attention_mask[b]
+                valid = _align_bool_vector(attn_b, S, device, fill_value=False)
+            if valid is None:
+                valid = torch.ones(S, dtype=torch.bool, device=device)
+            mask = mask & valid
             v_idx = torch.where(mask)[0]
-            l_idx = torch.where(~mask)[0]
+            l_idx = torch.where((~mask) & valid)[0]
             nv = v_idx.numel()
             nl = l_idx.numel()
 
@@ -97,10 +153,10 @@ class ActivationDensity:
         self.sum_vl = 0.0
         self.count = 0
 
-    def add_batch(self, out, image_mask, **kwargs):
+    def add_batch(self, out, image_mask, attention_mask=None, **kwargs):
         if isinstance(out, (tuple, list)) and len(out) == 1:
             out = out[0]
-        v, l, vl = cos_pairwise_density(out, image_mask)
+        v, l, vl = cos_pairwise_density(out, image_mask, attention_mask=attention_mask)
         self.sum_v += v
         self.sum_l += l
         self.sum_vl += vl
@@ -525,13 +581,23 @@ class LayerSparsity:
         return layer_sparsity
 
     def compute_density(self, layer_to_group_mapping):
-        """Per-layer DAS importance from T5 encoder hidden states and vision/language masks."""
-        t5_encoder_prefix = "t5_model.encoder.block."
-        has_t5_encoder_keys = any(
-            t5_encoder_prefix in k for k in layer_to_group_mapping
+        """Per-Linear DAS importance from T5 encoder hidden states and modality masks."""
+        default_t5_encoder_module_path = "t5_model.encoder.block"
+        default_t5_encoder_prefix = f"{default_t5_encoder_module_path}."
+        encoder_prefixes = sorted(
+            {
+                key.split("encoder.block.")[0] + "encoder.block."
+                for key in layer_to_group_mapping
+                if "encoder.block." in key
+            },
+            key=len,
+            reverse=True,
         )
+        param_encoder_prefix = encoder_prefixes[0] if encoder_prefixes else default_t5_encoder_prefix
+        t5_encoder_module_path = param_encoder_prefix.rstrip(".")
+        has_t5_encoder_keys = bool(encoder_prefixes)
         try:
-            _get_module_by_path(self.model, "t5_model.encoder.block")
+            _get_module_by_path(self.model, t5_encoder_module_path)
             has_t5_encoder_module = True
         except AttributeError:
             has_t5_encoder_module = False
@@ -539,7 +605,7 @@ class LayerSparsity:
         if not (has_t5_encoder_keys or has_t5_encoder_module):
             raise NotImplementedError(
                 "compute_density is only implemented for T5 encoder "
-                "(keys containing 't5_model.encoder.block.' or model with t5_model.encoder.block)"
+                f"(keys containing 'encoder.block.' or model with {default_t5_encoder_module_path})"
             )
 
         if self.calibration_fn is None:
@@ -557,53 +623,114 @@ class LayerSparsity:
         if len(calib_result) == 3:
             inps, outs, caches = calib_result
             image_masks = None
+            encoder_attention_masks = None
+        elif len(calib_result) >= 5:
+            inps, outs, caches, image_masks, encoder_attention_masks = calib_result[:5]
         else:
             inps, outs, caches, image_masks = calib_result
+            encoder_attention_masks = None
 
         if image_masks is None or len(image_masks) == 0:
             raise ValueError(
                 "compute_density requires calibration_fn to return image_masks; got none"
             )
+        if encoder_attention_masks is None or len(encoder_attention_masks) == 0:
+            raise ValueError(
+                "compute_density requires calibration_fn to return raw encoder_attention_masks; got none"
+            )
+        if len(image_masks) != len(inps) or len(encoder_attention_masks) != len(inps):
+            raise ValueError(
+                "compute_density calibration batch mismatch: "
+                f"inps={len(inps)} image_masks={len(image_masks)} "
+                f"encoder_attention_masks={len(encoder_attention_masks)}"
+            )
+        for idx, (inp, img_mask, attn_mask) in enumerate(
+            zip(inps, image_masks, encoder_attention_masks)
+        ):
+            B, S = inp.shape[0], inp.shape[1]
+            if tuple(img_mask.shape) != (B, S):
+                raise ValueError(
+                    f"image_masks[{idx}].shape {tuple(img_mask.shape)} vs input {(B, S)}"
+                )
+            if tuple(attn_mask.shape) != (B, S):
+                raise ValueError(
+                    f"encoder_attention_masks[{idx}].shape {tuple(attn_mask.shape)} vs input {(B, S)}"
+                )
 
         n_samples = len(inps)
-        blocks = _get_module_by_path(model, "t5_model.encoder.block")
+        blocks = _get_module_by_path(model, t5_encoder_module_path)
         num_blocks = len(blocks)
 
         maybe_autocast = getattr(
             model, "maybe_autocast", lambda dtype=None: contextlib.nullcontext()
         )
 
-        importance_per_block = [0.0] * num_blocks
+        density_dict = {name: 0.0 for name in layer_to_group_mapping}
+        matched_names = set()
+        # ECoFLaP calibration convention: every block replays with the arguments captured
+        # at block 0, so position_bias stays None and blocks >0 fall back to a zero bias.
+        # Kept deliberately for comparability with ECoFLaP / Wanda / SparseGPT numbers --
+        # do NOT propagate per-block position_bias without re-running affected experiments.
+        layer_caches = [dict(cache) for cache in caches]
 
         for i in range(num_blocks):
             layer = blocks[i]
-            act_density = ActivationDensity()
+            subset = find_layers(layer)
+            wrapped_layers = {}
+            for name, sub_layer in subset.items():
+                full_name = f"{param_encoder_prefix}{i}.{name}.weight"
+                if full_name in density_dict:
+                    wrapped_layers[name] = ActivationDensity()
+
+            def add_batch(name, batch_index):
+                def tmp(_, inp, out):
+                    img_mask_j = image_masks[batch_index] if batch_index < len(image_masks) else image_masks[0]
+                    attn_j = (
+                        encoder_attention_masks[batch_index]
+                        if encoder_attention_masks is not None and batch_index < len(encoder_attention_masks)
+                        else None
+                    )
+                    wrapped_layers[name].add_batch(out, img_mask_j, attention_mask=attn_j)
+
+                return tmp
+
             new_inps = []
             for j in range(n_samples):
-                with torch.no_grad():
-                    with maybe_autocast(dtype=torch.bfloat16):
-                        out = layer(inps[j], **caches[j])
-                if isinstance(out, (tuple, list)):
-                    out = out[0]
-                img_mask_j = image_masks[j] if j < len(image_masks) else image_masks[0]
-                act_density.add_batch(out, img_mask_j)
+                handles = [
+                    subset[name].register_forward_hook(add_batch(name, j))
+                    for name in wrapped_layers
+                ]
+                try:
+                    with torch.no_grad():
+                        with maybe_autocast(dtype=torch.bfloat16):
+                            out, _ = _normal_t5_block_forward(
+                                layer,
+                                inps[j],
+                                layer_caches[j],
+                            )
+                finally:
+                    for h in handles:
+                        h.remove()
                 new_inps.append(out.detach())
             inps = new_inps
-            v, l, vl = act_density.get_stats()
-            importance_per_block[i] = (1.0 - v) + (1.0 - l) + (1.0 - vl)
+            for name, act_density in wrapped_layers.items():
+                full_name = f"{param_encoder_prefix}{i}.{name}.weight"
+                v, l, vl = act_density.get_stats()
+                density_dict[full_name] = (1.0 - v) + (1.0 - l) + (1.0 - vl)
+                matched_names.add(full_name)
 
-        importance_measure = {name: torch.FloatTensor([1.0]) for name in layer_to_group_mapping}
-        for name in layer_to_group_mapping:
-            if t5_encoder_prefix not in name:
-                continue
-            parts = name.split(".")
-            try:
-                block_idx = int(parts[3])
-            except (IndexError, ValueError):
-                continue
-            if 0 <= block_idx < num_blocks:
-                imp = importance_per_block[block_idx]
-                importance_measure[name] = torch.FloatTensor([imp])
+        missing_names = sorted(set(layer_to_group_mapping) - matched_names)
+        if missing_names:
+            preview = ", ".join(missing_names[:5])
+            raise RuntimeError(
+                "compute_density did not observe all requested T5 encoder Linear layers; "
+                f"missing {len(missing_names)} keys, e.g. {preview}"
+            )
+
+        importance_measure = {
+            name: torch.FloatTensor([density_dict[name]]).abs()
+            for name in layer_to_group_mapping
+        }
 
         return importance_measure
 

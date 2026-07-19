@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# C4 纯文本标定 → TAMP、只剪 T5（llm-only）→ 保存 pth → 四基准评测；
+# C4 纯文本标定 → blipt5_tamp_pruner 退化为 vanilla Wanda、只剪 T5（llm-only）→ 保存 pth → 四基准评测；
 # 再用既有 CC3M TAMP T5-only 权重再跑一遍四基准评测。
 #
 # 默认路径面向本机 /data/data2/mfs（可用环境变量覆盖）。
@@ -163,7 +163,7 @@ four_bench_eval() {
   echo "[INFO] 四基准评测结束: $eval_tag"
 }
 
-echo "========== C4 TAMP llm-only 剪枝 + 双四基准评测 | STAMP=$JOB_STAMP =========="
+echo "========== C4 TAMP-degenerated Wanda llm-only 剪枝 + 双四基准评测 | STAMP=$JOB_STAMP =========="
 echo "[INFO] REPO_ROOT=$REPO_ROOT"
 echo "[INFO] C4_JSON=$C4_JSON JOB_ID=$JOB_ID → $C4_CKPT"
 echo "[INFO] CC3M_TAMP_CKPT=$CC3M_TAMP_CKPT"
@@ -177,7 +177,7 @@ fi
 
 if [[ "$RUN_PRUNE" == "1" ]]; then
   echo ""
-  echo ">>> 剪枝: C4 标定 + TAMP + 只剪 T5"
+  echo ">>> 剪枝: C4 标定 + TAMP-degenerated vanilla Wanda + 只剪 T5"
   EXTRA=()
   if [[ "${T5_C4_ENCODER_ONLY:-0}" == "1" ]]; then
     EXTRA+=(--t5_c4_encoder_only)

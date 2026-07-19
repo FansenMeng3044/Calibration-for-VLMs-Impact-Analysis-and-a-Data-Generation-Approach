@@ -15,9 +15,9 @@
 #   只剪 T5，保存整模 pth）→ four_bench_eval：MMBench / OKVQA / MMMU / MathVista
 #
 # 注意（务必知情）：
-#   blipt5_tamp_pruner 会强制 token_selection=amia + density_sum + layer；纯文本标定下
-#   temp_label 全为「语言」，无视觉 token，AMIA/DAS 会退化为「纯语言」变体（不会报错）。
-#   这正是本实验想要的「单模态纯文本剪 LLM」设定 —— 报告时按「language-only TAMP」解读。
+#   blipt5_tamp_pruner 在纯文本标定下没有视觉 token，因此显式退化为 vanilla Wanda：
+#   token_selection=naive + uniform sparsity。多模态标定才启用 AMIA + density_sum + layer。
+#   报告时应按「text-only Wanda/TAMP-degenerated」解读，而不是 language-only AMIA/DAS。
 #
 # 用法：
 #   cd /data/data2/mfs/2/LAVIS_backup
@@ -29,7 +29,7 @@
 #
 # 主要环境变量：
 #   BASE, SOURCES, RUN_BUILD/RUN_PRUNE/RUN_EVAL(默认1), FORCE_BUILD(默认0), JOB_STAMP
-#   NUM_DATA(128) BS(8) T5_SPEC(24-0.5-1.0-1.0) SPARSITY_GRANULARITY(block) MAX_SPARSITY_PER_LAYER(0.6)
+#   NUM_DATA(128) BS(8) T5_SPEC(24-0.5-1.0-1.0) MAX_SPARSITY_PER_LAYER(0.6)
 #   RAW_<SRC> / TEXT_<SRC>  覆盖各源的「源标注」与「已抽好的纯文本 JSON」路径
 #   MMBENCH_ROOT MMMU_ROOT MATHVISTA_EVAL_JSON MATHVISTA_IMAGES_DIR EVAL_BATCH_SIZE
 # =============================================================================
@@ -210,7 +210,7 @@ echo "========== 六源纯文本 TAMP(llm-only) 剪枝+评测 | STAMP=$JOB_STAMP
 echo "[INFO] REPO_ROOT=$REPO_ROOT  SOURCES=$SOURCES"
 echo "[INFO] RUN_BUILD=$RUN_BUILD RUN_PRUNE=$RUN_PRUNE RUN_EVAL=$RUN_EVAL FORCE_BUILD=$FORCE_BUILD"
 echo "[INFO] TEXT_DIR=$TEXT_DIR"
-echo "[WARN] TAMP 纯文本标定 = AMIA/DAS 退化为 language-only 变体（无视觉 token），符合本实验设定。"
+echo "[INFO] TAMP 纯文本标定 = vanilla Wanda 退化路径（naive tokens + uniform sparsity；无 AMIA/DAS）。"
 
 i=0
 for s in $SOURCES; do

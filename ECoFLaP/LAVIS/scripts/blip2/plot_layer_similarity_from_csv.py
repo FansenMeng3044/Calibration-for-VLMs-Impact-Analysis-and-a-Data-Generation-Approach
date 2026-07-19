@@ -18,10 +18,22 @@ from typing import Dict, List, Sequence, Tuple
 from split_joint_analysis_common import ensure_dir, setup_matplotlib
 
 
-DEFAULT_CSV = (
+LOCAL_DEFAULT_CSV = r"E:\1study\calibration\per_layer_similarity_to_dense.csv"
+LOCAL_OUT_DIR = r"E:\1study\calibration\paper_figures_layer_similarity"
+REMOTE_DEFAULT_CSV = (
     "/data/data2/mfs/split_joint_analysis_wanda_cc3m_025350/"
     "layer_similarity/per_layer_similarity_to_dense.csv"
 )
+
+
+def first_existing(*paths: str) -> str:
+    for path in paths:
+        if os.path.exists(os.path.abspath(os.path.expanduser(path))):
+            return path
+    return paths[-1]
+
+
+DEFAULT_CSV = first_existing(LOCAL_DEFAULT_CSV, REMOTE_DEFAULT_CSV)
 
 PALETTES = {
     # Main paper palette: peach + soft blue from the calibration figures.
@@ -50,11 +62,11 @@ MODEL_LINESTYLES = {
 }
 
 TOKEN_GROUP_TITLES = {
-    "visual": "Visual Tokens",
-    "text": "Text Tokens",
+    "visual": "Visual Token",
+    "text": "Text Token",
 }
 METRIC_TITLES = {
-    "rel_l2": "Relative L2 Drift",
+    "rel_l2": "L2 Drift in T5 Encoder",
     "cosine": "Cosine Similarity",
     "centered_cosine": "Centered Cosine Similarity",
 }
@@ -63,7 +75,14 @@ METRIC_YLABELS = {
     "cosine": "Cosine to Dense",
     "centered_cosine": "Centered Cosine to Dense",
 }
-PAPER_FONT_FAMILY = ["Microsoft YaHei", "Microsoft YaHei UI", "SimHei", "DejaVu Sans"]
+# Prefer an actual bold face file. YaHei/SimHei have no matplotlib "bold" weight,
+# so requesting fontweight="bold" only triggers findfont warnings and falls back to 400.
+PAPER_FONT_FAMILY = ["Microsoft YaHei Bold", "Microsoft YaHei", "SimHei", "DejaVu Sans"]
+PAPER_BOLD_FONT_FILES = [
+    r"C:\Windows\Fonts\msyhbd.ttc",
+    r"C:\Windows\Fonts\msyhbd.ttf",
+    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+]
 OUTPUT_EXTENSIONS = ("svg", "pdf")
 DRAW_DIFF_BARS = False
 
@@ -223,14 +242,36 @@ def linestyle_for_model(model: str) -> str:
     return "-"
 
 
+def resolve_paper_font_family() -> List[str]:
+    from matplotlib import font_manager
+
+    for path in PAPER_BOLD_FONT_FILES:
+        if not os.path.exists(path):
+            continue
+        try:
+            font_manager.fontManager.addfont(path)
+            name = font_manager.FontProperties(fname=path).get_name()
+            return [name, "DejaVu Sans"]
+        except (OSError, RuntimeError, ValueError):
+            continue
+
+    available = {font.name for font in font_manager.fontManager.ttflist}
+    for name in PAPER_FONT_FAMILY:
+        if name in available:
+            return [name, "DejaVu Sans"]
+    return ["DejaVu Sans"]
+
+
 def configure_paper_font(plt) -> None:
+    family = resolve_paper_font_family()
+    PAPER_FONT_FAMILY[:] = family
     plt.rcParams.update(
         {
             "font.family": "sans-serif",
-            "font.sans-serif": PAPER_FONT_FAMILY,
-            "font.weight": "bold",
-            "axes.titleweight": "bold",
-            "axes.labelweight": "bold",
+            "font.sans-serif": family,
+            "font.weight": "normal",
+            "axes.titleweight": "normal",
+            "axes.labelweight": "normal",
             "axes.unicode_minus": False,
         }
     )
@@ -238,14 +279,10 @@ def configure_paper_font(plt) -> None:
 
 def apply_axis_font(ax) -> None:
     ax.title.set_fontfamily(PAPER_FONT_FAMILY)
-    ax.title.set_fontweight("bold")
     ax.xaxis.label.set_fontfamily(PAPER_FONT_FAMILY)
-    ax.xaxis.label.set_fontweight("bold")
     ax.yaxis.label.set_fontfamily(PAPER_FONT_FAMILY)
-    ax.yaxis.label.set_fontweight("bold")
     for label in ax.get_xticklabels() + ax.get_yticklabels():
         label.set_fontfamily(PAPER_FONT_FAMILY)
-        label.set_fontweight("bold")
 
 
 def legend_kwargs(loc: str = "best") -> Dict[str, object]:
@@ -254,7 +291,6 @@ def legend_kwargs(loc: str = "best") -> Dict[str, object]:
         "loc": loc,
         "prop": {
             "family": PAPER_FONT_FAMILY,
-            "weight": "bold",
             "size": 10,
         },
     }
@@ -322,7 +358,7 @@ def difference_title(token_group: str, metric: str, mode: str) -> str:
         diff_text = "Joint - Split"
     else:
         diff_text = "Split - Joint"
-    return "%s / %s %s" % (
+    return "T5 %s / %s %s" % (
         TOKEN_GROUP_TITLES.get(token_group, token_group),
         diff_text,
         METRIC_TITLES.get(metric, metric),
@@ -370,13 +406,13 @@ def plot_one(
             markeredgewidth=0.8,
             label=pretty_model(model),
         )
-    title = "Encoder %s %s" % (
+    title = "%s %s" % (
         TOKEN_GROUP_TITLES.get(token_group, token_group),
         METRIC_TITLES.get(metric, metric),
     )
     ax.set_title(title, pad=8)
     style_axis(ax, xlabel, metric)
-    ax.legend(**legend_kwargs("best"))
+    ax.legend(**legend_kwargs("lower right"))
     fig.tight_layout()
     save_figure(fig, path, dpi)
     plt.close(fig)
@@ -449,7 +485,7 @@ def plot_combined(
                 legend_handles.append(handle)
                 legend_labels.append(label)
         ax.set_title(
-            "Encoder %s / %s"
+            "T5 Encoder %s / %s"
             % (
                 TOKEN_GROUP_TITLES.get(token_group, token_group),
                 METRIC_TITLES.get(line_metric, line_metric),
@@ -510,7 +546,7 @@ def main() -> None:
 
     out_dir = args.out_dir
     if out_dir is None:
-        out_dir = os.path.join(os.path.dirname(csv_path), "paper_encoder_similarity")
+        out_dir = LOCAL_OUT_DIR if os.path.exists(LOCAL_DEFAULT_CSV) else os.path.join(os.path.dirname(csv_path), "paper_encoder_similarity")
     out_dir = os.path.abspath(os.path.expanduser(out_dir))
     ensure_dir(out_dir)
 

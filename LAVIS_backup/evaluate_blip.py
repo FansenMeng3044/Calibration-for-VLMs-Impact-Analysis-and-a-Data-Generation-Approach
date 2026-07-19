@@ -223,7 +223,8 @@ def parse_args():
         default="blipt5_wanda_pruner",
         help=(
             "Registry pruner name, e.g. blipt5_wanda_pruner. "
-            "blipt5_tamp_pruner is an alias: sets amia + density_sum + layer, then runs wanda."
+            "blipt5_tamp_pruner is an alias: multimodal uses amia + density_sum + layer; "
+            "pure text calibration degrades to vanilla Wanda."
         ),
     )
 
@@ -349,7 +350,7 @@ def parse_args():
             "blipt5_wanda_pruner LayerSparsity: joint = ViT+LLM global allocation (ECoFLaP default). "
             "llm_only / vit_only = only T5 or only ViT params; vit_only uses loss_vision_language. "
             "vit_only_encode = only ViT params + encode_image surrogate loss (use with vit_image_only). "
-            "Default: auto — llm_only for t5_c4_text, vit_only for vit_cc3m_image, vit_only_encode for "
+            "Default: auto - llm_only for t5_c4_text, vit_only for vit_cc3m_image, vit_only_encode for "
             "vit_image_only, joint otherwise."
         ),
     )
@@ -433,10 +434,57 @@ def main():
 
     args = parse_args()
 
-    if args.pruning_method == "blipt5_tamp_pruner":
-        args.token_selection = "amia"
-        args.score_method = "density_sum"
-        args.sparsity_ratio_granularity = "layer"
+    using_tamp_alias = args.pruning_method == "blipt5_tamp_pruner"
+
+    if using_tamp_alias:
+        prune_spec = args.t5_prune_spec or args.vit_prune_spec
+        will_run_pruner = args.save_pruned_model or (
+            args.t5_pruned_checkpoint is None and args.vit_pruned_checkpoint is None
+        )
+        if prune_spec is None and will_run_pruner:
+            raise ValueError(
+                "blipt5_tamp_pruner needs --t5_prune_spec or --vit_prune_spec "
+                "like 24-0.5-1.0-1.0 to derive max_sparsity_per_layer=sparsity+0.1. "
+                "This avoids silently falling back to the unsafe default 0.8."
+            )
+        if prune_spec is None:
+            print(
+                "[prune] blipt5_tamp_pruner eval-only path: no prune spec provided; "
+                "max_sparsity_per_layer is unused because a pruned checkpoint is loaded."
+            )
+        else:
+            try:
+                keep_ratio = float(prune_spec.split("-")[1])
+                tamp_sparsity = 1.0 - keep_ratio
+                args.max_sparsity_per_layer = min(1.0, tamp_sparsity + 0.1)
+                print(
+                    "[prune] blipt5_tamp_pruner: set max_sparsity_per_layer "
+                    f"to {args.max_sparsity_per_layer:.4f} (= sparsity + 0.1)."
+                )
+            except (IndexError, ValueError):
+                raise ValueError(
+                    "blipt5_tamp_pruner needs a prune spec like 24-0.5-1.0-1.0 "
+                    "to derive max_sparsity_per_layer=sparsity+0.1."
+                )
+        if args.prune_calib_mode == "t5_c4_text":
+            # Pure text has no visual/query tokens, so AMIA/DAS are undefined.
+            # In this setting TAMP degenerates to vanilla Wanda on T5.
+            args.token_selection = "naive"
+            args.sparsity_ratio_granularity = None
+            print(
+                "[prune] blipt5_tamp_pruner + t5_c4_text: no visual tokens; "
+                "degrade to vanilla Wanda (naive tokens + uniform sparsity)."
+            )
+        else:
+            if args.no_prune_t5:
+                raise ValueError(
+                    "blipt5_tamp_pruner multimodal mode requires T5 pruning: "
+                    "AMIA/DAS are defined over BLIP2-T5 encoder visual/text tokens. "
+                    "Use blipt5_wanda_pruner or blipt5_atv_pruner for ViT-only runs."
+                )
+            args.token_selection = "amia"
+            args.score_method = "density_sum"
+            args.sparsity_ratio_granularity = "layer"
         args.pruning_method = "blipt5_wanda_pruner"
 
     if args.pruning_method == "blipt5_atv_pruner":
@@ -471,6 +519,17 @@ def main():
             f"[prune] vit_image_only: importance_scope must be vit_only_encode (got {args.importance_scope}); overriding."
         )
         args.importance_scope = "vit_only_encode"
+
+    if (
+        using_tamp_alias
+        and args.prune_calib_mode != "t5_c4_text"
+        and args.importance_scope in ("vit_only", "vit_only_encode")
+    ):
+        raise ValueError(
+            "blipt5_tamp_pruner multimodal mode cannot use "
+            f"importance_scope={args.importance_scope}; AMIA/DAS require T5 encoder tokens. "
+            "Use importance_scope=joint or llm_only, or switch to blipt5_wanda_pruner for ViT-only pruning."
+        )
 
     if (
         args.prune_calib_mode == "multimodal"

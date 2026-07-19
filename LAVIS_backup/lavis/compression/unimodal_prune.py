@@ -75,6 +75,7 @@ class T5EncoderTextOnlyView(nn.Module):
         inputs_embeds = self.t5_model.encoder.embed_tokens(input_tokens.input_ids)
         bsz, seq_len = inputs_embeds.shape[:2]
         self.temp_label = torch.zeros((bsz, seq_len), dtype=torch.bool, device=inputs_embeds.device)
+        self.temp_encoder_atts = input_tokens.attention_mask.detach()
         enc = self.t5_model.encoder(
             inputs_embeds=inputs_embeds,
             attention_mask=input_tokens.attention_mask,
@@ -87,7 +88,7 @@ class T5EncoderTextOnlyView(nn.Module):
 class T5Seq2SeqTextOnlyView(nn.Module):
     """
     C4 text: full T5 (encoder + decoder) with teacher-forced labels, same strings as
-    input and target — matches `lavis.models.t5_models.t5.T5.forward` (no ViT/Q-Former).
+    input and target - matches `lavis.models.t5_models.t5.T5.forward` (no ViT/Q-Former).
     """
 
     def __init__(self, blip_model):
@@ -127,6 +128,7 @@ class T5Seq2SeqTextOnlyView(nn.Module):
             bsz, enc_len = inputs_embeds.shape[:2]
             # Blip2T5 convention: True = vision/query, False = language. C4 text-only: all language.
             self.temp_label = torch.zeros((bsz, enc_len), dtype=torch.bool, device=inputs_embeds.device)
+            self.temp_encoder_atts = input_tokens.attention_mask.detach()
             out = self.t5_model(
                 inputs_embeds=inputs_embeds,
                 attention_mask=input_tokens.attention_mask,
