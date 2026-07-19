@@ -63,6 +63,9 @@ METRIC_YLABELS = {
     "cosine": "Cosine to Dense",
     "centered_cosine": "Centered Cosine to Dense",
 }
+PAPER_FONT_FAMILY = ["Microsoft YaHei", "Microsoft YaHei UI", "SimHei", "DejaVu Sans"]
+OUTPUT_EXTENSIONS = ("png", "svg", "pdf")
+DRAW_DIFF_BARS = False
 
 
 def parse_args() -> argparse.Namespace:
@@ -113,6 +116,17 @@ def parse_args() -> argparse.Namespace:
 def read_rows(path: str) -> List[Dict[str, str]]:
     with open(path, "r", encoding="utf-8-sig", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def save_figure(fig, path: str, dpi: int) -> None:
+    root, ext = os.path.splitext(path)
+    if ext.lower().lstrip(".") not in OUTPUT_EXTENSIONS:
+        root = path
+    ensure_dir(os.path.dirname(root))
+    for out_ext in OUTPUT_EXTENSIONS:
+        out_path = "%s.%s" % (root, out_ext)
+        fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
+        print("[OK] plot:", out_path)
 
 
 def split_csv(value: str) -> List[str]:
@@ -208,12 +222,50 @@ def linestyle_for_model(model: str) -> str:
     return "-"
 
 
+def configure_paper_font(plt) -> None:
+    plt.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": PAPER_FONT_FAMILY,
+            "font.weight": "bold",
+            "axes.titleweight": "bold",
+            "axes.labelweight": "bold",
+            "axes.unicode_minus": False,
+        }
+    )
+
+
+def apply_axis_font(ax) -> None:
+    ax.title.set_fontfamily(PAPER_FONT_FAMILY)
+    ax.title.set_fontweight("bold")
+    ax.xaxis.label.set_fontfamily(PAPER_FONT_FAMILY)
+    ax.xaxis.label.set_fontweight("bold")
+    ax.yaxis.label.set_fontfamily(PAPER_FONT_FAMILY)
+    ax.yaxis.label.set_fontweight("bold")
+    for label in ax.get_xticklabels() + ax.get_yticklabels():
+        label.set_fontfamily(PAPER_FONT_FAMILY)
+        label.set_fontweight("bold")
+
+
+def legend_kwargs(loc: str = "best") -> Dict[str, object]:
+    return {
+        "frameon": False,
+        "loc": loc,
+        "prop": {
+            "family": PAPER_FONT_FAMILY,
+            "weight": "bold",
+            "size": 10,
+        },
+    }
+
+
 def style_axis(ax, xlabel: str, metric: str) -> None:
     ax.set_xlabel(xlabel)
     ax.set_ylabel(METRIC_YLABELS.get(metric, metric))
     ax.grid(True, alpha=0.24, linewidth=0.7)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
+    apply_axis_font(ax)
 
 
 def model_role(model: str) -> str:
@@ -282,6 +334,7 @@ def style_difference_axis(ax, xlabel: str, metric: str, mode: str) -> None:
     ax.grid(True, axis="y", alpha=0.24, linewidth=0.7)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
+    apply_axis_font(ax)
 
 
 def plot_one(
@@ -322,12 +375,10 @@ def plot_one(
     )
     ax.set_title(title, pad=8)
     style_axis(ax, xlabel, metric)
-    ax.legend(frameon=False, loc="best")
+    ax.legend(**legend_kwargs("best"))
     fig.tight_layout()
-    ensure_dir(os.path.dirname(path))
-    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    save_figure(fig, path, dpi)
     plt.close(fig)
-    print("[OK] plot:", path)
 
 
 def plot_combined(
@@ -346,30 +397,32 @@ def plot_combined(
         return
     line_metric = metrics[0]
     ncols = len(token_groups)
-    fig, axes = plt.subplots(2, ncols, figsize=(5.25 * ncols, 6.7), squeeze=False)
+    nrows = 2 if DRAW_DIFF_BARS else 1
+    fig_height = 6.7 if DRAW_DIFF_BARS else 3.55
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5.25 * ncols, fig_height), squeeze=False)
     legend_handles = []
     legend_labels = []
 
-    # The bottom-row bars show one Split/Joint difference per layer and share one
-    # y-axis range across token groups. This makes cross-panel magnitude
-    # differences visually honest.
-    bar_values: List[float] = []
-    for token_group in token_groups:
-        series = collect_series(rows, line_metric, token_group, models)
-        try:
-            diff_points = collect_difference_bars(series, models, bar_diff_mode)
-        except KeyError as exc:
-            print("[WARN]", exc)
-            diff_points = []
-        bar_values.extend([value for _, value, _ in diff_points])
-    if bar_values and bar_diff_mode == "abs":
-        bar_ymax = max(bar_values) * 1.12
-        bar_ylim = (0, bar_ymax)
-    elif bar_values:
-        magnitude = max(abs(value) for value in bar_values) * 1.12
-        bar_ylim = (-magnitude, magnitude)
-    else:
-        bar_ylim = None
+    bar_ylim = None
+    if DRAW_DIFF_BARS:
+        # The bottom-row bars show one Split/Joint difference per layer and share
+        # one y-axis range across token groups. This block is intentionally
+        # disabled for the current paper figure.
+        bar_values: List[float] = []
+        for token_group in token_groups:
+            series = collect_series(rows, line_metric, token_group, models)
+            try:
+                diff_points = collect_difference_bars(series, models, bar_diff_mode)
+            except KeyError as exc:
+                print("[WARN]", exc)
+                diff_points = []
+            bar_values.extend([value for _, value, _ in diff_points])
+        if bar_values and bar_diff_mode == "abs":
+            bar_ymax = max(bar_values) * 1.12
+            bar_ylim = (0, bar_ymax)
+        elif bar_values:
+            magnitude = max(abs(value) for value in bar_values) * 1.12
+            bar_ylim = (-magnitude, magnitude)
 
     for col_idx, token_group in enumerate(token_groups):
         series = collect_series(rows, line_metric, token_group, models)
@@ -404,51 +457,48 @@ def plot_combined(
         )
         style_axis(ax, xlabel, line_metric)
 
-        ax_bar = axes[1][col_idx]
-        try:
-            diff_points = collect_difference_bars(series, models, bar_diff_mode)
-        except KeyError as exc:
-            print("[WARN]", exc)
-            diff_points = []
-        if diff_points:
-            positive_color = color_for_model(first_model_by_role(models, "joint"), 1, palette)
-            negative_color = color_for_model(first_model_by_role(models, "split"), 0, palette)
-            ax_bar.bar(
-                [layer for layer, _, _ in diff_points],
-                [value for _, value, _ in diff_points],
-                width=0.68,
-                color=[
-                    positive_color if signed >= 0 else negative_color
-                    for _, _, signed in diff_points
-                ],
-                alpha=0.86,
-                edgecolor="none",
-                linewidth=0.45,
+        if DRAW_DIFF_BARS:
+            ax_bar = axes[1][col_idx]
+            try:
+                diff_points = collect_difference_bars(series, models, bar_diff_mode)
+            except KeyError as exc:
+                print("[WARN]", exc)
+                diff_points = []
+            if diff_points:
+                positive_color = color_for_model(first_model_by_role(models, "joint"), 1, palette)
+                negative_color = color_for_model(first_model_by_role(models, "split"), 0, palette)
+                ax_bar.bar(
+                    [layer for layer, _, _ in diff_points],
+                    [value for _, value, _ in diff_points],
+                    width=0.68,
+                    color=[
+                        positive_color if signed >= 0 else negative_color
+                        for _, _, signed in diff_points
+                    ],
+                    alpha=0.86,
+                    edgecolor="none",
+                    linewidth=0.45,
+                )
+            if bar_diff_mode != "abs":
+                ax_bar.axhline(0, color="#777777", linewidth=0.8, alpha=0.55)
+            ax_bar.set_title(
+                difference_title(token_group, line_metric, bar_diff_mode),
+                pad=7,
             )
-        if bar_diff_mode != "abs":
-            ax_bar.axhline(0, color="#777777", linewidth=0.8, alpha=0.55)
-        ax_bar.set_title(
-            difference_title(token_group, line_metric, bar_diff_mode),
-            pad=7,
-        )
-        style_difference_axis(ax_bar, xlabel, line_metric, bar_diff_mode)
-        if bar_ylim is not None:
-            ax_bar.set_ylim(*bar_ylim)
+            style_difference_axis(ax_bar, xlabel, line_metric, bar_diff_mode)
+            if bar_ylim is not None:
+                ax_bar.set_ylim(*bar_ylim)
 
     if legend_handles:
-        fig.legend(
+        axes[0][0].legend(
             legend_handles,
             legend_labels,
-            loc="upper center",
-            ncol=len(legend_handles),
-            frameon=False,
-            bbox_to_anchor=(0.5, 1.02),
+            ncol=min(len(legend_handles), 2),
+            **legend_kwargs("upper right"),
         )
-    fig.tight_layout(rect=[0, 0, 1, 0.97])
-    ensure_dir(os.path.dirname(path))
-    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    fig.tight_layout()
+    save_figure(fig, path, dpi)
     plt.close(fig)
-    print("[OK] plot:", path)
 
 
 def main() -> None:
@@ -471,6 +521,7 @@ def main() -> None:
     plt = setup_matplotlib()
     if plt is None:
         raise SystemExit("matplotlib is required for plotting.")
+    configure_paper_font(plt)
 
     for metric in metrics:
         metric_column(metric, rows)

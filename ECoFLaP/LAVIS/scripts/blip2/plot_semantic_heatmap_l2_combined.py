@@ -20,6 +20,7 @@ from split_joint_analysis_common import ensure_dir, setup_matplotlib
 HEATMAP_COLORS = ["#FFF6F4", "#FFE3DE", "#FFC6BC", "#D5E8F2", "#A5CDE2", "#5FA3C2"]
 LINE_COLORS = ["#F08A7F", "#5FA3C2", "#FFC6BC", "#A5CDE2", "#D8B4AD"]
 LINE_MARKERS = ["o", "s", "^", "D", "P"]
+OUTPUT_EXTENSIONS = ("png", "svg", "pdf")
 CALIB_ORDER = ["MMBench", "MMMU", "OKVQA", "mathvista", "MathVista", "cc3m", "CC3M"]
 EVAL_ORDER = ["MMBench", "MMMU", "OKVQA", "mathvista", "MathVista"]
 DISPLAY_LABELS = {
@@ -63,6 +64,14 @@ def parse_args() -> argparse.Namespace:
 def read_csv_rows(path: str) -> List[Dict[str, str]]:
     with open(path, "r", encoding="utf-8-sig", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def save_figure(fig, out_dir: str, fig_name: str, dpi: int) -> None:
+    ensure_dir(out_dir)
+    for ext in OUTPUT_EXTENSIONS:
+        out_path = os.path.join(out_dir, "%s.%s" % (fig_name, ext))
+        fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
+        print("[OK] plot:", out_path)
 
 
 def resolve_semantic_csv(path: str, part: str) -> str:
@@ -303,10 +312,7 @@ def main() -> None:
         )
 
     fig.subplots_adjust(top=0.90, left=0.075, right=0.98, bottom=0.155)
-    for ext in ("png", "pdf"):
-        out_path = os.path.join(args.out_dir, "%s.%s" % (args.fig_name, ext))
-        fig.savefig(out_path, dpi=args.dpi, bbox_inches="tight")
-        print("[OK] plot:", out_path)
+    save_figure(fig, args.out_dir, args.fig_name, args.dpi)
     plt.close(fig)
     print("[OK] semantic CSV:", semantic_csv)
     print("[OK] OKVQA layer CSV:", okvqa_csv)
