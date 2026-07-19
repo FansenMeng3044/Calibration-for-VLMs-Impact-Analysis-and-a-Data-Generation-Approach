@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plot semantic similarity and layer-wise L2 drift in one paper figure.
+"""Plot semantic similarity and layer-wise L2 drift as separate paper figures.
 
 This script only consumes existing CSV results. It does not run extraction,
 forward passes, or model loading.
@@ -17,10 +17,14 @@ import numpy as np
 from split_joint_analysis_common import ensure_dir, setup_matplotlib
 
 
-HEATMAP_COLORS = ["#FFF6F4", "#FFE3DE", "#FFC6BC", "#D5E8F2", "#A5CDE2", "#5FA3C2"]
-LINE_COLORS = ["#F08A7F", "#5FA3C2", "#FFC6BC", "#A5CDE2", "#D8B4AD"]
+HEATMAP_COLORS = ["#FFC6BC", "#FFD8D2", "#F1E5E5", "#D5E8F2", "#A5CDE2", "#5FA3C2"]
+LINE_COLORS = ["#F08A7F", "#5FA3C2", "#FFC6BC", "#A5CDE2", "#8F78C6"]
+LINE_LABEL_COLORS = {
+    "cc3m": "#8F78C6",
+}
 LINE_MARKERS = ["o", "s", "^", "D", "P"]
-OUTPUT_EXTENSIONS = ("png", "svg", "pdf")
+OUTPUT_EXTENSIONS = ("svg", "pdf")
+PAPER_FONT_FAMILY = ["Microsoft YaHei", "Microsoft YaHei UI", "SimHei", "DejaVu Sans"]
 CALIB_ORDER = ["MMBench", "MMMU", "OKVQA", "mathvista", "MathVista", "cc3m", "CC3M"]
 EVAL_ORDER = ["MMBench", "MMMU", "OKVQA", "mathvista", "MathVista"]
 DISPLAY_LABELS = {
@@ -34,7 +38,7 @@ DISPLAY_LABELS = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Combine semantic heatmap with OKVQA/MMBench T5 layer L2 curves.",
+        description="Plot separate semantic heatmap and OKVQA/MMBench T5 layer L2 curves.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -56,7 +60,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--part", choices=["both", "visual", "text"], default="both")
     parser.add_argument("--semantic_metric", default="centroid_cosine")
     parser.add_argument("--line_metric", default="rel_l2_to_dense_mean")
-    parser.add_argument("--fig_name", default="semantic_heatmap_okvqa_mmbench_l2_combined")
+    parser.add_argument("--fig_name", default="semantic_heatmap_okvqa_mmbench_l2")
     parser.add_argument("--dpi", type=int, default=300)
     return parser.parse_args()
 
@@ -72,6 +76,50 @@ def save_figure(fig, out_dir: str, fig_name: str, dpi: int) -> None:
         out_path = os.path.join(out_dir, "%s.%s" % (fig_name, ext))
         fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
         print("[OK] plot:", out_path)
+
+
+def configure_paper_font(plt) -> None:
+    plt.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": PAPER_FONT_FAMILY,
+            "font.weight": "bold",
+            "axes.titleweight": "bold",
+            "axes.labelweight": "bold",
+            "axes.unicode_minus": False,
+        }
+    )
+
+
+def apply_axis_font(ax) -> None:
+    ax.title.set_fontfamily(PAPER_FONT_FAMILY)
+    ax.title.set_fontweight("bold")
+    ax.xaxis.label.set_fontfamily(PAPER_FONT_FAMILY)
+    ax.xaxis.label.set_fontweight("bold")
+    ax.yaxis.label.set_fontfamily(PAPER_FONT_FAMILY)
+    ax.yaxis.label.set_fontweight("bold")
+    for label in ax.get_xticklabels() + ax.get_yticklabels():
+        label.set_fontfamily(PAPER_FONT_FAMILY)
+        label.set_fontweight("bold")
+
+
+def legend_kwargs(loc: str = "best") -> Dict[str, object]:
+    return {
+        "frameon": False,
+        "loc": loc,
+        "prop": {
+            "family": PAPER_FONT_FAMILY,
+            "weight": "bold",
+            "size": 10,
+        },
+    }
+
+
+def color_for_label(label: str, index: int) -> str:
+    lowered = pretty_label(label).casefold()
+    if lowered in LINE_LABEL_COLORS:
+        return LINE_LABEL_COLORS[lowered]
+    return LINE_COLORS[index % len(LINE_COLORS)]
 
 
 def resolve_semantic_csv(path: str, part: str) -> str:
@@ -193,13 +241,15 @@ def draw_heatmap(ax, fig, row_labels: Sequence[str], col_labels: Sequence[str], 
             ha="center",
             va="top",
             fontsize=10.5,
+            fontfamily=PAPER_FONT_FAMILY,
+            fontweight="bold",
             clip_on=False,
         )
     ax.set_yticks(range(len(row_labels)))
     ax.set_yticklabels([pretty_label(label) for label in row_labels])
     ax.set_xlabel("")
     ax.set_ylabel("")
-    ax.set_title("(a) Semantic Similarity", pad=10)
+    ax.set_title("Semantic Similarity", pad=10)
     ax.tick_params(axis="both", length=0)
     for spine in ax.spines.values():
         spine.set_visible(False)
@@ -211,6 +261,8 @@ def draw_heatmap(ax, fig, row_labels: Sequence[str], col_labels: Sequence[str], 
         ha="center",
         va="center",
         fontsize=10.5,
+        fontfamily=PAPER_FONT_FAMILY,
+        fontweight="bold",
     )
     ax.text(
         -0.14,
@@ -220,6 +272,8 @@ def draw_heatmap(ax, fig, row_labels: Sequence[str], col_labels: Sequence[str], 
         ha="center",
         va="center",
         fontsize=10.5,
+        fontfamily=PAPER_FONT_FAMILY,
+        fontweight="bold",
     )
 
     vmin = float(np.nanmin(matrix))
@@ -231,10 +285,26 @@ def draw_heatmap(ax, fig, row_labels: Sequence[str], col_labels: Sequence[str], 
             if not np.isfinite(value):
                 continue
             color = "white" if (value - vmin) / span > 0.72 else "#183744"
-            ax.text(j, i, "%.3f" % value, ha="center", va="center", fontsize=8.5, color=color)
+            ax.text(
+                j,
+                i,
+                "%.3f" % value,
+                ha="center",
+                va="center",
+                fontsize=8.5,
+                color=color,
+                fontfamily=PAPER_FONT_FAMILY,
+                fontweight="bold",
+            )
 
     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.035)
     cbar.set_label("Centroid Cosine")
+    cbar.ax.yaxis.label.set_fontfamily(PAPER_FONT_FAMILY)
+    cbar.ax.yaxis.label.set_fontweight("bold")
+    for label in cbar.ax.get_yticklabels():
+        label.set_fontfamily(PAPER_FONT_FAMILY)
+        label.set_fontweight("bold")
+    apply_axis_font(ax)
 
 
 def draw_l2_panel(ax, series: Dict[str, List[Tuple[int, float]]], title: str, show_xlabel: bool) -> Tuple[List[object], List[str]]:
@@ -248,7 +318,7 @@ def draw_l2_panel(ax, series: Dict[str, List[Tuple[int, float]]], title: str, sh
         handle = ax.plot(
             [x for x, _ in points],
             [y for _, y in points],
-            color=LINE_COLORS[idx % len(LINE_COLORS)],
+            color=color_for_label(label, idx),
             marker=LINE_MARKERS[idx % len(LINE_MARKERS)],
             linewidth=1.55,
             markersize=3.7,
@@ -266,6 +336,16 @@ def draw_l2_panel(ax, series: Dict[str, List[Tuple[int, float]]], title: str, sh
     ax.grid(True, alpha=0.26, linewidth=0.7)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
+    if handles:
+        ax.legend(
+            handles,
+            plotted_labels,
+            ncol=min(len(plotted_labels), 3),
+            columnspacing=0.9,
+            handlelength=1.5,
+            **legend_kwargs("upper right"),
+        )
+    apply_axis_font(ax)
     return handles, plotted_labels
 
 
@@ -283,37 +363,27 @@ def main() -> None:
 
     plt = setup_matplotlib()
     if plt is None:
-        raise RuntimeError("matplotlib is required to draw this combined figure.")
+        raise RuntimeError("matplotlib is required to draw these figures.")
+    configure_paper_font(plt)
 
-    fig = plt.figure(figsize=(13.2, 5.85))
-    grid = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.55], wspace=0.27)
-    right_grid = grid[0, 1].subgridspec(3, 1, height_ratios=[0.06, 1.1, 1.1], hspace=0.30)
-    ax_heat = fig.add_subplot(grid[0, 0])
-    ax_legend = fig.add_subplot(right_grid[0, 0])
-    ax_okvqa = fig.add_subplot(right_grid[1, 0])
-    ax_mmbench = fig.add_subplot(right_grid[2, 0], sharex=ax_okvqa)
-    ax_legend.axis("off")
+    fig_heat, ax_heat = plt.subplots(figsize=(5.8, 5.0))
+    draw_heatmap(ax_heat, fig_heat, row_labels, col_labels, semantic_matrix)
+    fig_heat.subplots_adjust(left=0.20, right=0.90, bottom=0.22, top=0.90)
+    save_figure(fig_heat, args.out_dir, "%s_semantic_heatmap" % args.fig_name, args.dpi)
+    plt.close(fig_heat)
 
-    draw_heatmap(ax_heat, fig, row_labels, col_labels, semantic_matrix)
-    handles, labels = draw_l2_panel(ax_okvqa, okvqa_series, "(b) OKVQA Decoder Layer-wise L2 Drift", show_xlabel=False)
-    draw_l2_panel(ax_mmbench, mmbench_series, "(c) MMBench Decoder Layer-wise L2 Drift", show_xlabel=True)
+    fig_okvqa, ax_okvqa = plt.subplots(figsize=(6.4, 3.8))
+    draw_l2_panel(ax_okvqa, okvqa_series, "OKVQA Decoder Layer-wise L2 Drift", show_xlabel=True)
+    fig_okvqa.tight_layout()
+    save_figure(fig_okvqa, args.out_dir, "%s_okvqa_l2" % args.fig_name, args.dpi)
+    plt.close(fig_okvqa)
 
-    if handles:
-        fig.legend(
-            handles,
-            labels,
-            loc="upper left",
-            bbox_to_anchor=(0.52, 0.925),
-            ncol=min(len(labels), 5),
-            frameon=False,
-            columnspacing=1.35,
-            handlelength=1.8,
-            borderaxespad=0.0,
-        )
+    fig_mmbench, ax_mmbench = plt.subplots(figsize=(6.4, 3.8))
+    draw_l2_panel(ax_mmbench, mmbench_series, "MMBench Decoder Layer-wise L2 Drift", show_xlabel=True)
+    fig_mmbench.tight_layout()
+    save_figure(fig_mmbench, args.out_dir, "%s_mmbench_l2" % args.fig_name, args.dpi)
+    plt.close(fig_mmbench)
 
-    fig.subplots_adjust(top=0.90, left=0.075, right=0.98, bottom=0.155)
-    save_figure(fig, args.out_dir, args.fig_name, args.dpi)
-    plt.close(fig)
     print("[OK] semantic CSV:", semantic_csv)
     print("[OK] OKVQA layer CSV:", okvqa_csv)
     print("[OK] MMBench layer CSV:", mmbench_csv)

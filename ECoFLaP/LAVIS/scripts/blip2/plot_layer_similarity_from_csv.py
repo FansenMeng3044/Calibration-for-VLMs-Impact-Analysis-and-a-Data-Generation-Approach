@@ -50,7 +50,7 @@ MODEL_LINESTYLES = {
 }
 
 TOKEN_GROUP_TITLES = {
-    "visual": "Visual Prefix",
+    "visual": "Visual Tokens",
     "text": "Text Tokens",
 }
 METRIC_TITLES = {
@@ -64,7 +64,7 @@ METRIC_YLABELS = {
     "centered_cosine": "Centered Cosine to Dense",
 }
 PAPER_FONT_FAMILY = ["Microsoft YaHei", "Microsoft YaHei UI", "SimHei", "DejaVu Sans"]
-OUTPUT_EXTENSIONS = ("png", "svg", "pdf")
+OUTPUT_EXTENSIONS = ("svg", "pdf")
 DRAW_DIFF_BARS = False
 
 
@@ -109,7 +109,8 @@ def parse_args() -> argparse.Namespace:
         help="Bottom-row bars show one Split/Joint difference per layer.",
     )
     parser.add_argument("--dpi", type=int, default=300)
-    parser.add_argument("--no_combined", action="store_true", help="Only write individual figures.")
+    parser.add_argument("--combined", action="store_true", help="Also write an optional combined figure.")
+    parser.add_argument("--no_combined", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -448,7 +449,7 @@ def plot_combined(
                 legend_handles.append(handle)
                 legend_labels.append(label)
         ax.set_title(
-            "%s / %s"
+            "Encoder %s / %s"
             % (
                 TOKEN_GROUP_TITLES.get(token_group, token_group),
                 METRIC_TITLES.get(line_metric, line_metric),
@@ -528,7 +529,7 @@ def main() -> None:
         for token_group in token_groups:
             out_path = os.path.join(
                 out_dir,
-                "%s_encoder_%s_%s.png" % (args.fig_prefix, token_group, metric),
+                "%s_encoder_%s_%s" % (args.fig_prefix, token_group, metric),
             )
             plot_one(
                 plt,
@@ -542,7 +543,7 @@ def main() -> None:
                 args.palette,
             )
 
-    if not args.no_combined:
+    if args.combined and not args.no_combined:
         plot_combined(
             plt,
             rows,
@@ -550,7 +551,7 @@ def main() -> None:
             metrics,
             token_groups,
             args.xlabel,
-            os.path.join(out_dir, "%s_encoder_2x2.png" % args.fig_prefix),
+            os.path.join(out_dir, "%s_encoder_2x2" % args.fig_prefix),
             args.dpi,
             args.palette,
             args.bar_diff_mode,
