@@ -77,6 +77,42 @@ STANDARD_SETS = {
     "cc3m": ("CC3M_calib_128/cc3m_calib_128.json", "CC3M_calib_128/images"),
 }
 
+# --text_only: build_text_calib.py writes a flat JSON list of strings here.
+STANDARD_TEXT_SOURCES = ("c4", "cc3m", "okvqa", "mathvista", "mmbench", "mmmu")
+
+
+def load_text_rows(path: str, max_samples: int) -> List[str]:
+    """Read a build_text_calib.py output: a flat JSON list of strings."""
+    with open(path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, list):
+        raise ValueError(f"{path} must be a JSON list (build_text_calib.py output).")
+    texts = []
+    for item in data:
+        if isinstance(item, str):
+            t = item.strip()
+        elif isinstance(item, dict):
+            t = ""
+            for k in ("text_input", "text", "caption", "question", "prompt"):
+                if item.get(k):
+                    t = str(item[k]).strip()
+                    break
+        else:
+            t = str(item).strip()
+        if t:
+            texts.append(t)
+    texts = texts[: int(max_samples)]
+    if not texts:
+        raise ValueError(f"No usable text rows in {path}.")
+    return texts
+
+
+def iter_text_batches(texts: Sequence[str], batch_size: int):
+    """Batches for the T5 text-only views: they only read samples['text_input']."""
+    for start in range(0, len(texts), batch_size):
+        chunk = list(texts[start : start + batch_size])
+        yield {"text_input": chunk, "text_output": chunk}
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
@@ -89,6 +125,19 @@ def parse_args() -> argparse.Namespace:
         help="Calibration set. Repeatable. Overrides/extends --base.",
     )
     p.add_argument("--base", default=None, help="Data root; fills in the five standard sets.")
+    p.add_argument(
+        "--text_only", action="store_true",
+        help=(
+            "Study TAMP's single-modality reduction (the --tamp_text_only path): text-only "
+            "calibration through the T5 text view, DAS s = s_l, AMIA over text tokens. "
+            "--calib entries become LABEL=JSON (no images dir); --base looks under "
+            "<base>/text_calib_128/<src>_text_calib_<N>.json."
+        ),
+    )
+    p.add_argument(
+        "--t5_c4_encoder_only", action="store_true",
+        help="text-only: use T5EncoderTextOnlyView (encoder forward only) instead of the seq2seq view.",
+    )
     p.add_argument("--model_name", default="blip2_t5")
     p.add_argument("--model_type", default="pretrain_flant5xl")
     p.add_argument("--device", default=None)
@@ -110,17 +159,30 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def resolve_sets(args) -> List[Tuple[str, str, str]]:
-    out: "collections.OrderedDict[str, Tuple[str, str]]" = collections.OrderedDict()
+def resolve_sets(args) -> List[Tuple[str, str, Optional[str]]]:
+    out: "collections.OrderedDict[str, Tuple[str, Optional[str]]]" = collections.OrderedDict()
     if args.base:
-        for label, (j, im) in STANDARD_SETS.items():
-            out[label] = (os.path.join(args.base, j), os.path.join(args.base, im))
+        if args.text_only:
+            for src in STANDARD_TEXT_SOURCES:
+                out[src] = (
+                    os.path.join(args.base, "text_calib_128",
+                                 f"{src}_text_calib_{args.max_samples}.json"),
+                    None,
+                )
+        else:
+            for label, (j, im) in STANDARD_SETS.items():
+                out[label] = (os.path.join(args.base, j), os.path.join(args.base, im))
     for item in args.calib:
-        if "=" not in item or ":" not in item.split("=", 1)[1]:
-            raise SystemExit(f"[ERROR] --calib must be LABEL=JSON:IMAGES, got {item}")
+        if "=" not in item:
+            raise SystemExit(f"[ERROR] --calib must be LABEL=JSON{'' if args.text_only else ':IMAGES'}")
         label, rest = item.split("=", 1)
-        j, im = rest.rsplit(":", 1)
-        out[label] = (j, im)
+        if args.text_only:
+            out[label] = (rest, None)
+        else:
+            if ":" not in rest:
+                raise SystemExit(f"[ERROR] --calib must be LABEL=JSON:IMAGES, got {item}")
+            j, im = rest.rsplit(":", 1)
+            out[label] = (j, im)
     if not out:
         raise SystemExit("[ERROR] no calibration sets: pass --base and/or --calib")
     resolved = []
@@ -128,7 +190,7 @@ def resolve_sets(args) -> List[Tuple[str, str, str]]:
         if not os.path.isfile(j):
             print(f"[WARN] skip {label}: missing {j}")
             continue
-        if not os.path.isdir(im):
+        if not args.text_only and not os.path.isdir(im):
             print(f"[WARN] skip {label}: missing {im}")
             continue
         resolved.append((label, j, im))
@@ -149,11 +211,15 @@ def run_one_set(mods, model, label, calib_json, images_dir, args, out_dir) -> Di
     device = mods["device"]
     vis_processor = mods["vis_processor"]
 
-    rows = load_rows(calib_json, args.max_samples)
+    if args.text_only:
+        rows = load_text_rows(calib_json, args.max_samples)
+        batches = list(iter_text_batches(rows, args.batch_size))
+    else:
+        rows = load_rows(calib_json, args.max_samples)
+        batches = list(iter_batches(rows, images_dir, vis_processor, torch, Image, device, args.batch_size))
     if len(rows) % args.batch_size != 0:
         print(f"[WARN] {label}: {len(rows)} rows not divisible by batch_size {args.batch_size}; "
               "the trailing short batch is over-weighted in DAS.")
-    batches = list(iter_batches(rows, images_dir, vis_processor, torch, Image, device, args.batch_size))
 
     pruner = BLIPT5LayerWandaPruner(
         model=model, data_loader=batches,
@@ -319,7 +385,12 @@ def cross_set_analysis(results: List[Dict[str, Any]], args, out_dir) -> Dict[str
 def write_report(results, cross, args, out_dir) -> str:
     L: List[str] = []
     A = L.append
+    text_only = getattr(args, "text_only", False)
     A("# TAMP calibration-probe study\n")
+    A(f"- mode: **{'text-only single-modality reduction (--tamp_text_only path)' if text_only else 'multimodal TAMP'}**")
+    if text_only:
+        A("  - DAS importance uses `s = s_l` only; AMIA selects among text tokens.")
+        A("  - This is a TAMP variant, not the published multimodal TAMP. Report it as such.")
     A(f"- calibration sets: {', '.join(r['label'] for r in results)}")
     A(f"- samples per set: {args.max_samples} (batch {args.batch_size}), target sparsity {args.sparsity}")
     A("- no weights were pruned; all numbers come from the production DAS/AMIA code paths\n")
@@ -372,18 +443,30 @@ def write_report(results, cross, args, out_dir) -> str:
     A("")
 
     if any("amia_curve" in r for r in results):
-        A("## 3. AMIA: modality reliance vs depth\n")
-        A("Fraction of selected tokens that are visual. Chance level = visual/(visual+text) available.\n")
-        blocks = sorted({b for r in results if "amia_curve" in r for b in r["amia_curve"]})
-        A("| block | " + " | ".join(r["label"] for r in results if "amia_curve" in r) + " |")
-        A("|---" * (1 + sum(1 for r in results if "amia_curve" in r)) + "|")
+        have = [r for r in results if "amia_curve" in r]
+        blocks = sorted({b for r in have for b in r["amia_curve"]})
+        if text_only:
+            A("## 3. AMIA: how many text tokens survive selection, by depth\n")
+            A("There is no visual modality here, so the read-out is the selection ratio itself: "
+              "what fraction of valid text tokens ends up driving the Wanda input activation.\n")
+            key, fmt = "select_ratio_mean", "{:.3f}"
+        else:
+            A("## 3. AMIA: modality reliance vs depth\n")
+            A("Fraction of selected tokens that are visual. "
+              "Chance level = visual/(visual+text) available.\n")
+            key, fmt = "vis_frac_mean", "{:.3f}"
+        A("| block | " + " | ".join(r["label"] for r in have) + " |")
+        A("|---" * (1 + len(have)) + "|")
         for b in blocks:
             cells = []
-            for r in results:
-                if "amia_curve" not in r:
-                    continue
+            for r in have:
                 c = r["amia_curve"].get(b)
-                cells.append(f"{c['vis_frac_mean']:.3f}±{c['vis_frac_sem']:.3f}" if c else "-")
+                if not c:
+                    cells.append("-")
+                elif text_only:
+                    cells.append(f"{c[key]:.3f} (m={c['n_selected_mean']:.1f})")
+                else:
+                    cells.append(f"{c[key]:.3f}±{c['vis_frac_sem']:.3f}")
             A(f"| {b} | " + " | ".join(cells) + " |")
         A("")
         A("| set | select_ratio | m (tokens kept) | zero-visual frac |")
@@ -394,10 +477,16 @@ def write_report(results, cross, args, out_dir) -> str:
             s = r["amia_summary"]
             A(f"| {r['label']} | {s['select_ratio_mean']} | {s['n_selected_mean']} | {s['zero_visual_frac']} |")
         A("")
-        A("> select_ratio near 1.0 means AMIA is effectively off; near 0 means the input activation "
-          "is estimated from too few tokens. A depth-varying visual fraction reproduces TAMP's "
-          "Figure-4 claim; if the curves differ across calibration sets, that difference is the "
-          "calibration effect on modality reliance.")
+        if text_only:
+            A("> select_ratio near 1.0 means AMIA is effectively off and this collapses to plain "
+              "Wanda; near 0 means the input activation rests on a handful of tokens. If the "
+              "curves differ across calibration sources, that difference is the calibration "
+              "effect on which text tokens the pruner listens to.")
+        else:
+            A("> select_ratio near 1.0 means AMIA is effectively off; near 0 means the input "
+              "activation is estimated from too few tokens. A depth-varying visual fraction "
+              "reproduces TAMP's Figure-4 claim; if the curves differ across calibration sets, "
+              "that difference is the calibration effect on modality reliance.")
         A("")
 
     A("## 4. Files\n")
@@ -438,11 +527,22 @@ def main() -> int:
 
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[load] {args.model_name}/{args.model_type} device={device}")
-    model = load_model(args.model_name, args.model_type, is_eval=True,
-                       device=device, checkpoint=args.ckpt)
-    model.eval()
+    base_model = load_model(args.model_name, args.model_type, is_eval=True,
+                            device=device, checkpoint=args.ckpt)
+    base_model.eval()
     if args.max_txt_len is not None:
-        model.max_txt_len = int(args.max_txt_len)
+        base_model.max_txt_len = int(args.max_txt_len)
+
+    model = base_model
+    if args.text_only:
+        from lavis.compression.unimodal_prune import wrap_model_for_unimodal_prune
+        model, _ = wrap_model_for_unimodal_prune(
+            base_model, "t5_c4_text", t5_c4_encoder_only=args.t5_c4_encoder_only
+        )
+        model.eval()
+        view = type(model).__name__
+        print(f"[text-only] wrapped in {view}; TAMP single-modality reduction "
+              "(DAS s = s_l, AMIA over text tokens). temp_label is all-False by design.")
 
     mods = {
         "torch": torch, "Image": Image, "pruner_mod": pruner_mod,
