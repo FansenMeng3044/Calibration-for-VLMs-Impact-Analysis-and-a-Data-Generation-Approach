@@ -331,43 +331,84 @@ def _make_hook(wrapped, image_mask, score, attention_mask):
     return hook
 
 
-def split_calib(calib, n_a: int):
-    """Split a 5-tuple calibration result into two disjoint halves."""
-    inps, outs, caches, image_masks, attn_masks = calib[:5]
-    a = (inps[:n_a], [None] * n_a, caches[:n_a], image_masks[:n_a], attn_masks[:n_a])
-    nb = len(inps) - n_a
-    b = (inps[n_a:], [None] * nb, caches[n_a:], image_masks[n_a:], attn_masks[n_a:])
-    return a, b
+def subset_calib(calib, indices: Sequence[int]):
+    """Take a batch-index subset of a 5-tuple calibration result."""
+    inps, _outs, caches, image_masks, attn_masks = calib[:5]
+    idx = list(indices)
+    return (
+        [inps[i] for i in idx],
+        [None] * len(idx),
+        [caches[i] for i in idx],
+        [image_masks[i] for i in idx],
+        [attn_masks[i] for i in idx],
+    )
 
 
-def run_d2_das_noise_floor(pruner, calib, sparsity: float) -> Dict[str, Any]:
-    """D2: DAS on two disjoint calibration halves -> within-dataset noise floor."""
+def das_layer_vector(pruner, calib, sparsity: float) -> Tuple[List[str], List[float]]:
+    """Layer sparsity from the PRODUCTION get_sparsity path for a given calibration subset."""
+    pruner._cached_encoder_calib = calib
+    try:
+        sp = pruner.get_sparsity(sparsity, sparsity_ratio_granularity="layer")
+    finally:
+        pruner._cached_encoder_calib = None
+    keys = sorted(k for k in sp if "encoder.block." in k)
+    return keys, [float(sp[k]) for k in keys]
+
+
+def run_d2_das_noise_floor(
+    pruner, calib, sparsity: float, n_repeats: int = 3, seed: int = 0
+) -> Dict[str, Any]:
+    """D2: DAS on RANDOM disjoint calibration halves -> within-dataset noise floor.
+
+    Randomised repeated split-half rather than first/second half, so an ordered or
+    stratified calibration JSON cannot masquerade as (or hide) sampling noise.
+    """
+    import random
+
     n_batches = len(calib[0])
     if n_batches < 2:
         raise ValueError("D2 needs at least 2 cached calibration batches; increase --max_samples.")
     half = n_batches // 2
-    calib_a, calib_b = split_calib(calib, half)
+    rng = random.Random(seed)
+    order = list(range(n_batches))
 
-    pruner._cached_encoder_calib = calib_a
-    sparsity_a = pruner.get_sparsity(sparsity, sparsity_ratio_granularity="layer")
-    pruner._cached_encoder_calib = calib_b
-    sparsity_b = pruner.get_sparsity(sparsity, sparsity_ratio_granularity="layer")
-    pruner._cached_encoder_calib = None
+    spearmans: List[float] = []
+    pearsons: List[float] = []
+    max_diffs: List[float] = []
+    mean_diffs: List[float] = []
+    ranges: List[float] = []
+    keys: List[str] = []
+    last_vec: List[float] = []
 
-    keys = sorted(set(sparsity_a) & set(sparsity_b))
-    keys = [k for k in keys if "encoder.block." in k]
-    va = [float(sparsity_a[k]) for k in keys]
-    vb = [float(sparsity_b[k]) for k in keys]
-    diffs = [abs(x - y) for x, y in zip(va, vb)]
+    # With few batches there are few distinct splits; do not oversample them.
+    max_useful = 1 if n_batches < 4 else n_repeats
+    for rep in range(max_useful):
+        rng.shuffle(order)
+        keys, va = das_layer_vector(pruner, subset_calib(calib, order[:half]), sparsity)
+        _, vb = das_layer_vector(pruner, subset_calib(calib, order[half : 2 * half]), sparsity)
+        diffs = [abs(x - y) for x, y in zip(va, vb)]
+        spearmans.append(spearman(va, vb))
+        pearsons.append(_pearson(va, vb))
+        max_diffs.append(max(diffs))
+        mean_diffs.append(sum(diffs) / len(diffs))
+        ranges.append(max(va) - min(va))
+        last_vec = va
+
+    mean = lambda xs: sum(xs) / len(xs)
     return {
         "n_layers": len(keys),
         "half_batches": half,
-        "spearman": round(spearman(va, vb), 6),
-        "pearson": round(_pearson(va, vb), 6),
-        "max_abs_diff": round(max(diffs), 6) if diffs else float("nan"),
-        "mean_abs_diff": round(sum(diffs) / len(diffs), 6) if diffs else float("nan"),
-        "range_a": round(max(va) - min(va), 6) if va else float("nan"),
-        "range_b": round(max(vb) - min(vb), 6) if vb else float("nan"),
+        "repeats": max_useful,
+        "split": "random" if n_batches >= 4 else "single (too few batches to randomise)",
+        "spearman": round(mean(spearmans), 6),
+        "spearman_min": round(min(spearmans), 6),
+        "pearson": round(mean(pearsons), 6),
+        "max_abs_diff": round(max(max_diffs), 6),
+        "mean_abs_diff": round(mean(mean_diffs), 6),
+        "layer_sparsity_range": round(mean(ranges), 6),
+        "snr_range_over_noise": round(mean(ranges) / max(mean(mean_diffs), 1e-12), 2),
+        "_layer_keys": keys,
+        "_layer_vector": [round(v, 8) for v in last_vec],
     }
 
 
@@ -545,16 +586,38 @@ def main() -> int:
             }
             print("[D1]", summary["d1_amia"])
 
-    # ---- D2 DAS noise floor ----
+    # ---- D2 DAS noise floor (+ per-layer vector for cross-set comparison) ----
     if not args.skip_d2:
-        print("[D2] DAS on two disjoint calibration halves ...")
-        summary["d2_das_noise_floor"] = run_d2_das_noise_floor(pruner, calib, args.sparsity)
+        print("[D2] DAS on random disjoint calibration halves ...")
+        d2 = run_d2_das_noise_floor(pruner, calib, args.sparsity)
+        layer_keys = d2.pop("_layer_keys")
+        layer_vec = d2.pop("_layer_vector")
+
+        # Full-pool DAS vector: this is what cross-calibration-set comparison needs.
+        full_keys, full_vec = das_layer_vector(pruner, calib, args.sparsity)
+        append_csv(
+            os.path.join(args.out_dir, "d2_layer_sparsity.csv"),
+            ["label", "layer_key", "block", "linear", "sparsity"],
+            [
+                {
+                    "label": args.label,
+                    "layer_key": k,
+                    "block": k.split("encoder.block.")[1].split(".")[0],
+                    "linear": k.split("encoder.block.")[1].split(".", 1)[1].rsplit(".weight", 1)[0],
+                    "sparsity": round(v, 8),
+                }
+                for k, v in zip(full_keys, full_vec)
+            ],
+        )
+        summary["d2_das_noise_floor"] = d2
         append_csv(
             os.path.join(args.out_dir, "d2_das_noise_floor.csv"),
-            ["label"] + list(summary["d2_das_noise_floor"].keys()),
-            [dict(summary["d2_das_noise_floor"], label=args.label)],
+            ["label"] + list(d2.keys()),
+            [dict(d2, label=args.label)],
         )
-        print("[D2]", summary["d2_das_noise_floor"])
+        print("[D2]", d2)
+        print(f"[D2] wrote {len(full_keys)} layer sparsities for cross-set comparison")
+        del layer_keys, layer_vec
 
     out_json = os.path.join(args.out_dir, f"summary_{args.label}.json")
     with open(out_json, "w", encoding="utf-8") as handle:
