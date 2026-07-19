@@ -17,8 +17,8 @@ import numpy as np
 from split_joint_analysis_common import ensure_dir, setup_matplotlib
 
 
-HEATMAP_COLORS = ["#f7fffc", "#ddf8ee", "#a9ecd9", "#62d4c6", "#2aa7b8"]
-LINE_COLORS = ["#0072B2", "#009E73", "#56B4E9", "#CC79A7", "#E69F00"]
+HEATMAP_COLORS = ["#FFF6F4", "#FFE3DE", "#FFC6BC", "#D5E8F2", "#A5CDE2", "#5FA3C2"]
+LINE_COLORS = ["#F08A7F", "#5FA3C2", "#FFC6BC", "#A5CDE2", "#D8B4AD"]
 LINE_MARKERS = ["o", "s", "^", "D", "P"]
 CALIB_ORDER = ["MMBench", "MMMU", "OKVQA", "mathvista", "MathVista", "cc3m", "CC3M"]
 EVAL_ORDER = ["MMBench", "MMMU", "OKVQA", "mathvista", "MathVista"]

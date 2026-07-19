@@ -24,6 +24,8 @@ DEFAULT_CSV = (
 )
 
 PALETTES = {
+    # Main paper palette: peach + soft blue from the calibration figures.
+    "paper_core": ["#F08A7F", "#5FA3C2", "#FFC6BC", "#A5CDE2", "#D8B4AD"],
     # Stronger than the old blue/green while still living in the paper palette.
     "blue_gold": ["#1D5D9B", "#E69F00", "#56B4E9", "#009E73", "#CC79A7"],
     # Best choice when you want to stay strictly blue-green.
@@ -94,8 +96,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--palette",
         choices=sorted(PALETTES),
-        default="blue_gold",
-        help="Line/bar color pair. blue_gold is the most visibly separated.",
+        default="paper_core",
+        help="Line/bar color pair. paper_core matches the peach/soft-blue paper figures.",
+    )
+    parser.add_argument(
+        "--bar_diff_mode",
+        choices=["abs", "joint_minus_split", "split_minus_joint"],
+        default="abs",
+        help="Bottom-row bars show one Split/Joint difference per layer.",
     )
     parser.add_argument("--dpi", type=int, default=300)
     parser.add_argument("--no_combined", action="store_true", help="Only write individual figures.")
@@ -208,6 +216,74 @@ def style_axis(ax, xlabel: str, metric: str) -> None:
     ax.spines["right"].set_visible(False)
 
 
+def model_role(model: str) -> str:
+    lowered = model.casefold()
+    if "split" in lowered or "merged" in lowered:
+        return "split"
+    if "joint" in lowered or "multimodal" in lowered:
+        return "joint"
+    return lowered
+
+
+def first_model_by_role(models: Sequence[str], role: str) -> str:
+    for model in models:
+        if model_role(model) == role:
+            return model
+    raise KeyError("Could not find a %s model in: %s" % (role, ", ".join(models)))
+
+
+def collect_difference_bars(
+    series: Dict[str, List[Tuple[int, float]]],
+    models: Sequence[str],
+    mode: str,
+) -> List[Tuple[int, float, float]]:
+    split_model = first_model_by_role(models, "split")
+    joint_model = first_model_by_role(models, "joint")
+    split_points = dict(series.get(split_model, []))
+    joint_points = dict(series.get(joint_model, []))
+    common_layers = sorted(set(split_points) & set(joint_points))
+
+    bars: List[Tuple[int, float, float]] = []
+    for layer in common_layers:
+        signed = joint_points[layer] - split_points[layer]
+        if mode == "split_minus_joint":
+            signed = -signed
+        value = abs(signed) if mode == "abs" else signed
+        bars.append((layer, value, signed))
+    return bars
+
+
+def difference_ylabel(metric: str, mode: str) -> str:
+    base = METRIC_YLABELS.get(metric, metric)
+    if mode == "abs":
+        return "|Joint - Split| %s" % base
+    if mode == "joint_minus_split":
+        return "Joint - Split %s" % base
+    return "Split - Joint %s" % base
+
+
+def difference_title(token_group: str, metric: str, mode: str) -> str:
+    if mode == "abs":
+        diff_text = "|Joint - Split|"
+    elif mode == "joint_minus_split":
+        diff_text = "Joint - Split"
+    else:
+        diff_text = "Split - Joint"
+    return "%s / %s %s" % (
+        TOKEN_GROUP_TITLES.get(token_group, token_group),
+        diff_text,
+        METRIC_TITLES.get(metric, metric),
+    )
+
+
+def style_difference_axis(ax, xlabel: str, metric: str, mode: str) -> None:
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(difference_ylabel(metric, mode))
+    ax.grid(True, axis="y", alpha=0.24, linewidth=0.7)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+
 def plot_one(
     plt,
     rows: Sequence[Dict[str, str]],
@@ -264,6 +340,7 @@ def plot_combined(
     path: str,
     dpi: int,
     palette: str,
+    bar_diff_mode: str,
 ) -> None:
     if not metrics or not token_groups:
         return
@@ -273,14 +350,26 @@ def plot_combined(
     legend_handles = []
     legend_labels = []
 
-    # The bottom-row bars share one y-axis range across token groups. This makes
-    # cross-panel magnitude differences visually honest.
+    # The bottom-row bars show one Split/Joint difference per layer and share one
+    # y-axis range across token groups. This makes cross-panel magnitude
+    # differences visually honest.
     bar_values: List[float] = []
     for token_group in token_groups:
         series = collect_series(rows, line_metric, token_group, models)
-        for points in series.values():
-            bar_values.extend([value for _, value in points])
-    bar_ymax = max(bar_values) * 1.12 if bar_values else None
+        try:
+            diff_points = collect_difference_bars(series, models, bar_diff_mode)
+        except KeyError as exc:
+            print("[WARN]", exc)
+            diff_points = []
+        bar_values.extend([value for _, value, _ in diff_points])
+    if bar_values and bar_diff_mode == "abs":
+        bar_ymax = max(bar_values) * 1.12
+        bar_ylim = (0, bar_ymax)
+    elif bar_values:
+        magnitude = max(abs(value) for value in bar_values) * 1.12
+        bar_ylim = (-magnitude, magnitude)
+    else:
+        bar_ylim = None
 
     for col_idx, token_group in enumerate(token_groups):
         series = collect_series(rows, line_metric, token_group, models)
@@ -316,32 +405,35 @@ def plot_combined(
         style_axis(ax, xlabel, line_metric)
 
         ax_bar = axes[1][col_idx]
-        present_models = [model for model in models if series.get(model)]
-        width = 0.34 if len(present_models) <= 2 else 0.72 / max(len(present_models), 1)
-        for model_idx, model in enumerate(present_models):
-            points = series[model]
-            offset = (model_idx - (len(present_models) - 1) / 2.0) * width
+        try:
+            diff_points = collect_difference_bars(series, models, bar_diff_mode)
+        except KeyError as exc:
+            print("[WARN]", exc)
+            diff_points = []
+        if diff_points:
+            positive_color = color_for_model(first_model_by_role(models, "joint"), 1, palette)
+            negative_color = color_for_model(first_model_by_role(models, "split"), 0, palette)
             ax_bar.bar(
-                [x + offset for x, _ in points],
-                [y for _, y in points],
-                width=width,
-                color=color_for_model(model, models.index(model), palette),
-                alpha=0.82,
-                edgecolor=color_for_model(model, models.index(model), palette),
+                [layer for layer, _, _ in diff_points],
+                [value for _, value, _ in diff_points],
+                width=0.68,
+                color=[
+                    positive_color if signed >= 0 else negative_color
+                    for _, _, signed in diff_points
+                ],
+                alpha=0.86,
+                edgecolor="none",
                 linewidth=0.45,
-                label=pretty_model(model),
             )
+        if bar_diff_mode != "abs":
+            ax_bar.axhline(0, color="#777777", linewidth=0.8, alpha=0.55)
         ax_bar.set_title(
-            "%s / %s (Bars)"
-            % (
-                TOKEN_GROUP_TITLES.get(token_group, token_group),
-                METRIC_TITLES.get(line_metric, line_metric),
-            ),
+            difference_title(token_group, line_metric, bar_diff_mode),
             pad=7,
         )
-        style_axis(ax_bar, xlabel, line_metric)
-        if bar_ymax is not None:
-            ax_bar.set_ylim(0, bar_ymax)
+        style_difference_axis(ax_bar, xlabel, line_metric, bar_diff_mode)
+        if bar_ylim is not None:
+            ax_bar.set_ylim(*bar_ylim)
 
     if legend_handles:
         fig.legend(
@@ -410,6 +502,7 @@ def main() -> None:
             os.path.join(out_dir, "%s_encoder_2x2.png" % args.fig_prefix),
             args.dpi,
             args.palette,
+            args.bar_diff_mode,
         )
 
     print("[OK] wrote encoder-only figures to:", out_dir)
