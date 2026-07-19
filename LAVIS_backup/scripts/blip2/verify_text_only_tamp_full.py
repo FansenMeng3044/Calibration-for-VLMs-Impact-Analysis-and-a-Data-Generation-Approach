@@ -341,20 +341,47 @@ def main() -> int:
         return finish(args, rep)
     rep.add("P1.3", "short-text safety", "PASS", detail=f"min valid tokens = {min_valid}")
 
-    v, l, vl, cv, cl, cvl = cos_pairwise_density(
+    # Batch-level DAS view: which terms compute_density will see.
+    _v, l_batch, _vl, cv, cl, cvl = cos_pairwise_density(
         inps[0].float(), image_masks[0], attention_mask=attn_masks[0], return_counts=True)
     defined = tuple(n for n, c in (("v", cv), ("l", cl), ("vl", cvl)) if c)
-    dens_new = _cos_pairwise_density_single(inps[0][0].float(), image_masks[0][0],
-                                            attention_mask=attn_masks[0][0])
-    d = {"defined_terms": defined, "s_l": round(l, 6),
-         "amia_density_new": round(float(dens_new), 6),
-         "amia_density_if_unfixed": round(l / 3.0, 6),
-         "das_importance_new": round((1.0 - l) * 3.0, 5),
-         "das_importance_if_unfixed": round(3.0 - l, 5)}
-    if defined == ("l",) and abs(float(dens_new) - l) < 5e-3:
+
+    # AMIA works per sample, so compare against the SAME sample's s_l -- not the
+    # batch mean, which is a different quantity and would fail a strict tolerance.
+    _v0, l_sample0, _vl0, _c0, cl0, _cvl0 = cos_pairwise_density(
+        inps[0][0:1].float(), image_masks[0][0:1],
+        attention_mask=attn_masks[0][0:1], return_counts=True)
+    dens_new = float(_cos_pairwise_density_single(
+        inps[0][0].float(), image_masks[0][0], attention_mask=attn_masks[0][0]))
+
+    # Decisive discriminator: is the density s_l (fixed) or s_l/3 (unfixed)?
+    err_fixed = abs(dens_new - l_sample0)
+    err_unfixed = abs(dens_new - l_sample0 / 3.0)
+    d = {"defined_terms": defined,
+         "s_l_batch_mean": round(l_batch, 6),
+         "s_l_sample0": round(l_sample0, 6),
+         "amia_density_sample0": round(dens_new, 6),
+         "err_vs_fixed(s_l)": round(err_fixed, 8),
+         "err_vs_unfixed(s_l/3)": round(err_unfixed, 8),
+         "das_importance_new": round((1.0 - l_batch) * 3.0, 5),
+         "das_importance_if_unfixed": round(3.0 - l_batch, 5),
+         "das_constant_floor_removed": 2.0}
+    branch_ok = (
+        defined == ("l",)
+        and cl0 == 1
+        and err_fixed <= 1e-6
+        and err_fixed < err_unfixed
+    )
+    if branch_ok:
         rep.add("P1.4", "single-modality branch in effect", "PASS", detail=d,
-                note=("DAS sees defined==('l',); AMIA density is s_l, not s_l/3. The old code's "
-                      "constant +2 floor on DAS importance is gone."))
+                note=("DAS sees defined==('l',) so the reduction branch is taken; AMIA density "
+                      "equals this sample's s_l, not s_l/3. The old +2 constant floor on DAS "
+                      "importance is gone."))
+    elif defined == ("l",) and err_fixed < err_unfixed:
+        rep.add("P1.4", "single-modality branch in effect", "WARN", detail=d,
+                note=("Reduction branch is active (density tracks s_l, not s_l/3), but the two "
+                      "computations do not agree exactly -- check that the same attention mask "
+                      "and dtype reach both paths."))
     else:
         rep.add("P1.4", "single-modality branch in effect", "FAIL", detail=d,
                 note="The five-line fix is not active on this path.")
