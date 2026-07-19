@@ -1,7 +1,10 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import collections
 import contextlib
+import json
+import os
 
 from time import time
 from copy import deepcopy
@@ -71,9 +74,25 @@ def _normal_t5_block_forward(layer, hidden_states, cache, output_attentions=Fals
     return outputs[0], next_cache
 
 
-def cos_pairwise_density(embeddings, image_mask, attention_mask=None, eps=1e-8):
+def cos_pairwise_density(
+    embeddings, image_mask, attention_mask=None, eps=1e-8, stats=None, return_counts=False
+):
     """
     Vision-vision, language-language, and vision-language mean cosine similarities (TAMP / DAS).
+
+    `stats` is an optional Counter for observability only. When a term cannot be
+    measured (too few tokens of a modality, or the >0 filter leaves nothing) the
+    corresponding similarity stays 0.0, which downstream reads as "maximally
+    diverse". Counting how often that happens tells us whether any DAS number is
+    contaminated by not-measured values masquerading as measured zeros.
+    Passing stats=None keeps the numerical behaviour byte-identical.
+
+    With return_counts=True the per-term "defined sample" counts are returned as
+    well, and each similarity is averaged over the samples where it was actually
+    measurable instead of over all B samples. When every term is defined for every
+    sample -- the normal multimodal case, where nv is always the 32 query tokens --
+    the two are the same division and the result is bit-identical. Run the
+    LAVIS_DAS_DIAGNOSTIC audit to confirm that holds for your calibration sets.
     """
     with torch.no_grad():
         if embeddings.dim() == 2:
@@ -92,6 +111,7 @@ def cos_pairwise_density(embeddings, image_mask, attention_mask=None, eps=1e-8):
         v_sims = []
         l_sims = []
         vl_sims = []
+        n_v_defined = n_l_defined = n_vl_defined = 0
 
         for b in range(B):
             emb = embeddings[b]
@@ -104,6 +124,10 @@ def cos_pairwise_density(embeddings, image_mask, attention_mask=None, eps=1e-8):
                     attn_b = attention_mask[b]
                 valid = _align_bool_vector(attn_b, S, device, fill_value=False)
             if valid is None:
+                # No attention mask reached us: PAD positions would be treated as
+                # real language tokens. Should never happen on the DAS/AMIA paths.
+                if stats is not None:
+                    stats["no_attention_mask"] += 1
                 valid = torch.ones(S, dtype=torch.bool, device=device)
             mask = mask & valid
             v_idx = torch.where(mask)[0]
@@ -115,17 +139,39 @@ def cos_pairwise_density(embeddings, image_mask, attention_mask=None, eps=1e-8):
             l_mean_sim_b = 0.0
             vl_mean_sim_b = 0.0
 
+            if stats is not None:
+                stats["samples"] += 1
+                stats["n_visual_total"] += int(nv)
+                stats["n_language_total"] += int(nl)
+                stats["n_pad_total"] += int(S - int(valid.sum().item()))
+                if nv < 2:
+                    stats["v_undefined_too_few"] += 1
+                if nl < 2:
+                    stats["l_undefined_too_few"] += 1
+                if nv < 1 or nl < 1:
+                    stats["vl_undefined_too_few"] += 1
+
             if nv >= 2:
                 v_emb = emb[v_idx]
                 sim_vv = v_emb @ v_emb.T
                 v_upper = sim_vv.triu(diagonal=1)
                 v_vals = v_upper[v_upper > 0]
+                if stats is not None:
+                    stats["v_pairs_total"] += int(nv * (nv - 1) // 2)
+                    stats["v_pairs_kept_positive"] += int(v_vals.numel())
+                    if v_vals.numel() == 0:
+                        stats["v_empty_after_positive_filter"] += 1
                 v_mean_sim_b = v_vals.mean().item() if v_vals.numel() > 0 else 0.0
             if nl >= 2:
                 l_emb = emb[l_idx]
                 sim_ll = l_emb @ l_emb.T
                 l_upper = sim_ll.triu(diagonal=1)
                 l_vals = l_upper[l_upper > 0]
+                if stats is not None:
+                    stats["l_pairs_total"] += int(nl * (nl - 1) // 2)
+                    stats["l_pairs_kept_positive"] += int(l_vals.numel())
+                    if l_vals.numel() == 0:
+                        stats["l_empty_after_positive_filter"] += 1
                 l_mean_sim_b = l_vals.mean().item() if l_vals.numel() > 0 else 0.0
             if nv >= 1 and nl >= 1:
                 v_emb = emb[v_idx]
@@ -136,40 +182,70 @@ def cos_pairwise_density(embeddings, image_mask, attention_mask=None, eps=1e-8):
             v_sims.append(v_mean_sim_b)
             l_sims.append(l_mean_sim_b)
             vl_sims.append(vl_mean_sim_b)
+            # A term is "defined" for this sample when the modality pair exists at
+            # all. The >0 filter leaving an empty set is a separate condition,
+            # tracked by the audit counters but still treated as a measurement.
+            n_v_defined += int(nv >= 2)
+            n_l_defined += int(nl >= 2)
+            n_vl_defined += int(nv >= 1 and nl >= 1)
 
-        v_mean_sim = sum(v_sims) / B
-        l_mean_sim = sum(l_sims) / B
-        vl_mean_sim = sum(vl_sims) / B
+        if not return_counts:
+            v_mean_sim = sum(v_sims) / B
+            l_mean_sim = sum(l_sims) / B
+            vl_mean_sim = sum(vl_sims) / B
+            return float(v_mean_sim), float(l_mean_sim), float(vl_mean_sim)
 
-        return float(v_mean_sim), float(l_mean_sim), float(vl_mean_sim)
+        v_mean_sim = sum(v_sims) / n_v_defined if n_v_defined else 0.0
+        l_mean_sim = sum(l_sims) / n_l_defined if n_l_defined else 0.0
+        vl_mean_sim = sum(vl_sims) / n_vl_defined if n_vl_defined else 0.0
+        return (
+            float(v_mean_sim), float(l_mean_sim), float(vl_mean_sim),
+            n_v_defined, n_l_defined, n_vl_defined,
+        )
 
 
 class ActivationDensity:
     """Accumulates DAS density stats over encoder layer forwards."""
 
-    def __init__(self):
+    def __init__(self, stats=None):
         self.sum_v = 0.0
         self.sum_l = 0.0
         self.sum_vl = 0.0
         self.count = 0
+        # Per-term batch counts: a term only contributes where it was measurable.
+        self.count_v = 0
+        self.count_l = 0
+        self.count_vl = 0
+        # Observability only; None keeps behaviour byte-identical.
+        self.stats = stats
 
     def add_batch(self, out, image_mask, attention_mask=None, **kwargs):
         if isinstance(out, (tuple, list)) and len(out) == 1:
             out = out[0]
-        v, l, vl = cos_pairwise_density(out, image_mask, attention_mask=attention_mask)
-        self.sum_v += v
-        self.sum_l += l
-        self.sum_vl += vl
+        v, l, vl, cv, cl, cvl = cos_pairwise_density(
+            out, image_mask, attention_mask=attention_mask, stats=self.stats,
+            return_counts=True,
+        )
+        if cv:
+            self.sum_v += v
+            self.count_v += 1
+        if cl:
+            self.sum_l += l
+            self.count_l += 1
+        if cvl:
+            self.sum_vl += vl
+            self.count_vl += 1
         self.count += 1
 
     def get_stats(self):
-        if self.count == 0:
-            return 0.0, 0.0, 0.0
-        return (
-            self.sum_v / self.count,
-            self.sum_l / self.count,
-            self.sum_vl / self.count,
+        """(v, l, vl, defined) where `defined` names the terms that were measured."""
+        v = self.sum_v / self.count_v if self.count_v else 0.0
+        l = self.sum_l / self.count_l if self.count_l else 0.0
+        vl = self.sum_vl / self.count_vl if self.count_vl else 0.0
+        defined = tuple(
+            name for name, c in (("v", self.count_v), ("l", self.count_l), ("vl", self.count_vl)) if c
         )
+        return v, l, vl, defined
 
 
 class LayerWiseBasePruner(BasePruner):
@@ -667,6 +743,10 @@ class LayerSparsity:
 
         density_dict = {name: 0.0 for name in layer_to_group_mapping}
         matched_names = set()
+        # Opt-in contamination audit: counts how often a v/l/vl term could not be
+        # measured and silently defaulted to 0.0 (which downstream reads as
+        # "maximally diverse"). Off by default -- the counters force GPU syncs.
+        das_stats = collections.Counter() if os.environ.get("LAVIS_DAS_DIAGNOSTIC") else None
         # ECoFLaP calibration convention: every block replays with the arguments captured
         # at block 0, so position_bias stays None and blocks >0 fall back to a zero bias.
         # Kept deliberately for comparability with ECoFLaP / Wanda / SparseGPT numbers --
@@ -680,7 +760,7 @@ class LayerSparsity:
             for name, sub_layer in subset.items():
                 full_name = f"{param_encoder_prefix}{i}.{name}.weight"
                 if full_name in density_dict:
-                    wrapped_layers[name] = ActivationDensity()
+                    wrapped_layers[name] = ActivationDensity(stats=das_stats)
 
             def add_batch(name, batch_index):
                 def tmp(_, inp, out):
@@ -715,8 +795,28 @@ class LayerSparsity:
             inps = new_inps
             for name, act_density in wrapped_layers.items():
                 full_name = f"{param_encoder_prefix}{i}.{name}.weight"
-                v, l, vl = act_density.get_stats()
-                density_dict[full_name] = (1.0 - v) + (1.0 - l) + (1.0 - vl)
+                v, l, vl, defined = act_density.get_stats()
+                if len(defined) == 3:
+                    # Multimodal: original TAMP expression, kept verbatim so the
+                    # multimodal path stays bit-identical.
+                    density_dict[full_name] = (1.0 - v) + (1.0 - l) + (1.0 - vl)
+                elif defined:
+                    # Single-modality calibration: average over the modality pairs
+                    # that exist, rescaled to the 3-term range so layer importances
+                    # remain on the same scale as the multimodal case.
+                    terms = []
+                    if "v" in defined:
+                        terms.append(1.0 - v)
+                    if "l" in defined:
+                        terms.append(1.0 - l)
+                    if "vl" in defined:
+                        terms.append(1.0 - vl)
+                    density_dict[full_name] = sum(terms) * (3.0 / len(terms))
+                else:
+                    raise RuntimeError(
+                        f"DAS could not measure any modality-pair diversity for {full_name}; "
+                        "the calibration batch has too few tokens."
+                    )
                 matched_names.add(full_name)
 
         missing_names = sorted(set(layer_to_group_mapping) - matched_names)
@@ -726,6 +826,44 @@ class LayerSparsity:
                 "compute_density did not observe all requested T5 encoder Linear layers; "
                 f"missing {len(missing_names)} keys, e.g. {preview}"
             )
+
+        if das_stats is not None:
+            n = max(1, das_stats["samples"])
+            report = {
+                "measurements": das_stats["samples"],
+                "no_attention_mask": das_stats["no_attention_mask"],
+                "v_undefined_too_few": das_stats["v_undefined_too_few"],
+                "l_undefined_too_few": das_stats["l_undefined_too_few"],
+                "vl_undefined_too_few": das_stats["vl_undefined_too_few"],
+                "v_empty_after_positive_filter": das_stats["v_empty_after_positive_filter"],
+                "l_empty_after_positive_filter": das_stats["l_empty_after_positive_filter"],
+                "contaminated_frac": round(
+                    (
+                        das_stats["v_undefined_too_few"]
+                        + das_stats["l_undefined_too_few"]
+                        + das_stats["vl_undefined_too_few"]
+                        + das_stats["v_empty_after_positive_filter"]
+                        + das_stats["l_empty_after_positive_filter"]
+                    )
+                    / (3.0 * n),
+                    6,
+                ),
+                "v_positive_pair_frac": round(
+                    das_stats["v_pairs_kept_positive"] / max(1, das_stats["v_pairs_total"]), 6
+                ),
+                "l_positive_pair_frac": round(
+                    das_stats["l_pairs_kept_positive"] / max(1, das_stats["l_pairs_total"]), 6
+                ),
+                "mean_visual_tokens": round(das_stats["n_visual_total"] / n, 3),
+                "mean_language_tokens": round(das_stats["n_language_total"] / n, 3),
+                "mean_pad_tokens": round(das_stats["n_pad_total"] / n, 3),
+            }
+            print("[DAS-AUDIT]", json.dumps(report))
+            out_path = os.environ.get("LAVIS_DAS_DIAGNOSTIC_JSON")
+            if out_path:
+                with open(out_path, "w", encoding="utf-8") as fh:
+                    json.dump(report, fh, indent=2)
+                print(f"[DAS-AUDIT] wrote {out_path}")
 
         importance_measure = {
             name: torch.FloatTensor([density_dict[name]]).abs()

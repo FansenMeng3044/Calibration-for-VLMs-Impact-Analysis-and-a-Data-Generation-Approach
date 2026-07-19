@@ -333,6 +333,7 @@ def _cos_pairwise_density_single(embeddings, image_mask, attention_mask=None, ep
         l_idx = torch.where((~mask) & valid)[0]
         nv, nl = v_idx.numel(), l_idx.numel()
         v_sim, l_sim, vl_sim = 0.0, 0.0, 0.0
+        v_def, l_def, vl_def = nv >= 2, nl >= 2, (nv >= 1 and nl >= 1)
         if nv >= 2:
             v_emb = emb[v_idx]
             sim_vv = v_emb @ v_emb.T
@@ -347,7 +348,19 @@ def _cos_pairwise_density_single(embeddings, image_mask, attention_mask=None, ep
             l_sim = l_vals.mean().item() if l_vals.numel() > 0 else 0.0
         if nv >= 1 and nl >= 1:
             vl_sim = (emb[v_idx] @ emb[l_idx].T).mean().item()
-        return (v_sim + l_sim + vl_sim) / 3.0
+        if v_def and l_def and vl_def:
+            # Multimodal: original TAMP expression, verbatim.
+            return (v_sim + l_sim + vl_sim) / 3.0
+        # Single-modality: average over the modality pairs that exist, so the MMD
+        # stopping threshold 0.1*sqrt(1-density) is not inflated by counting
+        # non-existent pairs as zero similarity (= maximum diversity).
+        terms = [s for s, d in ((v_sim, v_def), (l_sim, l_def), (vl_sim, vl_def)) if d]
+        if not terms:
+            raise RuntimeError(
+                "AMIA density is undefined: the sample has too few valid tokens "
+                "to form any modality pair."
+            )
+        return sum(terms) / len(terms)
 
 
 class AdaptiveMultimodalInputActivation:

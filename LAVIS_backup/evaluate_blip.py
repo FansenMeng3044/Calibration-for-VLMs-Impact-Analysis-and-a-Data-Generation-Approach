@@ -255,6 +255,16 @@ def parse_args():
     )
     
     parser.add_argument(
+        "--tamp_text_only",
+        action="store_true",
+        help=(
+            "blipt5_tamp_pruner + --prune_calib_mode t5_c4_text only: instead of degrading "
+            "to vanilla Wanda, run TAMP's single-modality reduction (DAS/AMIA average over "
+            "the modality pairs that exist, i.e. s = s_l). Strict generalisation: the "
+            "multimodal path is unchanged. Report results as a TAMP variant, not as TAMP."
+        ),
+    )
+    parser.add_argument(
         "--max_sparsity_per_layer", type=float, default=0.8
     )
     
@@ -466,14 +476,28 @@ def main():
                     "blipt5_tamp_pruner needs a prune spec like 24-0.5-1.0-1.0 "
                     "to derive max_sparsity_per_layer=sparsity+0.1."
                 )
-        if args.prune_calib_mode == "t5_c4_text":
+        if args.prune_calib_mode == "t5_c4_text" and not args.tamp_text_only:
             # Pure text has no visual/query tokens, so AMIA/DAS are undefined.
             # In this setting TAMP degenerates to vanilla Wanda on T5.
             args.token_selection = "naive"
             args.sparsity_ratio_granularity = None
             print(
                 "[prune] blipt5_tamp_pruner + t5_c4_text: no visual tokens; "
-                "degrade to vanilla Wanda (naive tokens + uniform sparsity)."
+                "degrade to vanilla Wanda (naive tokens + uniform sparsity). "
+                "Pass --tamp_text_only to instead run TAMP's single-modality reduction."
+            )
+        elif args.prune_calib_mode == "t5_c4_text":
+            # Single-modality reduction: DAS and AMIA average over the modality
+            # pairs that exist, which here is language-language only (s = s_l).
+            # This is a strict generalisation -- with both modalities present the
+            # formulas reduce to the original three-term TAMP definition.
+            args.token_selection = "amia"
+            args.score_method = "density_sum"
+            args.sparsity_ratio_granularity = "layer"
+            print(
+                "[prune] blipt5_tamp_pruner + t5_c4_text + --tamp_text_only: running "
+                "TAMP's single-modality reduction (s = s_l; AMIA over text tokens). "
+                "This is NOT the published multimodal TAMP -- report it as such."
             )
         else:
             if args.no_prune_t5:
