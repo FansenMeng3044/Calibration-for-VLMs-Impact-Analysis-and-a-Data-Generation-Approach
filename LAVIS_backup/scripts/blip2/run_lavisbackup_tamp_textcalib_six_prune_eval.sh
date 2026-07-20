@@ -15,9 +15,10 @@
 #   只剪 T5，保存整模 pth）→ four_bench_eval：MMBench / OKVQA / MMMU / MathVista
 #
 # 注意（务必知情）：
-#   blipt5_tamp_pruner 在纯文本标定下没有视觉 token，因此显式退化为 vanilla Wanda：
-#   token_selection=naive + uniform sparsity。多模态标定才启用 AMIA + density_sum + layer。
-#   报告时应按「text-only Wanda/TAMP-degenerated」解读，而不是 language-only AMIA/DAS。
+#   blipt5_tamp_pruner 在纯文本标定下运行 TAMP 的「单模态归约」：
+#   s = s_l（视觉/跨模态多样性项无定义，按存在的项求平均），AMIA 在文本 token 上选择。
+#   这不是已发表的多模态 TAMP，报告时应写成 TAMP variant / single-modality reduction。
+#   若要 naive+uniform 基线，用 PRUNE_METHOD=blipt5_wanda_pruner（其默认值即是）。
 #
 # 用法：
 #   cd /data/data2/mfs/2/LAVIS_backup
@@ -210,7 +211,7 @@ echo "========== 六源纯文本 TAMP(llm-only) 剪枝+评测 | STAMP=$JOB_STAMP
 echo "[INFO] REPO_ROOT=$REPO_ROOT  SOURCES=$SOURCES"
 echo "[INFO] RUN_BUILD=$RUN_BUILD RUN_PRUNE=$RUN_PRUNE RUN_EVAL=$RUN_EVAL FORCE_BUILD=$FORCE_BUILD"
 echo "[INFO] TEXT_DIR=$TEXT_DIR"
-echo "[INFO] TAMP 纯文本标定 = vanilla Wanda 退化路径（naive tokens + uniform sparsity；无 AMIA/DAS）。"
+echo "[INFO] TAMP 纯文本标定 = 单模态归约（s = s_l；AMIA 在文本 token 上选择；DAS 逐层分配）。"
 
 i=0
 for s in $SOURCES; do

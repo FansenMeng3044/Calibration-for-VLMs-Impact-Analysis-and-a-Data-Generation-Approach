@@ -258,10 +258,9 @@ def parse_args():
         "--tamp_text_only",
         action="store_true",
         help=(
-            "blipt5_tamp_pruner + --prune_calib_mode t5_c4_text only: instead of degrading "
-            "to vanilla Wanda, run TAMP's single-modality reduction (DAS/AMIA average over "
-            "the modality pairs that exist, i.e. s = s_l). Strict generalisation: the "
-            "multimodal path is unchanged. Report results as a TAMP variant, not as TAMP."
+            "DEPRECATED no-op. Text-only calibration now always runs TAMP's single-modality "
+            "reduction; there is no vanilla-Wanda degradation to opt out of. Use "
+            "--pruning_method blipt5_wanda_pruner for the naive+uniform baseline."
         ),
     )
     parser.add_argument(
@@ -476,28 +475,24 @@ def main():
                     "blipt5_tamp_pruner needs a prune spec like 24-0.5-1.0-1.0 "
                     "to derive max_sparsity_per_layer=sparsity+0.1."
                 )
-        if args.prune_calib_mode == "t5_c4_text" and not args.tamp_text_only:
-            # Pure text has no visual/query tokens, so AMIA/DAS are undefined.
-            # In this setting TAMP degenerates to vanilla Wanda on T5.
-            args.token_selection = "naive"
-            args.sparsity_ratio_granularity = None
-            print(
-                "[prune] blipt5_tamp_pruner + t5_c4_text: no visual tokens; "
-                "degrade to vanilla Wanda (naive tokens + uniform sparsity). "
-                "Pass --tamp_text_only to instead run TAMP's single-modality reduction."
-            )
-        elif args.prune_calib_mode == "t5_c4_text":
-            # Single-modality reduction: DAS and AMIA average over the modality
-            # pairs that exist, which here is language-language only (s = s_l).
-            # This is a strict generalisation -- with both modalities present the
-            # formulas reduce to the original three-term TAMP definition.
+        if args.prune_calib_mode == "t5_c4_text":
+            # Single-modality reduction: DAS and AMIA average over the modality pairs
+            # that exist, which here is language-language only (s = s_l). Strict
+            # generalisation -- with both modalities present the formulas reduce to
+            # the original three-term TAMP definition, byte for byte.
+            #
+            # There is deliberately no "degrade to vanilla Wanda" branch any more.
+            # For that baseline use --pruning_method blipt5_wanda_pruner, whose
+            # defaults (token_selection=naive, sparsity_ratio_granularity=None) are
+            # exactly it, under a name that does not claim to be TAMP.
             args.token_selection = "amia"
             args.score_method = "density_sum"
             args.sparsity_ratio_granularity = "layer"
             print(
-                "[prune] blipt5_tamp_pruner + t5_c4_text + --tamp_text_only: running "
-                "TAMP's single-modality reduction (s = s_l; AMIA over text tokens). "
-                "This is NOT the published multimodal TAMP -- report it as such."
+                "[prune] blipt5_tamp_pruner + t5_c4_text: running TAMP's "
+                "single-modality reduction (s = s_l; AMIA over text tokens). "
+                "This is NOT the published multimodal TAMP -- report it as a variant. "
+                "For the naive+uniform baseline use --pruning_method blipt5_wanda_pruner."
             )
         else:
             if args.no_prune_t5:
@@ -505,6 +500,15 @@ def main():
                     "blipt5_tamp_pruner multimodal mode requires T5 pruning: "
                     "AMIA/DAS are defined over BLIP2-T5 encoder visual/text tokens. "
                     "Use blipt5_wanda_pruner or blipt5_atv_pruner for ViT-only runs."
+                )
+            if args.prune_calib_mode in ("vit_cc3m_image", "vit_image_only"):
+                raise ValueError(
+                    f"blipt5_tamp_pruner does not support --prune_calib_mode "
+                    f"{args.prune_calib_mode}: those modes force importance_scope to the "
+                    "ViT, but DAS allocates over T5 encoder Linear layers, so the "
+                    "allocation set would be empty. TAMP prunes the LLM only. Use "
+                    "--pruning_method blipt5_wanda_pruner or blipt5_atv_pruner for "
+                    "ViT-side runs."
                 )
             args.token_selection = "amia"
             args.score_method = "density_sum"

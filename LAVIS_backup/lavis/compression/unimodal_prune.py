@@ -52,8 +52,12 @@ class T5EncoderTextOnlyView(nn.Module):
 
     def __init__(self, blip_model):
         super().__init__()
-        self._blip = blip_model
+        # Register the pruned submodule FIRST. named_parameters(remove_duplicate=True)
+        # reports each shared Parameter under the first name it reaches, so registering
+        # _blip first would hide every weight behind "_blip.t5_model.*" and the pruner
+        # (which looks up "t5_model.encoder.block.<i>....weight") would find nothing.
         self.t5_model = blip_model.t5_model
+        self._blip = blip_model
         self.t5_tokenizer = blip_model.t5_tokenizer
         self.max_txt_len = blip_model.max_txt_len
 
@@ -93,8 +97,12 @@ class T5Seq2SeqTextOnlyView(nn.Module):
 
     def __init__(self, blip_model):
         super().__init__()
-        self._blip = blip_model
+        # Register the pruned submodule FIRST. named_parameters(remove_duplicate=True)
+        # reports each shared Parameter under the first name it reaches, so registering
+        # _blip first would hide every weight behind "_blip.t5_model.*" and the pruner
+        # (which looks up "t5_model.encoder.block.<i>....weight") would find nothing.
         self.t5_model = blip_model.t5_model
+        self._blip = blip_model
         self.t5_tokenizer = blip_model.t5_tokenizer
         self.max_txt_len = blip_model.max_txt_len
 
@@ -144,8 +152,10 @@ class VisualEncoderImageOnlyView(nn.Module):
 
     def __init__(self, blip_model):
         super().__init__()
-        self._blip = blip_model
+        # Same ordering requirement as the T5 views: the pruned submodule must be
+        # registered first so named_parameters() reports "visual_encoder.*".
         self.visual_encoder = blip_model.visual_encoder
+        self._blip = blip_model
 
     def maybe_autocast(self, dtype=torch.float16):
         return self._blip.maybe_autocast(dtype=dtype)

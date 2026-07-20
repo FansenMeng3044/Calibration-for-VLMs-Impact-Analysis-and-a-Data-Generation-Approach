@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # LAVIS_backup：C4 纯文本校准 + 只剪 T5（LLM）。
-# 默认剪枝器为 blipt5_tamp_pruner；纯文本没有视觉 token，因此会退化为 vanilla Wanda
-#（naive token accumulation + uniform sparsity），多模态 TAMP 才使用 AMIA + density_sum + layer。
+# 默认剪枝器为 blipt5_tamp_pruner；纯文本下运行 TAMP 单模态归约（s = s_l，AMIA 选文本 token，
+# DAS 逐层分配）。这不是已发表的多模态 TAMP。naive+uniform 基线用 blipt5_wanda_pruner。
 # 可选 Wanda：PRUNE_METHOD=blipt5_wanda_pruner bash ...
 # 需本地 C4 JSON（与 ECoFLaP/scripts/run_prune_t5_c4_128.sh 相同格式）。
 #
@@ -12,7 +12,7 @@
 # 覆盖示例:
 #   C4_JSON=/path/to/c4_calib_128.json JOB_ID=my_t5_c4_t5only bash scripts/blip2/run_lavisbackup_prune_t5_c4_llm_only.sh
 #
-# 默认 blipt5_tamp_pruner，在 t5_c4_text 下会退化为 vanilla Wanda；
+# 默认 blipt5_tamp_pruner，在 t5_c4_text 下运行单模态归约；
 # 若要显式指定 Wanda：
 #   PRUNE_METHOD=blipt5_wanda_pruner bash scripts/blip2/run_lavisbackup_prune_t5_c4_llm_only.sh
 set -euo pipefail
