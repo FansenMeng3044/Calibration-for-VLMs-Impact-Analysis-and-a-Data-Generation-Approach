@@ -483,7 +483,8 @@ def main() -> int:
             short = (B - cv) + (B - cl) + (B - cvl)
             if worst is None or short > worst[0]:
                 worst = (short, {"batch": j, "B": B, "defined": {"v": cv, "l": cl, "vl": cvl}})
-        det = worst[1] | {"undefined_slots_worst_batch": worst[0]}
+        # dict(**a, **b) rather than a | b: this repo runs on Python 3.8.
+        det = dict(worst[1], undefined_slots_worst_batch=worst[0])
         if worst[0] == 0:
             rep.add("P5.1", "multimodal untouched", "PASS", detail=det,
                     note="Every diversity term is defined for every sample, so compute_density "

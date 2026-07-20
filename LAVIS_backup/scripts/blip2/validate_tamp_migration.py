@@ -155,11 +155,12 @@ def validate(lavis_root: Path) -> Tuple[bool, List[Dict[str, object]]]:
     )
     add_check(
         rows,
-        "TAMP alias degenerates to vanilla Wanda for text-only calibration",
+        "TAMP alias runs the single-modality reduction for text-only calibration",
         'if args.prune_calib_mode == "t5_c4_text":' in evaluate
-        and 'args.token_selection = "naive"' in evaluate
-        and "args.sparsity_ratio_granularity = None" in evaluate
-        and "degrade to vanilla Wanda" in evaluate,
+        and "single-modality reduction" in evaluate
+        # The vanilla-Wanda degradation branch was removed on purpose; the naive+uniform
+        # baseline now lives under --pruning_method blipt5_wanda_pruner instead.
+        and 'args.token_selection = "naive"' not in evaluate,
         "evaluate_blip.py blipt5_tamp_pruner text-only branch",
     )
     add_check(
@@ -337,11 +338,18 @@ def validate(lavis_root: Path) -> Tuple[bool, List[Dict[str, object]]]:
     )
     add_check(
         rows,
-        "T5 block replay propagates position bias through calibration layers",
+        # Deliberately asserts the ECoFLaP convention, NOT propagation. Every block
+        # replays with the arguments captured at block 0, so position_bias stays None
+        # and blocks >0 fall back to a zero bias. Kept for comparability with the
+        # ECoFLaP / Wanda / SparseGPT numbers this codebase reproduces.
+        # NOTE: substring checks alone cannot see this -- the helper still *computes*
+        # next_cache, it just has no caller. So assert the absence of the rebind.
+        "T5 block replay reuses the block-0 cache (ECoFLaP convention, no propagation)",
         "def _normal_t5_block_forward" in wanda
-        and "next_cache[\"position_bias\"] = outputs[bias_offset].detach()" in wanda
         and "layer_caches = [dict(cache) for cache in caches]" in wanda
-        and "_normal_t5_block_forward(layer, inps[j], layer_caches[j])" in wanda,
+        and "_normal_t5_block_forward(layer, inps[j], layer_caches[j])" in wanda
+        and "layer_caches = next_layer_caches" not in wanda
+        and "next_layer_caches" not in wanda,
         "wanda_pruner.py T5 replay",
     )
     add_check(
