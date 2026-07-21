@@ -257,13 +257,6 @@ def font_px(font: ImageFont.ImageFont, fallback: int = 28) -> int:
     return int(getattr(font, "size", fallback))
 
 
-def inset_box(box: tuple[int, int, int, int], dx: int, dy: Optional[int] = None) -> tuple[int, int, int, int]:
-    if dy is None:
-        dy = dx
-    x0, y0, x1, y1 = box
-    return x0 + dx, y0 + dy, x1 - dx, y1 - dy
-
-
 def text_block_box(
     box: tuple[int, int, int, int],
     width_ratio: float,
@@ -333,10 +326,10 @@ def draw_text_block(
     text: str,
     font: ImageFont.ImageFont,
     fill: str,
-    width_ratio: float = 0.66,
+    width_ratio: float = 0.90,
     max_lines: Optional[int] = None,
     line_gap: int = 8,
-    align: str = "center",
+    align: str = "left",
     y_shift: int = 0,
 ) -> None:
     text = clean_display_text(text)
@@ -446,10 +439,10 @@ def draw_multimodal_card(
         shorten(caption, 175),
         fonts["body"],
         INK,
-        width_ratio=0.62,
+        width_ratio=0.88,
         max_lines=4,
         line_gap=7,
-        align="center",
+        align="left",
         y_shift=2,
     )
 
@@ -478,10 +471,10 @@ def draw_text_card(
         shorten(text, max_chars),
         fonts["body"],
         INK,
-        width_ratio=0.66,
+        width_ratio=0.90,
         max_lines=5,
         line_gap=7,
-        align="center",
+        align="left",
     )
     paste_round(canvas, card, (x0, y0), radius)
     if title:
@@ -524,10 +517,10 @@ def draw_caption_only_card(
         shorten(caption, 145),
         fonts["small_body"],
         INK,
-        width_ratio=0.56,
+        width_ratio=0.88,
         max_lines=5,
         line_gap=7,
-        align="center",
+        align="left",
     )
     paste_round(canvas, card, (x0, y0), radius)
     if title:
@@ -572,7 +565,7 @@ def vector_text_block(
     fontprops: Any,
     font_size: float,
     wrap_chars: int,
-    width_ratio: float = 0.66,
+    width_ratio: float = 0.90,
     max_lines: Optional[int] = None,
     line_spacing: float = 1.28,
     color: str = INK,
@@ -585,11 +578,13 @@ def vector_text_block(
         lines[-1] = lines[-1].rstrip(" ,;:.") + "..."
 
     cy = (y0 + y1) / 2
+    block_w = (x1 - x0) * width_ratio
+    left = x0 + ((x1 - x0) - block_w) / 2
     ax.text(
-        (x0 + x1) / 2,
+        left,
         cy,
         "\n".join(lines),
-        ha="center",
+        ha="left",
         va="center",
         color=color,
         fontsize=font_size,
@@ -706,9 +701,9 @@ def draw_vector_multimodal(
         (x0, y0 + top_h, x1, y1),
         shorten(caption, 175),
         fontprops["body"],
-        font_size=20,
+        font_size=23,
         wrap_chars=46,
-        width_ratio=0.62,
+        width_ratio=0.88,
         max_lines=4,
     )
 
@@ -730,7 +725,7 @@ def draw_vector_text(
         fontprops["body"],
         font_size=font_size,
         wrap_chars=wrap_chars,
-        width_ratio=0.66,
+        width_ratio=0.90,
         max_lines=5,
     )
 
@@ -795,7 +790,7 @@ def export_split_vector_panels(
     fig, ax = setup_vector_ax(width, height)
     if not args.hide_titles:
         add_vector_title(ax, "Unimodal Calibration", width / 2, 58, fontprops["title"])
-    draw_vector_text(ax, (60, 120, 940, 500), c4_text, fontprops, args.max_c4_chars, wrap_chars=48, font_size=20)
+    draw_vector_text(ax, (60, 120, 940, 500), c4_text, fontprops, args.max_c4_chars, wrap_chars=48, font_size=23)
     svg = out_dir / f"{args.out_prefix}_unimodal.svg"
     pdf = out_dir / f"{args.out_prefix}_unimodal.pdf"
     save_vector(fig, svg, pdf)
@@ -809,7 +804,7 @@ def export_split_vector_panels(
     caption_box = (60, 506, 940, 816)
     draw_vector_image_only(ax, image_box, cc3m_image)
     draw_vector_dash_dot(ax, 156, 844, 472)
-    draw_vector_text(ax, caption_box, cc3m_caption, fontprops, args.max_caption_chars, wrap_chars=48, font_size=20)
+    draw_vector_text(ax, caption_box, cc3m_caption, fontprops, args.max_caption_chars, wrap_chars=48, font_size=23)
     svg = out_dir / f"{args.out_prefix}_split_multimodal.svg"
     pdf = out_dir / f"{args.out_prefix}_split_multimodal.pdf"
     save_vector(fig, svg, pdf)
@@ -828,8 +823,8 @@ def main() -> int:
     fonts = {
         "title": load_font(40, args.font, bold=True),
         "small_title": load_font(30, args.font, bold=True),
-        "body": load_font(25, args.font),
-        "small_body": load_font(24, args.font),
+        "body": load_font(30, args.font),
+        "small_body": load_font(29, args.font),
         "caption": load_font(26, args.font),
     }
 
