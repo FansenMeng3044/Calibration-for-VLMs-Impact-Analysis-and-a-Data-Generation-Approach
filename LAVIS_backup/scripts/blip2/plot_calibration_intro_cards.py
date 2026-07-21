@@ -13,6 +13,7 @@ import argparse
 import json
 import math
 import os
+import re
 import textwrap
 from pathlib import Path
 from typing import Any, Iterable, Optional, Sequence
@@ -100,7 +101,7 @@ def first_text(row: Any, keys: Sequence[str]) -> str:
 
 
 def shorten(text: str, max_chars: int) -> str:
-    text = " ".join(str(text or "").split())
+    text = clean_display_text(text)
     if len(text) <= max_chars:
         return text
     cut = text[: max(0, max_chars - 1)].rstrip()
@@ -108,6 +109,14 @@ def shorten(text: str, max_chars: int) -> str:
     if last_space >= int(max_chars * 0.65):
         cut = cut[:last_space]
     return cut.rstrip(" ,;:.") + "..."
+
+
+def clean_display_text(text: str) -> str:
+    text = " ".join(str(text or "").split())
+    text = re.sub(r"\s+([,.;:!?])", r"\1", text)
+    text = re.sub(r"([(\[{])\s+", r"\1", text)
+    text = re.sub(r"\s+([)\]}])", r"\1", text)
+    return text
 
 
 def pick_cc3m_sample(rows: Sequence[Any], images_dir: str | Path, index: int) -> tuple[dict[str, Any], Path, str]:
@@ -366,8 +375,8 @@ def draw_multimodal_card(
     card.paste(image, (img_box[0], img_box[1]))
 
     text = shorten(caption, 175)
-    text_box = (64, top_h + 28, w - 64, h - 34)
-    draw_left_lines(d, text_box, text, fonts["body"], INK, line_gap=8, valign="center")
+    text_box = (118, top_h + 28, w - 118, h - 34)
+    draw_centered_lines(d, text_box, text, fonts["body"], INK, line_gap=8)
 
     paste_round(canvas, card, (x0, y0), radius)
     if title:
@@ -388,8 +397,8 @@ def draw_text_card(
     radius = 42
     card = Image.new("RGB", (w, h), TEXT_BG)
     d = ImageDraw.Draw(card)
-    text_box = (120, 64, w - 120, h - 64)
-    draw_centered_lines(d, text_box, shorten(text, max_chars), fonts["body"], INK, line_gap=10)
+    text_box = (148, 64, w - 148, h - 64)
+    draw_centered_lines(d, text_box, shorten(text, max_chars), fonts["body"], INK, line_gap=8)
     paste_round(canvas, card, (x0, y0), radius)
     if title:
         draw = ImageDraw.Draw(canvas)
@@ -425,7 +434,7 @@ def draw_caption_only_card(
     radius = 38
     card = Image.new("RGB", (w, h), TEXT_BG)
     d = ImageDraw.Draw(card)
-    text_box = (96, 46, w - 96, h - 46)
+    text_box = (132, 46, w - 132, h - 46)
     draw_centered_lines(d, text_box, shorten(caption, 145), fonts["small_body"], INK, line_gap=8)
     paste_round(canvas, card, (x0, y0), radius)
     if title:
@@ -460,7 +469,7 @@ def vector_wrap(text: str, max_chars: int) -> str:
 
 
 def vector_lines(text: str, max_chars: int) -> list[str]:
-    return textwrap.wrap(" ".join(text.split()), width=max_chars, break_long_words=False)
+    return textwrap.wrap(clean_display_text(text), width=max_chars, break_long_words=False)
 
 
 def add_round_rect(ax: Any, box: tuple[float, float, float, float], radius: float, color: str) -> Any:
@@ -565,22 +574,22 @@ def draw_vector_multimodal(
     top_h = h * 0.58
     clip = add_round_rect(ax, box, radius, TEXT_BG)
     add_vector_image(ax, image_path, (x0, y0, x1, y0 + top_h), 0, clip_path=clip)
-    font_size = 22
-    lines = vector_lines(shorten(caption, 175), 42)
-    line_step = font_size * 1.34
+    font_size = 20
+    lines = vector_lines(shorten(caption, 175), 48)
+    line_step = font_size * 1.32
     text_y0 = y0 + top_h + 28
     text_y1 = y1 - 34
     total_h = max(font_size, len(lines) * font_size + max(0, len(lines) - 1) * (line_step - font_size))
     text_y = text_y0 + max(0, (text_y1 - text_y0 - total_h) / 2)
     ax.text(
-        x0 + 64,
-        text_y,
+        (x0 + x1) / 2,
+        text_y + total_h / 2,
         "\n".join(lines),
-        ha="left",
-        va="top",
+        ha="center",
+        va="center",
         color=INK,
         fontsize=font_size,
-        linespacing=1.34,
+        linespacing=1.32,
         fontproperties=fontprops["body"],
     )
 
@@ -669,7 +678,7 @@ def export_split_vector_panels(
     fig, ax = setup_vector_ax(width, height)
     if not args.hide_titles:
         add_vector_title(ax, "Unimodal Calibration", width / 2, 58, fontprops["title"])
-    draw_vector_text(ax, (60, 120, 940, 500), c4_text, fontprops, args.max_c4_chars, wrap_chars=42, font_size=22)
+    draw_vector_text(ax, (60, 120, 940, 500), c4_text, fontprops, args.max_c4_chars, wrap_chars=48, font_size=20)
     svg = out_dir / f"{args.out_prefix}_unimodal.svg"
     pdf = out_dir / f"{args.out_prefix}_unimodal.pdf"
     save_vector(fig, svg, pdf)
@@ -683,7 +692,7 @@ def export_split_vector_panels(
     caption_box = (60, 506, 940, 816)
     draw_vector_image_only(ax, image_box, cc3m_image)
     draw_vector_dash_dot(ax, 156, 844, 472)
-    draw_vector_text(ax, caption_box, cc3m_caption, fontprops, args.max_caption_chars, wrap_chars=42, font_size=22)
+    draw_vector_text(ax, caption_box, cc3m_caption, fontprops, args.max_caption_chars, wrap_chars=48, font_size=20)
     svg = out_dir / f"{args.out_prefix}_split_multimodal.svg"
     pdf = out_dir / f"{args.out_prefix}_split_multimodal.pdf"
     save_vector(fig, svg, pdf)
@@ -702,8 +711,8 @@ def main() -> int:
     fonts = {
         "title": load_font(40, args.font, bold=True),
         "small_title": load_font(30, args.font, bold=True),
-        "body": load_font(29, args.font),
-        "small_body": load_font(26, args.font),
+        "body": load_font(25, args.font),
+        "small_body": load_font(24, args.font),
         "caption": load_font(26, args.font),
     }
 
