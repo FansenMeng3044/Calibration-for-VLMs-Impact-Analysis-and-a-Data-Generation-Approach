@@ -20,10 +20,7 @@ from typing import Any, Iterable, Optional, Sequence
 from PIL import Image, ImageDraw, ImageFont
 
 
-LLM_PURPLE = "#C8CDF9"
-TEXT_BG_ALPHA = 0.30
-# #C8CDF9 at 30% opacity over the white paper background.
-TEXT_BG = "#EFF0FD"
+TEXT_BG = "#A5CDE2"
 INK = "#23313B"
 MUTED = "#5A6A73"
 PAPER = "#FFFFFF"
@@ -665,10 +662,10 @@ def export_split_vector_panels(
     fig, ax = setup_vector_ax(width, height)
     if not args.hide_titles:
         add_vector_title(ax, "Split Multimodal Calibration", width / 2, 58, fontprops["title"])
-    image_box = (60, 120, 940, 430)
-    caption_box = (60, 500, 940, 810)
+    image_box = (60, 120, 940, 439)
+    caption_box = (60, 506, 940, 816)
     draw_vector_image_only(ax, image_box, cc3m_image)
-    draw_vector_dash_dot(ax, 156, 844, 465)
+    draw_vector_dash_dot(ax, 156, 844, 472)
     draw_vector_text(ax, caption_box, cc3m_caption, fontprops, args.max_caption_chars, wrap_chars=48, font_size=21)
     svg = out_dir / f"{args.out_prefix}_split_multimodal.svg"
     pdf = out_dir / f"{args.out_prefix}_split_multimodal.pdf"
@@ -702,8 +699,9 @@ def main() -> int:
 
     mm_box = (card_x, 150, card_x + card_w, 700)
     c4_box = (card_x, 840, card_x + card_w, 1225)
-    image_box = (card_x, 1425, card_x + card_w, 1735)
-    caption_box = (card_x, 1782, card_x + card_w, 2092)
+    split_image_h = int((mm_box[3] - mm_box[1]) * 0.58)
+    image_box = (card_x, 1425, card_x + card_w, 1425 + split_image_h)
+    caption_box = (card_x, image_box[3] + 47, card_x + card_w, image_box[3] + 357)
 
     if not args.hide_titles:
         draw_title(draw, "Multimodal Calibration", title_x, 84, fonts["title"])
@@ -747,9 +745,7 @@ def main() -> int:
         "c4_text": c4_text,
         "colors": {
             "image_background": "none",
-            "text_background_source": LLM_PURPLE,
-            "text_background_alpha": TEXT_BG_ALPHA,
-            "text_background_rendered_on_white": TEXT_BG,
+            "text_background": TEXT_BG,
         },
         "outputs": {"png": str(out_png), "pdf": str(out_pdf), "split_vector": vector_outputs},
     }
