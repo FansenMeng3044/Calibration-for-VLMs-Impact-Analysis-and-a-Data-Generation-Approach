@@ -257,6 +257,25 @@ def font_px(font: ImageFont.ImageFont, fallback: int = 28) -> int:
     return int(getattr(font, "size", fallback))
 
 
+def inset_box(box: tuple[int, int, int, int], dx: int, dy: Optional[int] = None) -> tuple[int, int, int, int]:
+    if dy is None:
+        dy = dx
+    x0, y0, x1, y1 = box
+    return x0 + dx, y0 + dy, x1 - dx, y1 - dy
+
+
+def text_block_box(
+    box: tuple[int, int, int, int],
+    width_ratio: float,
+    y_shift: int = 0,
+) -> tuple[int, int, int, int]:
+    x0, y0, x1, y1 = box
+    w = x1 - x0
+    block_w = int(w * width_ratio)
+    left = x0 + (w - block_w) // 2
+    return left, y0 + y_shift, left + block_w, y1 + y_shift
+
+
 def wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int) -> list[str]:
     words = text.split()
     lines: list[str] = []
@@ -275,6 +294,16 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, m
     if current:
         lines.append(current)
     return lines
+
+
+def text_block_metrics(
+    lines: Sequence[str],
+    font: ImageFont.ImageFont,
+    line_gap: int,
+) -> tuple[int, int]:
+    line_height = int(font_px(font) * 1.16)
+    total_h = len(lines) * line_height + max(0, len(lines) - 1) * line_gap
+    return line_height, total_h
 
 
 def fit_lines(
@@ -296,6 +325,42 @@ def fit_lines(
         last = last.rsplit(" ", 1)[0] if " " in last else last[:-1]
     lines[-1] = last.rstrip(" ,;:.") + "..."
     return lines
+
+
+def draw_text_block(
+    draw: ImageDraw.ImageDraw,
+    panel_box: tuple[int, int, int, int],
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: str,
+    width_ratio: float = 0.66,
+    max_lines: Optional[int] = None,
+    line_gap: int = 8,
+    align: str = "center",
+    y_shift: int = 0,
+) -> None:
+    text = clean_display_text(text)
+    x0, y0, x1, y1 = text_block_box(panel_box, width_ratio, y_shift=y_shift)
+    max_width = x1 - x0
+    max_height = y1 - y0
+    lines = wrap_text(draw, text, font, max_width)
+    if max_lines is not None and len(lines) > max_lines:
+        lines = lines[:max_lines]
+        last = lines[-1]
+        while last and text_width(draw, last + "...", font) > max_width:
+            last = last.rsplit(" ", 1)[0] if " " in last else last[:-1]
+        lines[-1] = last.rstrip(" ,;:.") + "..."
+
+    line_height, total_h = text_block_metrics(lines, font, line_gap)
+    y = y0 + max(0, (max_height - total_h) // 2)
+    for line in lines:
+        w = text_width(draw, line, font)
+        if align == "left":
+            x = x0
+        else:
+            x = x0 + (max_width - w) / 2
+        draw.text((x, y), line, font=font, fill=fill)
+        y += line_height + line_gap
 
 
 def draw_centered_lines(
@@ -374,9 +439,19 @@ def draw_multimodal_card(
     image = cover_resize(Image.open(image_path), (img_box[2] - img_box[0], img_box[3] - img_box[1]))
     card.paste(image, (img_box[0], img_box[1]))
 
-    text = shorten(caption, 175)
-    text_box = (118, top_h + 28, w - 118, h - 34)
-    draw_centered_lines(d, text_box, text, fonts["body"], INK, line_gap=8)
+    text_panel = (0, top_h, w, h)
+    draw_text_block(
+        d,
+        text_panel,
+        shorten(caption, 175),
+        fonts["body"],
+        INK,
+        width_ratio=0.62,
+        max_lines=4,
+        line_gap=7,
+        align="center",
+        y_shift=2,
+    )
 
     paste_round(canvas, card, (x0, y0), radius)
     if title:
@@ -397,8 +472,17 @@ def draw_text_card(
     radius = 42
     card = Image.new("RGB", (w, h), TEXT_BG)
     d = ImageDraw.Draw(card)
-    text_box = (148, 64, w - 148, h - 64)
-    draw_centered_lines(d, text_box, shorten(text, max_chars), fonts["body"], INK, line_gap=8)
+    draw_text_block(
+        d,
+        (0, 0, w, h),
+        shorten(text, max_chars),
+        fonts["body"],
+        INK,
+        width_ratio=0.66,
+        max_lines=5,
+        line_gap=7,
+        align="center",
+    )
     paste_round(canvas, card, (x0, y0), radius)
     if title:
         draw = ImageDraw.Draw(canvas)
@@ -434,8 +518,17 @@ def draw_caption_only_card(
     radius = 38
     card = Image.new("RGB", (w, h), TEXT_BG)
     d = ImageDraw.Draw(card)
-    text_box = (132, 46, w - 132, h - 46)
-    draw_centered_lines(d, text_box, shorten(caption, 145), fonts["small_body"], INK, line_gap=8)
+    draw_text_block(
+        d,
+        (0, 0, w, h),
+        shorten(caption, 145),
+        fonts["small_body"],
+        INK,
+        width_ratio=0.56,
+        max_lines=5,
+        line_gap=7,
+        align="center",
+    )
     paste_round(canvas, card, (x0, y0), radius)
     if title:
         draw = ImageDraw.Draw(canvas)
@@ -470,6 +563,40 @@ def vector_wrap(text: str, max_chars: int) -> str:
 
 def vector_lines(text: str, max_chars: int) -> list[str]:
     return textwrap.wrap(clean_display_text(text), width=max_chars, break_long_words=False)
+
+
+def vector_text_block(
+    ax: Any,
+    box: tuple[float, float, float, float],
+    text: str,
+    fontprops: Any,
+    font_size: float,
+    wrap_chars: int,
+    width_ratio: float = 0.66,
+    max_lines: Optional[int] = None,
+    line_spacing: float = 1.28,
+    color: str = INK,
+) -> None:
+    x0, y0, x1, y1 = box
+    effective_wrap = max(8, int(wrap_chars * width_ratio / 0.66))
+    lines = vector_lines(text, effective_wrap)
+    if max_lines is not None and len(lines) > max_lines:
+        lines = lines[:max_lines]
+        lines[-1] = lines[-1].rstrip(" ,;:.") + "..."
+
+    cy = (y0 + y1) / 2
+    ax.text(
+        (x0 + x1) / 2,
+        cy,
+        "\n".join(lines),
+        ha="center",
+        va="center",
+        color=color,
+        fontsize=font_size,
+        linespacing=line_spacing,
+        fontproperties=fontprops,
+        clip_on=False,
+    )
 
 
 def add_round_rect(ax: Any, box: tuple[float, float, float, float], radius: float, color: str) -> Any:
@@ -574,23 +701,15 @@ def draw_vector_multimodal(
     top_h = h * 0.58
     clip = add_round_rect(ax, box, radius, TEXT_BG)
     add_vector_image(ax, image_path, (x0, y0, x1, y0 + top_h), 0, clip_path=clip)
-    font_size = 20
-    lines = vector_lines(shorten(caption, 175), 48)
-    line_step = font_size * 1.32
-    text_y0 = y0 + top_h + 28
-    text_y1 = y1 - 34
-    total_h = max(font_size, len(lines) * font_size + max(0, len(lines) - 1) * (line_step - font_size))
-    text_y = text_y0 + max(0, (text_y1 - text_y0 - total_h) / 2)
-    ax.text(
-        (x0 + x1) / 2,
-        text_y + total_h / 2,
-        "\n".join(lines),
-        ha="center",
-        va="center",
-        color=INK,
-        fontsize=font_size,
-        linespacing=1.32,
-        fontproperties=fontprops["body"],
+    vector_text_block(
+        ax,
+        (x0, y0 + top_h, x1, y1),
+        shorten(caption, 175),
+        fontprops["body"],
+        font_size=20,
+        wrap_chars=46,
+        width_ratio=0.62,
+        max_lines=4,
     )
 
 
@@ -604,17 +723,15 @@ def draw_vector_text(
     font_size: int = 23,
 ) -> None:
     add_round_rect(ax, box, 42, TEXT_BG)
-    x0, y0, x1, y1 = box
-    ax.text(
-        (x0 + x1) / 2,
-        (y0 + y1) / 2,
-        vector_wrap(shorten(text, max_chars), wrap_chars),
-        ha="center",
-        va="center",
-        color=INK,
-        fontsize=font_size,
-        linespacing=1.35,
-        fontproperties=fontprops["body"],
+    vector_text_block(
+        ax,
+        box,
+        shorten(text, max_chars),
+        fontprops["body"],
+        font_size=font_size,
+        wrap_chars=wrap_chars,
+        width_ratio=0.66,
+        max_lines=5,
     )
 
 
