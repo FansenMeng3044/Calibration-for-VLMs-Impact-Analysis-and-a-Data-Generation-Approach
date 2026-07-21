@@ -22,6 +22,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 TEXT_BG = "#A5CDE2"
+TEXT_BG_ALPHA_DEFAULT = 0.78
+TEXT_BG_ALPHA = TEXT_BG_ALPHA_DEFAULT
+TEXT_BG_FILL = TEXT_BG
 INK = "#23313B"
 MUTED = "#5A6A73"
 PAPER = "#FFFFFF"
@@ -42,11 +45,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out_dir", default="/data/data2/mfs/calibration_intro_cards")
     parser.add_argument("--out_prefix", default="calibration_intro_cards")
     parser.add_argument("--width", type=int, default=1400)
-    parser.add_argument("--height", type=int, default=2250)
+    parser.add_argument("--height", type=int, default=2780)
     parser.add_argument("--font", default=None, help="Optional path to a .ttf/.otf font.")
     parser.add_argument("--hide_titles", action="store_true")
     parser.add_argument("--show_connectors", action="store_true", help="Draw light connector lines from the multimodal card to the split cards.")
     parser.add_argument("--no_split_vector", action="store_true", help="Do not export the three separate SVG/PDF vector panels.")
+    parser.add_argument(
+        "--text_bg_alpha",
+        type=float,
+        default=TEXT_BG_ALPHA_DEFAULT,
+        help="Opacity for the text-card blue background, composited over the white paper background.",
+    )
     parser.add_argument("--max_caption_chars", type=int, default=175)
     parser.add_argument("--max_c4_chars", type=int, default=330)
     return parser.parse_args()
@@ -206,6 +215,24 @@ def hex_to_rgb(color: str) -> tuple[int, int, int]:
 
 def lerp(a: int, b: int, t: float) -> int:
     return int(round(a + (b - a) * t))
+
+
+def clamp01(value: float) -> float:
+    return min(1.0, max(0.0, float(value)))
+
+
+def blend_hex_over(base: str, over: str, alpha: float) -> str:
+    alpha = clamp01(alpha)
+    b = hex_to_rgb(base)
+    o = hex_to_rgb(over)
+    rgb = tuple(lerp(o[i], b[i], alpha) for i in range(3))
+    return "#%02X%02X%02X" % rgb
+
+
+def set_active_style(text_bg_alpha: float) -> None:
+    global TEXT_BG_ALPHA, TEXT_BG_FILL
+    TEXT_BG_ALPHA = clamp01(text_bg_alpha)
+    TEXT_BG_FILL = blend_hex_over(TEXT_BG, PAPER, TEXT_BG_ALPHA)
 
 
 def vertical_gradient(size: tuple[int, int], top: str, bottom: str) -> Image.Image:
@@ -442,7 +469,7 @@ def draw_multimodal_card(
     radius = 42
 
     top_h = int(h * 0.58)
-    card = Image.new("RGB", (w, h), TEXT_BG)
+    card = Image.new("RGB", (w, h), TEXT_BG_FILL)
     d = ImageDraw.Draw(card)
 
     img_box = (0, 0, w, top_h)
@@ -480,7 +507,7 @@ def draw_text_card(
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     radius = 42
-    card = Image.new("RGB", (w, h), TEXT_BG)
+    card = Image.new("RGB", (w, h), TEXT_BG_FILL)
     d = ImageDraw.Draw(card)
     draw_text_block(
         d,
@@ -526,7 +553,7 @@ def draw_caption_only_card(
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
     radius = 38
-    card = Image.new("RGB", (w, h), TEXT_BG)
+    card = Image.new("RGB", (w, h), TEXT_BG_FILL)
     d = ImageDraw.Draw(card)
     draw_text_block(
         d,
@@ -758,7 +785,7 @@ def draw_vector_multimodal(
     h = y1 - y0
     radius = 42
     top_h = h * 0.58
-    clip = add_round_rect(ax, box, radius, TEXT_BG)
+    clip = add_round_rect(ax, box, radius, TEXT_BG_FILL)
     add_vector_image(ax, image_path, (x0, y0, x1, y0 + top_h), 0, clip_path=clip)
     vector_text_block(
         ax,
@@ -781,7 +808,7 @@ def draw_vector_text(
     wrap_chars: int,
     font_size: int = 23,
 ) -> None:
-    add_round_rect(ax, box, 42, TEXT_BG)
+    add_round_rect(ax, box, 42, TEXT_BG_FILL)
     vector_text_block(
         ax,
         box,
@@ -860,6 +887,16 @@ def export_split_vector_panels(
     save_vector(fig, svg, pdf)
     outputs["unimodal"] = {"svg": str(svg), "pdf": str(pdf)}
 
+    width, height = 1000, 500
+    fig, ax = setup_vector_ax(width, height)
+    if not args.hide_titles:
+        add_vector_title(ax, "Image-only Calibration", width / 2, 58, fontprops["title"])
+    draw_vector_image_only(ax, (60, 120, 940, 439), cc3m_image)
+    svg = out_dir / f"{args.out_prefix}_image_only.svg"
+    pdf = out_dir / f"{args.out_prefix}_image_only.pdf"
+    save_vector(fig, svg, pdf)
+    outputs["image_only"] = {"svg": str(svg), "pdf": str(pdf)}
+
     width, height = 1000, 850
     fig, ax = setup_vector_ax(width, height)
     if not args.hide_titles:
@@ -879,6 +916,7 @@ def export_split_vector_panels(
 
 def main() -> int:
     args = parse_args()
+    set_active_style(args.text_bg_alpha)
     cc3m_rows = rows_from_json(load_json(args.cc3m_json))
     c4_rows = rows_from_json(load_json(args.c4_json))
     cc3m_row, cc3m_image, cc3m_caption = pick_cc3m_sample(cc3m_rows, args.cc3m_images_dir, args.cc3m_index)
@@ -902,25 +940,28 @@ def main() -> int:
     mm_box = (card_x, 150, card_x + card_w, 700)
     c4_box = (card_x, 840, card_x + card_w, 1225)
     split_image_h = int((mm_box[3] - mm_box[1]) * 0.58)
-    image_box = (card_x, 1425, card_x + card_w, 1425 + split_image_h)
-    caption_box = (card_x, image_box[3] + 47, card_x + card_w, image_box[3] + 357)
+    image_only_box = (card_x, 1425, card_x + card_w, 1425 + split_image_h)
+    split_image_box = (card_x, 1940, card_x + card_w, 1940 + split_image_h)
+    caption_box = (card_x, split_image_box[3] + 47, card_x + card_w, split_image_box[3] + 357)
 
     if not args.hide_titles:
         draw_title(draw, "Multimodal Calibration", title_x, 84, fonts["title"])
         draw_title(draw, "Unimodal Calibration", title_x, 774, fonts["title"])
-        draw_title(draw, "Split Multimodal Calibration", title_x, 1358, fonts["title"])
+        draw_title(draw, "Image-only Calibration", title_x, 1358, fonts["title"])
+        draw_title(draw, "Split Multimodal Calibration", title_x, 1873, fonts["title"])
 
     draw_multimodal_card(canvas, mm_box, cc3m_image, shorten(cc3m_caption, args.max_caption_chars), fonts)
     draw_text_card(canvas, c4_box, shorten(c4_text, args.max_c4_chars), fonts)
-    draw_image_only_card(canvas, image_box, cc3m_image, fonts)
+    draw_image_only_card(canvas, image_only_box, cc3m_image, fonts)
+    draw_image_only_card(canvas, split_image_box, cc3m_image, fonts)
     draw_caption_only_card(canvas, caption_box, shorten(cc3m_caption, args.max_caption_chars), fonts)
 
     draw = ImageDraw.Draw(canvas)
-    draw_dash_dot_line(draw, card_x + 96, card_x + card_w - 96, (image_box[3] + caption_box[1]) // 2)
+    draw_dash_dot_line(draw, card_x + 96, card_x + card_w - 96, (split_image_box[3] + caption_box[1]) // 2)
 
     if args.show_connectors:
         draw = ImageDraw.Draw(canvas)
-        draw_connector(draw, ((mm_box[0] + mm_box[2]) // 2, mm_box[3] + 80), ((image_box[0] + image_box[2]) // 2, image_box[1] - 28))
+        draw_connector(draw, ((mm_box[0] + mm_box[2]) // 2, mm_box[3] + 80), ((split_image_box[0] + split_image_box[2]) // 2, split_image_box[1] - 28))
         draw_connector(draw, ((mm_box[0] + mm_box[2]) // 2, mm_box[3] + 80), ((caption_box[0] + caption_box[2]) // 2, caption_box[1] - 28))
 
     out_dir = Path(args.out_dir)
@@ -947,7 +988,9 @@ def main() -> int:
         "c4_text": c4_text,
         "colors": {
             "image_background": "none",
-            "text_background": TEXT_BG,
+            "text_background_source": TEXT_BG,
+            "text_background_alpha": TEXT_BG_ALPHA,
+            "text_background_rendered_on_white": TEXT_BG_FILL,
         },
         "outputs": {"png": str(out_png), "pdf": str(out_pdf), "split_vector": vector_outputs},
     }
