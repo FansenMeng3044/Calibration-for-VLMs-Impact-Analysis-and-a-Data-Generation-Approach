@@ -257,6 +257,12 @@ def font_px(font: ImageFont.ImageFont, fallback: int = 28) -> int:
     return int(getattr(font, "size", fallback))
 
 
+def resize_font(font: ImageFont.ImageFont, size: int) -> ImageFont.ImageFont:
+    if hasattr(font, "font_variant"):
+        return font.font_variant(size=size)
+    return font
+
+
 def text_block_box(
     box: tuple[int, int, int, int],
     width_ratio: float,
@@ -331,28 +337,39 @@ def draw_text_block(
     line_gap: int = 8,
     align: str = "left",
     y_shift: int = 0,
+    min_font_size: int = 18,
 ) -> None:
     text = clean_display_text(text)
     x0, y0, x1, y1 = text_block_box(panel_box, width_ratio, y_shift=y_shift)
     max_width = x1 - x0
     max_height = y1 - y0
-    lines = wrap_text(draw, text, font, max_width)
-    if max_lines is not None and len(lines) > max_lines:
-        lines = lines[:max_lines]
-        last = lines[-1]
-        while last and text_width(draw, last + "...", font) > max_width:
-            last = last.rsplit(" ", 1)[0] if " " in last else last[:-1]
-        lines[-1] = last.rstrip(" ,;:.") + "..."
 
-    line_height, total_h = text_block_metrics(lines, font, line_gap)
+    active_font = font
+    size = font_px(font)
+    while True:
+        lines = wrap_text(draw, text, active_font, max_width)
+        if max_lines is not None and len(lines) > max_lines:
+            lines = lines[:max_lines]
+            last = lines[-1]
+            while last and text_width(draw, last + "...", active_font) > max_width:
+                last = last.rsplit(" ", 1)[0] if " " in last else last[:-1]
+            lines[-1] = last.rstrip(" ,;:.") + "..."
+
+        line_height, total_h = text_block_metrics(lines, active_font, line_gap)
+        widths_ok = all(text_width(draw, line, active_font) <= max_width for line in lines)
+        if (widths_ok and total_h <= max_height) or size <= min_font_size:
+            break
+        size -= 1
+        active_font = resize_font(font, size)
+
     y = y0 + max(0, (max_height - total_h) // 2)
     for line in lines:
-        w = text_width(draw, line, font)
+        w = text_width(draw, line, active_font)
         if align == "left":
             x = x0
         else:
             x = x0 + (max_width - w) / 2
-        draw.text((x, y), line, font=font, fill=fill)
+        draw.text((x, y), line, font=active_font, fill=fill)
         y += line_height + line_gap
 
 
@@ -558,6 +575,43 @@ def vector_lines(text: str, max_chars: int) -> list[str]:
     return textwrap.wrap(clean_display_text(text), width=max_chars, break_long_words=False)
 
 
+def vector_text_width_px(text: str, fontprops: Any, font_size: float, dpi: float = 100.0) -> float:
+    if not text:
+        return 0.0
+    try:
+        from matplotlib.textpath import TextPath
+
+        bbox = TextPath((0, 0), text, prop=fontprops, size=font_size).get_extents()
+        return float(bbox.width) * dpi / 72.0 * 1.08
+    except Exception:
+        return len(text) * font_size * 0.72
+
+
+def vector_wrap_to_width(text: str, fontprops: Any, font_size: float, max_width: float) -> list[str]:
+    words = clean_display_text(text).split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = word if not current else current + " " + word
+        if vector_text_width_px(candidate, fontprops, font_size) <= max_width:
+            current = candidate
+            continue
+        if current:
+            lines.append(current)
+            current = word
+        else:
+            current = word
+        while vector_text_width_px(current, fontprops, font_size) > max_width and len(current) > 1:
+            cut = len(current) - 1
+            while cut > 1 and vector_text_width_px(current[:cut], fontprops, font_size) > max_width:
+                cut -= 1
+            lines.append(current[:cut])
+            current = current[cut:]
+    if current:
+        lines.append(current)
+    return lines
+
+
 def vector_text_block(
     ax: Any,
     box: tuple[float, float, float, float],
@@ -571,15 +625,25 @@ def vector_text_block(
     color: str = INK,
 ) -> None:
     x0, y0, x1, y1 = box
-    effective_wrap = max(8, int(wrap_chars * width_ratio / 0.66))
-    lines = vector_lines(text, effective_wrap)
-    if max_lines is not None and len(lines) > max_lines:
-        lines = lines[:max_lines]
-        lines[-1] = lines[-1].rstrip(" ,;:.") + "..."
-
-    cy = (y0 + y1) / 2
     block_w = (x1 - x0) * width_ratio
     left = x0 + ((x1 - x0) - block_w) / 2
+    max_height = y1 - y0
+    size = font_size
+    while True:
+        lines = vector_wrap_to_width(shorten(text, 1000), fontprops, size, block_w)
+        if max_lines is not None and len(lines) > max_lines:
+            lines = lines[:max_lines]
+            lines[-1] = lines[-1].rstrip(" ,;:.") + "..."
+            while vector_text_width_px(lines[-1], fontprops, size) > block_w and len(lines[-1]) > 4:
+                lines[-1] = lines[-1][:-4].rstrip(" ,;:.") + "..."
+        line_step = size * line_spacing
+        total_h = len(lines) * line_step
+        widths_ok = all(vector_text_width_px(line, fontprops, size) <= block_w for line in lines)
+        if (widths_ok and total_h <= max_height) or size <= 16:
+            break
+        size -= 1
+
+    cy = (y0 + y1) / 2
     ax.text(
         left,
         cy,
@@ -587,10 +651,10 @@ def vector_text_block(
         ha="left",
         va="center",
         color=color,
-        fontsize=font_size,
+        fontsize=size,
         linespacing=line_spacing,
         fontproperties=fontprops,
-        clip_on=False,
+        clip_on=True,
     )
 
 
