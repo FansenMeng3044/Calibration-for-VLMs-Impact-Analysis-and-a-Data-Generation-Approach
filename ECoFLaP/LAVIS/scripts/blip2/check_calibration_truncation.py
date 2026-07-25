@@ -48,8 +48,25 @@ from split_joint_analysis_common import (
     load_rows,
     select_rows,
     setup_matplotlib,
+    value_to_text,
     write_csv,
 )
+
+
+def row_text(row, field: str, idx: int) -> str:
+    """Text for a row, whatever its container type.
+
+    Calibration files vary: some are lists of dicts, some (a plain text corpus
+    like C4) are lists of raw strings, some wrap the text in a list. extract_text
+    only handles dicts, so dispatch by type here.
+    """
+    if isinstance(row, str):
+        return row.strip()
+    if isinstance(row, (list, tuple)):
+        return value_to_text(row)
+    if isinstance(row, dict):
+        return extract_text(row, field, AUTO_INPUT_FIELDS, idx)
+    return str(row).strip()
 
 
 def parse_args() -> argparse.Namespace:
@@ -125,8 +142,11 @@ def audit_one(tok, label: str, path: str, args) -> Tuple[dict, List[dict]]:
     missing = 0
     for i, row in enumerate(rows):
         try:
-            text = extract_text(row, args.text_field, AUTO_INPUT_FIELDS, original_indices[i])
+            text = row_text(row, args.text_field, original_indices[i])
         except KeyError:
+            missing += 1
+            continue
+        if not text:
             missing += 1
             continue
         if args.prompt_template:
