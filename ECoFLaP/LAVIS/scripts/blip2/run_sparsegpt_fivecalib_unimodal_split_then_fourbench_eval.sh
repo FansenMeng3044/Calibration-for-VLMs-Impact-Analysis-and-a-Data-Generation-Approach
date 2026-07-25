@@ -171,6 +171,14 @@ case "$CALIB_TAG" in
     ;;
 esac
 
+# HYBRID override: fix the T5 text to a single json (e.g. OKVQA) while the ViT
+# still calibrates on each source's images. Suffix the tag so hybrid outputs do
+# not collide with the same-source runs.
+FIXED_T5_TEXT_JSON="${FIXED_T5_TEXT_JSON:-}"
+if [[ -n "$FIXED_T5_TEXT_JSON" ]]; then
+  CALIB_TAG="${CALIB_TAG}_${FIXED_T5_TEXT_TAG:-t5okvqa}"
+fi
+
 CFG_T5_BASE="${CFG_T5_BASE:-$REPO_ROOT/lavis/projects/blip2/eval/t5_c4_text_prune_calib.yaml}"
 CFG_VIT_BASE="${CFG_VIT_BASE:-$REPO_ROOT/lavis/projects/blip2/eval/cc_prefix_derivative_compute_cc3m_calib128.yaml}"
 
@@ -400,8 +408,9 @@ _preflight() {
 }
 
 run_prune_t5_text_only() {
+  local t5_text="${FIXED_T5_TEXT_JSON:-$TEXT_JSON}"
   echo ""
-  echo ">>> [prune 1/2] SparseGPT | ${CALIB_TAG} text only | prune T5"
+  echo ">>> [prune 1/2] SparseGPT | ${CALIB_TAG} | T5 text = ${t5_text}"
   local extra=()
   if [[ "${T5_ENCODER_ONLY:-0}" == "1" ]]; then
     extra+=(--t5_c4_encoder_only)
@@ -411,7 +420,7 @@ run_prune_t5_text_only() {
     --options "model.pretrained=${BLIP2_PRETRAINED}" \
     --prune_calib_mode t5_c4_text \
     --importance_scope llm_only \
-    --c4_calib_json "$TEXT_JSON" \
+    --c4_calib_json "$t5_text" \
     --no_prune_vit \
     --pruning_method blipt5_sparsegpt_pruner \
     --t5_prune_spec "$T5_SPEC" \

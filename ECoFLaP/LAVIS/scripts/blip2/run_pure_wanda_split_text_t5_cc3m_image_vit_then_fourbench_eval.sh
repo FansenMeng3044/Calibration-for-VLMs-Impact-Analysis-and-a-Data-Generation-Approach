@@ -140,8 +140,9 @@ TEXT_SOURCE="${TEXT_SOURCE:-c4}"
 case "$TEXT_SOURCE" in
   c4) TEXT_TAG="c4" ;;
   cc3m_caption) TEXT_TAG="cc3m_caption" ;;
+  okvqa) TEXT_TAG="okvqa" ;;
   *)
-    echo "[FATAL] TEXT_SOURCE must be c4 or cc3m_caption, got: $TEXT_SOURCE" >&2
+    echo "[FATAL] TEXT_SOURCE must be c4, cc3m_caption or okvqa, got: $TEXT_SOURCE" >&2
     exit 1
     ;;
 esac
@@ -150,6 +151,7 @@ CC3M_ROOT="${CC3M_ROOT:-$BASE/CC3M_calib_128}"
 CC3M_JSON="${CC3M_JSON:-$CC3M_ROOT/cc3m_calib_128.json}"
 CC3M_IMAGES="${CC3M_IMAGES:-$CC3M_ROOT/images}"
 C4_JSON="${C4_JSON:-$BASE/c4_calib_128.json}"
+OKVQA_TEXT_JSON="${OKVQA_TEXT_JSON:-$BASE/okvqa_text_128.json}"
 
 CFG_T5_BASE="${CFG_T5_BASE:-$REPO_ROOT/lavis/projects/blip2/eval/t5_c4_text_prune_calib.yaml}"
 CFG_VIT_BASE="${CFG_VIT_BASE:-$REPO_ROOT/lavis/projects/blip2/eval/cc_prefix_derivative_compute_cc3m_calib128.yaml}"
@@ -159,6 +161,21 @@ VIT_SPEC="${VIT_SPEC:-${VIT_PRUNE_SPEC:-39-0.5-1.0-1.0}}"
 NUM_DATA="${NUM_DATA:-128}"
 PRUNING_CALIB_BATCH="${PRUNING_CALIB_BATCH:-8}"
 MASTER_PORT_VIT="${MASTER_PORT_VIT:-29517}"
+
+# --- pruner selection: wanda (pure, uniform) or sparsegpt --------------------
+PRUNER="${PRUNER:-wanda}"
+case "$PRUNER" in
+  wanda)     PRUNER_METHOD="blipt5_wanda_pruner";     PRUNER_TAG="pure_wanda" ;;
+  sparsegpt) PRUNER_METHOD="blipt5_sparsegpt_pruner"; PRUNER_TAG="sparsegpt" ;;
+  *)
+    echo "[FATAL] PRUNER must be wanda or sparsegpt, got: $PRUNER" >&2
+    exit 1
+    ;;
+esac
+# SparseGPT-only knobs (ignored by wanda), matching the sparsegpt split scripts.
+SCORE_METHOD="${SCORE_METHOD:-MEZO-GradOnly_sum}"
+MAX_SPARSITY_PER_LAYER="${MAX_SPARSITY_PER_LAYER:-0.6}"
+NUM_DATA_FIRST_STAGE="${NUM_DATA_FIRST_STAGE:-$NUM_DATA}"
 
 export ECOFLAP_BENCH_ROOT="${ECOFLAP_BENCH_ROOT:-$BASE}"
 export MMBENCH_ROOT="${MMBENCH_ROOT:-$BASE/MMBench_eval}"
@@ -178,16 +195,16 @@ RUN_EVAL="${RUN_EVAL:-1}"
 RUN_PRUNE_T5="${RUN_PRUNE_T5:-$RUN_PRUNE}"
 RUN_PRUNE_VIT="${RUN_PRUNE_VIT:-$RUN_PRUNE}"
 
-JID_T5="pure_wanda_${TEXT_TAG}_t5only_${JOB_STAMP}_seed${SEED}"
-JID_VIT="pure_wanda_${TEXT_TAG}_cc3m_image_vitonly_${JOB_STAMP}_seed${SEED}"
+JID_T5="${PRUNER_TAG}_${TEXT_TAG}_t5only_${JOB_STAMP}_seed${SEED}"
+JID_VIT="${PRUNER_TAG}_${TEXT_TAG}_cc3m_image_vitonly_${JOB_STAMP}_seed${SEED}"
 CKPT_T5="$REPO_ROOT/pruned_checkpoint/${JID_T5}.pth"
 CKPT_VIT="$REPO_ROOT/pruned_checkpoint/${JID_VIT}.pth"
-MERGED_CKPT="${MERGED_CKPT:-$REPO_ROOT/pruned_checkpoint/merged_pure_wanda_${TEXT_TAG}_t5_${JID_T5}__cc3m_image_vit_${JID_VIT}.pth}"
+MERGED_CKPT="${MERGED_CKPT:-$REPO_ROOT/pruned_checkpoint/merged_${PRUNER_TAG}_${TEXT_TAG}_t5_${JID_T5}__cc3m_image_vit_${JID_VIT}.pth}"
 
-METRICS_JSONL="${LAVIS_METRICS_JSONL:-$REPO_ROOT/lavis/output/BLIP2/pure_wanda_${TEXT_TAG}_t5_cc3m_image_vit_split_${JOB_STAMP}_seed${SEED}.jsonl}"
-SUMMARY_MD="${SUMMARY_MD:-$REPO_ROOT/lavis/output/BLIP2/pure_wanda_${TEXT_TAG}_t5_cc3m_image_vit_split_${JOB_STAMP}_seed${SEED}.md}"
-SUMMARY_TSV="${SUMMARY_TSV:-$REPO_ROOT/lavis/output/BLIP2/pure_wanda_${TEXT_TAG}_t5_cc3m_image_vit_split_${JOB_STAMP}_seed${SEED}.tsv}"
-EVAL_TAG="pure_wanda_${TEXT_TAG}_t5_cc3m_image_vit_${JOB_STAMP}_seed${SEED}"
+METRICS_JSONL="${LAVIS_METRICS_JSONL:-$REPO_ROOT/lavis/output/BLIP2/${PRUNER_TAG}_${TEXT_TAG}_t5_cc3m_image_vit_split_${JOB_STAMP}_seed${SEED}.jsonl}"
+SUMMARY_MD="${SUMMARY_MD:-$REPO_ROOT/lavis/output/BLIP2/${PRUNER_TAG}_${TEXT_TAG}_t5_cc3m_image_vit_split_${JOB_STAMP}_seed${SEED}.md}"
+SUMMARY_TSV="${SUMMARY_TSV:-$REPO_ROOT/lavis/output/BLIP2/${PRUNER_TAG}_${TEXT_TAG}_t5_cc3m_image_vit_split_${JOB_STAMP}_seed${SEED}.tsv}"
+EVAL_TAG="${PRUNER_TAG}_${TEXT_TAG}_t5_cc3m_image_vit_${JOB_STAMP}_seed${SEED}"
 EVAL_JOB_OKVQA="${EVAL_JOB_OKVQA:-okvqa_eval_${EVAL_TAG}_fullval}"
 
 CFG_WORK_DIR="${CFG_WORK_DIR:-$REPO_ROOT/lavis/output/BLIP2/runtime_cfgs}"
@@ -258,6 +275,10 @@ _preflight() {
     echo "[FATAL] C4_JSON not found: $C4_JSON" >&2
     exit 1
   fi
+  if [[ "$TEXT_SOURCE" == "okvqa" && ! -f "$OKVQA_TEXT_JSON" ]]; then
+    echo "[FATAL] OKVQA_TEXT_JSON not found: $OKVQA_TEXT_JSON (build it first)" >&2
+    exit 1
+  fi
   python - "$CC3M_JSON" "$CC3M_IMAGES" "$NUM_DATA" "$TEXT_SOURCE" <<'PY'
 import json
 import os
@@ -297,16 +318,23 @@ PY
 
 run_prune_t5_text_only() {
   local text_json
-  text_json="$C4_JSON"
-  if [[ "$TEXT_SOURCE" == "cc3m_caption" ]]; then
-    text_json="$CC3M_JSON"
-  fi
+  case "$TEXT_SOURCE" in
+    c4)           text_json="$C4_JSON" ;;
+    cc3m_caption) text_json="$CC3M_JSON" ;;
+    okvqa)        text_json="$OKVQA_TEXT_JSON" ;;
+  esac
 
   echo ""
-  echo ">>> [prune 1/2] pure Wanda | $TEXT_SOURCE text only | prune T5"
+  echo ">>> [prune 1/2] ${PRUNER} | $TEXT_SOURCE text only | prune T5"
   local extra=()
   if [[ "${T5_ENCODER_ONLY:-0}" == "1" ]]; then
     extra+=(--t5_c4_encoder_only)
+  fi
+  if [[ "$PRUNER" == "sparsegpt" ]]; then
+    extra+=(--importance_scope llm_only \
+            --score_method "$SCORE_METHOD" \
+            --max_sparsity_per_layer "$MAX_SPARSITY_PER_LAYER" \
+            --num_data_first_stage "$NUM_DATA_FIRST_STAGE")
   fi
   python evaluate_blip.py \
     --cfg-path "$RUNTIME_T5_CFG" \
@@ -314,7 +342,7 @@ run_prune_t5_text_only() {
     --prune_calib_mode t5_c4_text \
     --c4_calib_json "$text_json" \
     --no_prune_vit \
-    --pruning_method blipt5_wanda_pruner \
+    --pruning_method "$PRUNER_METHOD" \
     --t5_prune_spec "$T5_SPEC" \
     --num_data "$NUM_DATA" \
     --prunining_dataset_batch_size "$PRUNING_CALIB_BATCH" \
@@ -326,23 +354,32 @@ run_prune_t5_text_only() {
 
 run_prune_vit_cc3m_image_only() {
   echo ""
-  echo ">>> [prune 2/2] pure Wanda | CC3M images only | prune ViT"
+  echo ">>> [prune 2/2] ${PRUNER} | CC3M images only | prune ViT"
+  local extra=()
+  if [[ "$PRUNER" == "sparsegpt" ]]; then
+    extra+=(--importance_scope vit_only_encode \
+            --score_method "$SCORE_METHOD" \
+            --max_sparsity_per_layer "$MAX_SPARSITY_PER_LAYER" \
+            --num_data_first_stage "$NUM_DATA_FIRST_STAGE")
+  fi
   python -m torch.distributed.run --nproc_per_node=1 --master_port="$MASTER_PORT_VIT" evaluate_blip.py \
     --cfg-path "$RUNTIME_VIT_CFG" \
     --options "model.pretrained=${BLIP2_PRETRAINED}" \
     --prune_calib_mode vit_image_only \
     --no_prune_t5 \
-    --pruning_method blipt5_wanda_pruner \
+    --pruning_method "$PRUNER_METHOD" \
     --vit_prune_spec "$VIT_SPEC" \
     --num_data "$NUM_DATA" \
     --prunining_dataset_batch_size "$PRUNING_CALIB_BATCH" \
     --job_id "$JID_VIT" \
-    --save_pruned_model
+    --save_pruned_model \
+    "${extra[@]}"
   [[ -f "$CKPT_VIT" ]] || { echo "[FATAL] missing ViT ckpt after pruning: $CKPT_VIT" >&2; exit 1; }
 }
 
-echo "========== pure Wanda split: ${TEXT_SOURCE} -> T5 + CC3M images -> ViT =========="
+echo "========== ${PRUNER} split: ${TEXT_SOURCE} -> T5 + CC3M images -> ViT =========="
 echo "[INFO] REPO_ROOT=$REPO_ROOT"
+echo "[INFO] PRUNER=$PRUNER"
 echo "[INFO] TEXT_SOURCE=$TEXT_SOURCE"
 echo "[INFO] C4_JSON=$C4_JSON"
 echo "[INFO] CC3M_JSON=$CC3M_JSON"
