@@ -115,14 +115,21 @@ if [[ "$RUN_EXP2" == "1" ]]; then
   STATS_ARGS=()
   while IFS='|' read -r label cjson cimg; do
     [[ -z "${label// }" ]] && continue
+    if [[ -z "${cimg// }" ]]; then
+      # extract_wanda_statistics.py has only a MULTIMODAL forward (ViT ->
+      # Q-Former -> visual prefix + text) and hard-requires --images_dir, so a
+      # text-only source (C4) cannot go through it. The text-only L statistic
+      # for such a source is covered by Exp4 (--input_mode text_only) and by the
+      # real factorized masks in Exp1 -- skip it here rather than crash.
+      echo ">>> skip stat [$label]: text-only source, no images -> not applicable to Exp2."
+      continue
+    fi
     echo ">>> extract stat [$label]"
-    img_arg=(); [[ -n "${cimg// }" ]] && img_arg=(--images_dir "$cimg")
-    novit_arg=(); [[ -z "${cimg// }" ]] && novit_arg=(--no_vit)   # C4: no images
     python scripts/blip2/extract_wanda_statistics.py \
-      --label "$label" --calib_json "$cjson" "${img_arg[@]}" \
+      --label "$label" --calib_json "$cjson" --images_dir "$cimg" \
       --out_dir "$STATS_ROOT/$label" \
       --max_samples "$MAX_SAMPLES" --batch_size "$BATCH_SIZE" \
-      "${novit_arg[@]}" "${dense_stat_arg[@]}"
+      "${dense_stat_arg[@]}"
     STATS_ARGS+=(--stats "$label=$STATS_ROOT/$label")
   done <<< "$DATASETS"
 
