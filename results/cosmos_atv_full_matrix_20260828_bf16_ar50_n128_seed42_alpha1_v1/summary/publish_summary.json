@@ -1,0 +1,49 @@
+{
+  "method": "atv",
+  "run_root": "/private/workspace/hycui/Results/mfs/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1",
+  "tasks_complete": 29,
+  "eval_validations": 21,
+  "checkpoint_validations": 6,
+  "expected_sample_counts": {
+    "mmbench": 4329,
+    "mmmu": 900,
+    "okvqa": 5046
+  },
+  "scores_percent": {
+    "dense": {
+      "mmbench": 74.39862542955326,
+      "mmmu": 37.56,
+      "okvqa": 47.73285770907649
+    },
+    "joint_mmbench": {
+      "mmbench": 65.97938144329896,
+      "mmmu": 32.11,
+      "okvqa": 41.54577883472057
+    },
+    "joint_mmmu": {
+      "mmbench": 61.769759450171826,
+      "mmmu": 31.89,
+      "okvqa": 37.467300832342445
+    },
+    "joint_okvqa": {
+      "mmbench": 58.76288659793815,
+      "mmmu": 30.44,
+      "okvqa": 41.07808164883075
+    },
+    "separate_mmbench": {
+      "mmbench": 64.08934707903781,
+      "mmmu": 28.67,
+      "okvqa": 39.23900118906064
+    },
+    "separate_mmmu": {
+      "mmbench": 60.65292096219931,
+      "mmmu": 29.11,
+      "okvqa": 36.76971858898137
+    },
+    "separate_okvqa": {
+      "mmbench": 55.927835051546396,
+      "mmmu": 30.11,
+      "okvqa": 38.50574712643678
+    }
+  }
+}

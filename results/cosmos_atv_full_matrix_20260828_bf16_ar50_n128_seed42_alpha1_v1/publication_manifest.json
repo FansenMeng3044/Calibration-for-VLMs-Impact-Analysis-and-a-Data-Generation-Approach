@@ -1,0 +1,906 @@
+{
+  "file_count": 180,
+  "total_bytes": 81154618,
+  "files": [
+    {
+      "path": "cosmos_atv/MIGRATION_MEMO.md",
+      "size": 24071,
+      "sha256": "9f1ea298bd9fcbc86b76a0edbf46287e2e49d53e4c910d1ccccdb493de16d0a7"
+    },
+    {
+      "path": "cosmos_atv/README.md",
+      "size": 6247,
+      "sha256": "3887c3ee581e9398e614f299a678bd2b23b9fb4bc4e1ea3456906e7dbb91e6d1"
+    },
+    {
+      "path": "cosmos_atv/aggregate_matrix_results.py",
+      "size": 4181,
+      "sha256": "35bafa9dd669cac2445e5b5644555e12e836a4c5d6f3fedc570d9524177c07cf"
+    },
+    {
+      "path": "cosmos_atv/calibration_alignment.json",
+      "size": 2384,
+      "sha256": "6e743152dc36d0adacc406f7ef98fba28291815d4128404a00d15a206685b87d"
+    },
+    {
+      "path": "cosmos_atv/calibration_presets.json",
+      "size": 1958,
+      "sha256": "ace673c94eabcd3535d40f368b5d6ec8f49f9be5e1d89cac5b2e8689964eb8da"
+    },
+    {
+      "path": "cosmos_atv/cosmos_atv_prune.py",
+      "size": 72570,
+      "sha256": "05dec38eecfbafaf7706576edf62cfdd5c75caeea3920fd7002477ce019e5ee3"
+    },
+    {
+      "path": "cosmos_atv/cosmos_lmms_plugin/__init__.py",
+      "size": 55,
+      "sha256": "eeddcdcbb35b20b7ccbc048736158f79350b51cf1cd221031d668b8f81aacb91"
+    },
+    {
+      "path": "cosmos_atv/cosmos_lmms_plugin/models/__init__.py",
+      "size": 114,
+      "sha256": "5a467e4a80a4652403d5671666901299faf587836b9fef3e0e8c24fe44eafb67"
+    },
+    {
+      "path": "cosmos_atv/cosmos_lmms_plugin/models/cosmos3_edge.py",
+      "size": 10391,
+      "sha256": "51e6a9a5b65a01714897b96b82431ca88e50a69a31d9de4a7ae70cd98a3a1dd8"
+    },
+    {
+      "path": "cosmos_atv/cosmos_lmms_plugin/tasks/__init__.py",
+      "size": 73,
+      "sha256": "dbf3b65d657cbf0c062daf033dc032ba88781d094509c3b40e711cf1e11e6eac"
+    },
+    {
+      "path": "cosmos_atv/install_eval_deps.sh",
+      "size": 979,
+      "sha256": "e1ac7db1509ca4df562d8a03c8b61453aa077ea0c8f81e92193c07abf3dd3594"
+    },
+    {
+      "path": "cosmos_atv/preflight_three_datasets.sh",
+      "size": 673,
+      "sha256": "55fc56b6a6ebb2aa17c29011024d57c1713a6307adff492a3be4beeada4582a5"
+    },
+    {
+      "path": "cosmos_atv/prepare_full_matrix.py",
+      "size": 12153,
+      "sha256": "c967540eeb4c755209fc99929656c6e10b293a3b1e5dabe40f1080ad32825f1c"
+    },
+    {
+      "path": "cosmos_atv/run_full_matrix_task.py",
+      "size": 11447,
+      "sha256": "8ab6b90ada8d2fe8ff0612cf17430bf3035c987acda5d00b58543de1422d4f01"
+    },
+    {
+      "path": "cosmos_atv/run_full_matrix_worker.sh",
+      "size": 4023,
+      "sha256": "e9559e0e8c8ad01657250656a7198902c2ae680d2fcfb9967d53675a725376c7"
+    },
+    {
+      "path": "cosmos_atv/run_prune.sh",
+      "size": 1338,
+      "sha256": "c166938529cb0f5ff362c5209f4a84f7ee4ee6dfc70abac3afab195fb2a4e405"
+    },
+    {
+      "path": "cosmos_atv/run_smoke.sh",
+      "size": 1265,
+      "sha256": "cfa5bd2cb1aac2cde5d16127dbed5b0e4eefd99e03f99b026f5664acab6edf6d"
+    },
+    {
+      "path": "cosmos_atv/run_three_dataset_matrix.sh",
+      "size": 2092,
+      "sha256": "d9e73bcf66c1cb1ab43ef8b0bd0cb83cc0736b368f7988a2675396e9a2ef86dc"
+    },
+    {
+      "path": "cosmos_atv/run_three_eval.sh",
+      "size": 2609,
+      "sha256": "de3f859898eeb06ec0dae645c6e1fcc1c612fa84200d8dbfec00699873453a48"
+    },
+    {
+      "path": "cosmos_atv/test_atv_core.py",
+      "size": 3587,
+      "sha256": "ead1889ffe03677b4c7f8ffd44497c410eb6d1bc9fb8736cc86e074cfde243c1"
+    },
+    {
+      "path": "cosmos_atv/validate_atv_migration.py",
+      "size": 4855,
+      "sha256": "a558b49c7a941e05f79da5debd062dd65f4734130b811ea06dc2a0729be83441"
+    },
+    {
+      "path": "cosmos_atv/validate_calibration_alignment.py",
+      "size": 4485,
+      "sha256": "0bf280d09cf61832c76b7300ff6a051346aa9c5cb4d722bd645e49adecb8f1f8"
+    },
+    {
+      "path": "cosmos_atv/validate_cosmos_checkpoint.py",
+      "size": 16835,
+      "sha256": "f13adaa4af2d169ba3e081170d2377a21223eb7a94251847e227bed82abd5188"
+    },
+    {
+      "path": "cosmos_atv/validate_eval_output.py",
+      "size": 4283,
+      "sha256": "92b423239a5b9c32281e3fdbbc2886a86f9564bb18b8ca320c8a91e5b6560e49"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/controller/calibration_alignment.json",
+      "size": 2384,
+      "sha256": "6e743152dc36d0adacc406f7ef98fba28291815d4128404a00d15a206685b87d"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/controller/experiment.json",
+      "size": 13366,
+      "sha256": "3def1f503408ed954cbc420a20850a7070eb902385e4e8cefd5de57800ac677b"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmbench/.done_mmbench",
+      "size": 162,
+      "sha256": "2910c85817b33c812f861e68b760f642f0a08355d78a17551f429ea1bf22e144"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmbench/model__Cosmos3-Edge/20260828_181318_results.json",
+      "size": 3860,
+      "sha256": "645e3d99c3add86aa844aa4083aad1398183f012f9b57ecfacb8aa6a3d1c0ff0"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmbench/model__Cosmos3-Edge/20260828_181318_samples_mmbench_en_dev_local.jsonl",
+      "size": 6928007,
+      "sha256": "63680ddbeae96b9d89afe1e99e19bcad3b442342ef7dd386bf5fc688ce4a858d"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1295,
+      "sha256": "4965b5ca563f4b040e864585db3ca8ff60dc522c0a43d30386a3da7da4548a10"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 742915,
+      "sha256": "bced724b4c34bcac8744a8c125632ba7294f53d086e1c1d175c82773db9f4927"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmbench/validation_mmbench.json",
+      "size": 754,
+      "sha256": "21024939584cadb302517274113e50e17795b6c10d0e937de7855f0856afe620"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmmu/.done_mmmu",
+      "size": 156,
+      "sha256": "3b6dea706f7629f134c9af85aa259437c10a55fb9fa03193a9a2f118b3d61bf6"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmmu/model__Cosmos3-Edge/20260828_181333_results.json",
+      "size": 4022,
+      "sha256": "293701fc3acefb3b19264fb34e13614ea3636c63dab9f66725d5dafeecf75437"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmmu/model__Cosmos3-Edge/20260828_181333_samples_mmmu_val_local.jsonl",
+      "size": 799430,
+      "sha256": "e8362dfc8dfc977b1ca4c8fcd23a5b0fde7d971d70be77a92382eaf16b2bcbb1"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 32887,
+      "sha256": "09bbc71ebee4eb85f61880240fe915b74aaa573ff669b5075abdc31fd3bb3f4a"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 184028,
+      "sha256": "1d8690b4bf46c6e54877e27b1f2ee5ccc94db59e8004b9f6758bc4a8cb5eff64"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3555,
+      "sha256": "4c6d0afa1e228b9b0c53a86cb110e3f1dee881eb2ceac19dd08f30a8a8111cc8"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/mmmu/validation_mmmu.json",
+      "size": 716,
+      "sha256": "d6365a34497cdabb5f4fb7f3f916c9713f944bf1e3a53a573134b669d87f5572"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/okvqa/.done_okvqa",
+      "size": 158,
+      "sha256": "cffc96473c31a533a24b618bb796285d2dfb2dda18bee0a5c1eed5136c3c655d"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/okvqa/model__Cosmos3-Edge/20260828_181318_results.json",
+      "size": 3512,
+      "sha256": "94870ca212577b5c68e8d4cdc4b1bb9e827f9912dd15d63c3f33b4fa6e3a36de"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/okvqa/model__Cosmos3-Edge/20260828_181318_samples_okvqa_val2014_local.jsonl",
+      "size": 1720579,
+      "sha256": "1fb00f3b7a9267f365bd9691ca9c3fe5fc4ba81fb8537f36d1a6ee3cd2224bd5"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/okvqa/submissions/ok_vqa-test-submission-2026-0828-1823-07.json",
+      "size": 235979,
+      "sha256": "819cdb6682fcb047baec77e2c0010bc00b59a26fbbd666c5eaed8fd7f88f4191"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/dense/okvqa/validation_okvqa.json",
+      "size": 739,
+      "sha256": "2e95bcf8ebc01f8b21f8dbf9914304e398768ba935281193e1caeea6de47ea13"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmbench/.done_mmbench",
+      "size": 170,
+      "sha256": "c8d945b0f76bc901f4fc68cd239e80b71262fc2b313eb890647e0276d0ccd9b6"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmbench/mmbench__checkpoint/20260828_183410_results.json",
+      "size": 4037,
+      "sha256": "4872397d115093a628050b800f660358f5c7c7a0aca9c93a9b5c7a351288cd27"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmbench/mmbench__checkpoint/20260828_183410_samples_mmbench_en_dev_local.jsonl",
+      "size": 6930239,
+      "sha256": "785493d368e768a6996bcfeacbfa10a14d910607fb8e6850dc6fba8336910ff5"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1325,
+      "sha256": "b2add843390f650cff27e426b475c4433b83a4bd55b7135210d1cfc6c8f3d657"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 743100,
+      "sha256": "30749690901809c5282ae8fcae8c4a41821c10bc687594a15415e48ac9732f2f"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmbench/validation_mmbench.json",
+      "size": 778,
+      "sha256": "54ae3113cbe647b607592a3a744697f329a3086c6902deccb1b42c0d92c18bb0"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmmu/.done_mmmu",
+      "size": 164,
+      "sha256": "d7168e895a5de4511d42a4e16eb5e92792a0719a4b05df0be1baff87cf736e5d"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmmu/mmbench__checkpoint/20260828_183410_results.json",
+      "size": 4202,
+      "sha256": "bfa7aaf25f3d86b59f6f29c75fff88ac828f8860428d8606c252045beccb58c4"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmmu/mmbench__checkpoint/20260828_183410_samples_mmmu_val_local.jsonl",
+      "size": 803572,
+      "sha256": "ba0aacadf594c455c6ed788401318b7f9f6cb329462436cb8a47f79e6bab6a91"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 32846,
+      "sha256": "4e528568f7231c4841474eae0d2b9d9240d8cffa11298b4ce9d7b503a2ef86a3"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 185395,
+      "sha256": "1a7e858bcbb4517042f21a2b29ec526ef7d87a819b82dbfc472d533340251e1b"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3546,
+      "sha256": "8ec0a8fb9734fd2e63f0731f368ddd9b4371128f8d3febcf35bf10bdd5ccd1f4"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/mmmu/validation_mmmu.json",
+      "size": 740,
+      "sha256": "5dd923376962e98517371d9f0d4a20872c7a7edf69bb001a1ac46c2cbe94a039"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/okvqa/.done_okvqa",
+      "size": 166,
+      "sha256": "3fc2d103c8495eeba7a28b7fbac5d87ca006ead1fe90cfe299cf387c3e8e2cb6"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/okvqa/mmbench__checkpoint/20260828_183410_results.json",
+      "size": 3690,
+      "sha256": "03947e3b91f2d879aa5eee8650a70887addaa5d196a97e815e8661a4482ae132"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/okvqa/mmbench__checkpoint/20260828_183410_samples_okvqa_val2014_local.jsonl",
+      "size": 1723077,
+      "sha256": "59ca434fd3a2484b91c45ff335c94082fed34bb6f85d544728865cbfc4295a9e"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/okvqa/submissions/ok_vqa-test-submission-2026-0828-1850-07.json",
+      "size": 236762,
+      "sha256": "4724dc6e35ce9462c493d4372bc175f13376a3c3ed91a5c0eae3a09c4afa90b9"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmbench/okvqa/validation_okvqa.json",
+      "size": 763,
+      "sha256": "ff459e36b91b5d53e6c85afe15d07d6290ed9fa54426a052b8f5a3a0397fe003"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmbench/.done_mmbench",
+      "size": 167,
+      "sha256": "65788aa749f8fab6ba7d96257a2e14507155b6a179429980dc3c8a74fab6e11b"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmbench/mmmu__checkpoint/20260828_183410_results.json",
+      "size": 4031,
+      "sha256": "95781e91791e6150140f12362e2c355414fd92dcc243636aeda4e6777c11806c"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmbench/mmmu__checkpoint/20260828_183410_samples_mmbench_en_dev_local.jsonl",
+      "size": 6930155,
+      "sha256": "72fd96b4ca3dd1ed6c8fdc3dd5284328b9f6dee096b5be95f108ad9bb0e3d9b2"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1329,
+      "sha256": "9c24b8bb862f4e2efe853c2d7741ea4bc85e7a1423046191593d39280cda5c22"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 743216,
+      "sha256": "ab0fa847f273f3a9432190eb3f782b750170e5fb3e09f4c7cd0d8f4d428067b9"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmbench/validation_mmbench.json",
+      "size": 764,
+      "sha256": "2ba147f8942ce86775c19d407566f4ac25dde70eb9077467e8a3037f395903d7"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmmu/.done_mmmu",
+      "size": 161,
+      "sha256": "a68ec8333056ff546881e8e3e0e661b62d1f834d9082a195d1a1c3f2f9a9c810"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmmu/mmmu__checkpoint/20260828_183410_results.json",
+      "size": 4193,
+      "sha256": "8fb07adb792360cf1af135ea87aead61ca3cccd453742f4f9c45507045dc43a9"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmmu/mmmu__checkpoint/20260828_183410_samples_mmmu_val_local.jsonl",
+      "size": 807798,
+      "sha256": "57c1ce2d99913d4b3c822c0e7df02bfa5662253fcd81a7dd5eb0a68d20d51a8c"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 32940,
+      "sha256": "c77a6e793703486b161031efd59ac67476a44069f5c41c8a0c631deacdf199f8"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 186835,
+      "sha256": "e42f9efb5a0d6c269c7abdc395a4f0055a4c821a2b5ead4e5c45a187356c72be"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3544,
+      "sha256": "3f3b2ef98b1dd405d6efb7ba5f5750e1d99d438b5cf2b388c1b31bff46ef785f"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmmu/validation_mmmu.json",
+      "size": 725,
+      "sha256": "aa7bcb530ac2f57fd961221627b8b160b495e9548739adad559f11d128a16100"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/okvqa/.done_okvqa",
+      "size": 163,
+      "sha256": "d14805e760a03ac4580e1207612d9bfedfc379edfdacc37ef4d3e14428c81056"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/okvqa/mmmu__checkpoint/20260828_183428_results.json",
+      "size": 3684,
+      "sha256": "c965a300f04e14960d9e055bfce07b82502d03db4ec5c258698213831d7f7030"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/okvqa/mmmu__checkpoint/20260828_183428_samples_okvqa_val2014_local.jsonl",
+      "size": 1722937,
+      "sha256": "3c646e4bb87f9d17ae94b4772461bae8ba5bc6fa06128433a9da434652d4b08b"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/okvqa/submissions/ok_vqa-test-submission-2026-0828-1852-36.json",
+      "size": 236569,
+      "sha256": "20cc285a67272b486b673f2574feb4d2805a678c76050ad0a03c04c4e53c903e"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/okvqa/validation_okvqa.json",
+      "size": 748,
+      "sha256": "9462a28f981961bbd927ed5745854db042f1328b3adcae13bb64870a029b9f1e"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmbench/.done_mmbench",
+      "size": 168,
+      "sha256": "2e9309552ecc2cd7655d8b040329aed69568987c0b827b7ccb0e7212a9b4569e"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmbench/okvqa__checkpoint/20260828_183428_results.json",
+      "size": 4031,
+      "sha256": "57eb137d7afdeec3b349907abcd4c7d9f4c50af250fa9c364d23ce0635daad75"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmbench/okvqa__checkpoint/20260828_183428_samples_mmbench_en_dev_local.jsonl",
+      "size": 6981800,
+      "sha256": "26ffa83eaa520fb0db2e6f2a61377705a2bbc372f025d791af6f86f049fd00f5"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1313,
+      "sha256": "6fdec396fd0cd380acbe362115d224cec401e18922fdb6e9f061da039e1df2d3"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 748717,
+      "sha256": "e1695a1b5ed6c4edb39fcd7ddec524eb028626d9883196f1a7c823c7e0891b38"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmbench/validation_mmbench.json",
+      "size": 768,
+      "sha256": "eebb0727ffe332e386b4216d6f6fb7650ea2593bb19f2dff37559ba860f50f02"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmmu/.done_mmmu",
+      "size": 162,
+      "sha256": "9ed54d6e60ee70c51725b9ff8c0616905208c579b1832808c01fa0c3e64995e5"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmmu/okvqa__checkpoint/20260828_183428_results.json",
+      "size": 4194,
+      "sha256": "8cb451a9c9e2b6dd7bcc1e676c86e7b8dc229f8a63127133a56ce35df1b64292"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmmu/okvqa__checkpoint/20260828_183428_samples_mmmu_val_local.jsonl",
+      "size": 829474,
+      "sha256": "0952239da5fb9a344956531815be14f1c98f5194fefdec56efed06c747f94960"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 32828,
+      "sha256": "52abd8cd6d8a21bff496e5a5fcad1e3fdf746a6896ed220781b716df3c189b93"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 194023,
+      "sha256": "969e90ee4d880c3405bc19aad156d4a0671b97a9ad750d12435229452b3030d2"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3549,
+      "sha256": "2d91509824d62bac2002346d538339c1babc592818e66e03269ec6c742b2d77a"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/mmmu/validation_mmmu.json",
+      "size": 730,
+      "sha256": "d452c3d179ff924d0e9b5c94ae994284ef6724540800d8a123d948f1dcfed108"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/okvqa/.done_okvqa",
+      "size": 164,
+      "sha256": "bcd6454e1675e4eea4ccc1c2b26cb5efc4340884c8fd07eece310bcbc43d729d"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/okvqa/okvqa__checkpoint/20260828_183428_results.json",
+      "size": 3687,
+      "sha256": "ccabe7e92fd0bc5d1de070a179edcf92ec8fa18014b88cac44ee1888638a8b81"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/okvqa/okvqa__checkpoint/20260828_183428_samples_okvqa_val2014_local.jsonl",
+      "size": 1721252,
+      "sha256": "5171b5138ac943fda0f9ee6cb734339ab2bbcc45908db6fcbfc68fa262ced3b5"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/okvqa/submissions/ok_vqa-test-submission-2026-0828-1852-35.json",
+      "size": 235883,
+      "sha256": "17f55a97ee0036182a400ede8b33365c2388af7fdf3d77c772d63c5e5de77ce7"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_okvqa/okvqa/validation_okvqa.json",
+      "size": 753,
+      "sha256": "25450a6835edebe8ee0e85c2346fd069a2d57c96b9e156a65cfb388d7a54b10b"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmbench/.done_mmbench",
+      "size": 173,
+      "sha256": "c064b8a00186337a8b84352719931b6c105255c308d61632ca2e9b4ea984fd9d"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmbench/mmbench__checkpoint/20260828_183428_results.json",
+      "size": 4044,
+      "sha256": "953a7bf39513494b5ac0505b534b1d7ce1c48013b406aa0a6d2778ccf02664b4"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmbench/mmbench__checkpoint/20260828_183428_samples_mmbench_en_dev_local.jsonl",
+      "size": 6930548,
+      "sha256": "33a5998b2951f4f78248e2e6925317ec5a6cc7b6d42605f38d994a680a769f84"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1309,
+      "sha256": "929bbec61e2fa868e7573f55aea2b5c2a211468fb414c66cc17eb04d996c659e"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 743297,
+      "sha256": "94c8e3fe174d27c87cc7c7c914c1c971154010aed623d71a58ba17cf42a80cdf"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmbench/validation_mmbench.json",
+      "size": 787,
+      "sha256": "d1b6bc9e084138c4e72553c9b7120511e08406ffa27f305f1733f890b82bc85a"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmmu/.done_mmmu",
+      "size": 167,
+      "sha256": "e131e7643965f6d49deecbda6c1fb62436635ff83ccd09f0fdc0d97cf232b6a3"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmmu/mmbench__checkpoint/20260828_184413_results.json",
+      "size": 4208,
+      "sha256": "5fb5cd5e13c47910ff84dc0c9311a88ea61aa54c6f7ff8d958ea4a33cef8a440"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmmu/mmbench__checkpoint/20260828_184413_samples_mmmu_val_local.jsonl",
+      "size": 801165,
+      "sha256": "737cb3b35da0dc870a8b992a62530d3309c4d47ecb073f516fd579407e374aae"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 32877,
+      "sha256": "18eb6d2fb450baf81321d84ad5a8eafcdadbafb8ae9382ff645d439292fee6e1"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 184603,
+      "sha256": "4bf37ae94b3d4420aeecad3e2b8df76e1a08f098e1516b5d0faca3f53b4be8be"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3543,
+      "sha256": "01ed24bb926517b52b8f56c0a49a510fde4e560c7e62b7d02732185db2555fa4"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/mmmu/validation_mmmu.json",
+      "size": 749,
+      "sha256": "4f86ae62a4b8fd4deb343f55b7032010e2b7ee4912e3b77166c802fc66958286"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/okvqa/.done_okvqa",
+      "size": 169,
+      "sha256": "a0972a889847dba9f023aa27dad75d476a017da691c494ac89c589305fde864c"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/okvqa/mmbench__checkpoint/20260828_184413_results.json",
+      "size": 3696,
+      "sha256": "fc7930432c729cd425e5e9405ef2eb8d45c4eb21d453db3436a006a937a61bf2"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/okvqa/mmbench__checkpoint/20260828_184413_samples_okvqa_val2014_local.jsonl",
+      "size": 1724391,
+      "sha256": "e313049d6656e68d5b06868b2b02d246352571f61543096d1590a30e38114e49"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/okvqa/submissions/ok_vqa-test-submission-2026-0828-1856-25.json",
+      "size": 237248,
+      "sha256": "13167bfc402c770b33b4dfc3e9f6b6b4a8934771a6628364d1c5538fe804bcaf"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/okvqa/validation_okvqa.json",
+      "size": 772,
+      "sha256": "5812c3994c1318b80ed7fda1381395ad1ab48645c752522a81aa414b121ca475"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmbench/.done_mmbench",
+      "size": 170,
+      "sha256": "d89a1441a6868f08aa94db30dfb054029f9dcbd8ea039bccebfdb17f55f376f4"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmbench/mmmu__checkpoint/20260828_184609_results.json",
+      "size": 4037,
+      "sha256": "63d21ece378773b9b7c63bc34a940b6326006da989952c76db88256b90834f0e"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmbench/mmmu__checkpoint/20260828_184609_samples_mmbench_en_dev_local.jsonl",
+      "size": 6937199,
+      "sha256": "622a38b030d1cb191c1afcf5233ca250802dc3a5f8159efb9292716b8e3852e2"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1326,
+      "sha256": "62c9905f75ddc064b7a036b7de330bb0cc51d8d83d3558abb5111d159276a883"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 743801,
+      "sha256": "7f841e42ef762375b93d5add8127fe07bebec213095d218a88df6662a9575d4f"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmbench/validation_mmbench.json",
+      "size": 772,
+      "sha256": "db59d0dccf60ab27120997aabb493b4342db499d528ac852849c1c8d3364a68f"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmmu/.done_mmmu",
+      "size": 164,
+      "sha256": "afb024da2a48af6b6990b9f69b44036d8b31c7d1471629e630770e94420dc407"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmmu/mmmu__checkpoint/20260828_184640_results.json",
+      "size": 4200,
+      "sha256": "360962b90c0cec7020deddd2bbb684fa38c486be4522ae224f7de42db605c4a0"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmmu/mmmu__checkpoint/20260828_184640_samples_mmmu_val_local.jsonl",
+      "size": 813205,
+      "sha256": "65cc4765308f03d255a9279a6cf1fd7f1830d5fb390a0f32830d04a47ce0500f"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 33002,
+      "sha256": "4453822ca490c7b53c4d9c719a6309f10fa83404929cab21d94bd9dbf98142e1"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 188658,
+      "sha256": "3cdbcfd51ca3702161fe1df680f0756d441ca4096820322e5f1f24295a905af8"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3543,
+      "sha256": "002a151d97a10f40e5708ca846351e3a23f1688c8df8c54d4e9c401c15db78f5"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/mmmu/validation_mmmu.json",
+      "size": 734,
+      "sha256": "2b79d910b507acf8128a854da7e0fda80acd5c394938f449f14a4eacfd063167"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/okvqa/.done_okvqa",
+      "size": 166,
+      "sha256": "c8dee95ce1f34957221b242bdc8348ffb11bb444739098acd70b049db094b6b0"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/okvqa/mmmu__checkpoint/20260828_184640_results.json",
+      "size": 3688,
+      "sha256": "8636b3d230be849b742f866042f5b8c0379894836193ff7dc5a6ad09d64c9f07"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/okvqa/mmmu__checkpoint/20260828_184640_samples_okvqa_val2014_local.jsonl",
+      "size": 1727106,
+      "sha256": "9f322d0219f1c03968e556945a5e5b44ebb48bc16e8e834c5f39ac599f0c276e"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/okvqa/submissions/ok_vqa-test-submission-2026-0828-1858-00.json",
+      "size": 238465,
+      "sha256": "ca40a1dd2704517c73b60c5e43295923a785dbc67e931b1c7ed53fc45b792725"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmmu/okvqa/validation_okvqa.json",
+      "size": 757,
+      "sha256": "32a55a08931576b4f55de6f12cf00d522e8f1ee98f710b80bae7d6c0b90bab81"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmbench/.done_mmbench",
+      "size": 171,
+      "sha256": "e007cb969d9cadc7757738c978b649ff8073f71a4379b639df1440d8a782c660"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmbench/okvqa__checkpoint/20260828_184836_results.json",
+      "size": 4039,
+      "sha256": "db1244499ce824ae2dede6f370f7258dd784c57749389e5d710ad3d3215b6118"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmbench/okvqa__checkpoint/20260828_184836_samples_mmbench_en_dev_local.jsonl",
+      "size": 6990995,
+      "sha256": "8b3ce4a40ab98ec3027decc621ec01a320ca01412c9afbdad3acd215a067d7ba"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1329,
+      "sha256": "dc84d7c1c630391aff75ff70587f5c3307f5d00497187879e2b0bb02f6161933"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 747848,
+      "sha256": "53be8e08fe6a5cfe764cbe3179f74978398037fefd4192ca3cb1ad1e9efbeccf"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmbench/validation_mmbench.json",
+      "size": 778,
+      "sha256": "a72e9a926e749a4e4ff809264e8d78a59256ea4f7d12b0a59e3ede71842b9b86"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmmu/.done_mmmu",
+      "size": 165,
+      "sha256": "5561506624562e58ab1cb39d34c8b10ea26ebdf112c847552c0d6dd12bbb3ff9"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmmu/okvqa__checkpoint/20260828_184840_results.json",
+      "size": 4200,
+      "sha256": "4fdd64ec73068b06453da4d178e3e5c84bf7600fa9091fa0d246c462a413970d"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmmu/okvqa__checkpoint/20260828_184840_samples_mmmu_val_local.jsonl",
+      "size": 834247,
+      "sha256": "a6481d1ab11ae3337f6aa282dfc748540fb7c27d36e451399b20d7780e35662c"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 32975,
+      "sha256": "07d106b5eb5d5dd7c07e1bbe18b0d7df7006ab432537ff29dc11f4b8ac1a93c1"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 195663,
+      "sha256": "cae37e48f0e30fd79b70d1637b0c88b5ab0a2db8f326b0e74c4bacfa20283a5c"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3548,
+      "sha256": "29c6f479fc3c1617ddf9057b9b19ea73c61b1fade079230a6ed2a9fd5fbc230b"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/mmmu/validation_mmmu.json",
+      "size": 739,
+      "sha256": "9b015adeba539acc470f9cf901ed8117a3dcc4b7c7259105e295dbd9566d152d"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/okvqa/.done_okvqa",
+      "size": 167,
+      "sha256": "4deff25e6e2240da23c23d0b9c440e5a113ffcb2bcec9d96f24fc68dca108a87"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/okvqa/okvqa__checkpoint/20260828_185009_results.json",
+      "size": 3690,
+      "sha256": "33ce972d53b442cde6ecf445f3cecafecb347553db85e5a053d99b7324829774"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/okvqa/okvqa__checkpoint/20260828_185009_samples_okvqa_val2014_local.jsonl",
+      "size": 1728209,
+      "sha256": "0789e5393a4600d1f18c17be06b3cf5fd81633e373261d0ba58a3ed7d39ef76e"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/okvqa/submissions/ok_vqa-test-submission-2026-0828-1901-04.json",
+      "size": 238910,
+      "sha256": "c280ef301c9e73f52191f1bb8fa476d1471891252b0456ff545c5d2120779a7b"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_okvqa/okvqa/validation_okvqa.json",
+      "size": 762,
+      "sha256": "048322620342e5ccac54e1af439dc558ff8a90052d0c0f22b461321a859af301"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/mmbench/.checkpoint_validated",
+      "size": 168,
+      "sha256": "709a4557421d9114432eaec3eab44fdedcbd94bf625dc384391be5b615867a1a"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/mmbench/checkpoint_validation.json",
+      "size": 1622,
+      "sha256": "0b1576fb82a09e72afe08735a807b9f74cff1b6033fd00eb90b80db78b41afbe"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/mmbench/metadata.json",
+      "size": 1544019,
+      "sha256": "a0788403e5b18852a33842b106f54e33329201a36489f7528dbaa8a30584c259"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/mmbench/state.json",
+      "size": 522,
+      "sha256": "e6ff8751986984dad1e0d6959391cdfca7ac62a6dd21f2bae758465c3655eb84"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/mmmu/.checkpoint_validated",
+      "size": 165,
+      "sha256": "765bb59a7234103f0445e9f922cad04732898512e306ce3a20d6e95a23cc061f"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/mmmu/checkpoint_validation.json",
+      "size": 1607,
+      "sha256": "35ec26ce290dcb5882b3e94955b87d6fd25fe7d8fab887902f7e481234569f4e"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/mmmu/metadata.json",
+      "size": 1350326,
+      "sha256": "68be5d22767687c59a96b302dd03c41b7bed3754feaefb1e7b858eac29625f69"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/mmmu/state.json",
+      "size": 515,
+      "sha256": "e79d6cd407fbc4bff917eee387f826e23d648bbfc9300e9e698c7c772eef8d88"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/okvqa/.checkpoint_validated",
+      "size": 166,
+      "sha256": "c509ff1513dcc04176d325e740fc63a158929f1e4be12fd94e0c269e616d8374"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/okvqa/checkpoint_validation.json",
+      "size": 1606,
+      "sha256": "238c3c97a1d613de92d8ec6206906f179da59c45cd9e7e336ac75af86201ea48"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/okvqa/metadata.json",
+      "size": 995231,
+      "sha256": "e44065e8fd29c2b2eec229d0cd85be22ca8a89b9ed7f7ba756e7542f5a268619"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/joint/okvqa/state.json",
+      "size": 517,
+      "sha256": "cc0becada321ff04acdffc15e3191b639d98acc87f0b526cd13da7f79d0623bc"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/mmbench/.checkpoint_validated",
+      "size": 171,
+      "sha256": "b82bf1478d9287666e54cce622f30ad386b99664cf522ab33e159ca0176a17f7"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/mmbench/checkpoint_validation.json",
+      "size": 1622,
+      "sha256": "567a301e75bb875f0c8582cba4df85bf43f24c5ffd29a5f9f608958ccafb7624"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/mmbench/metadata.json",
+      "size": 691291,
+      "sha256": "b61c5812b4de4e519360d8e768dab72091562d0ffa07b7d2e14c5de48dfb4e38"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/mmbench/state.json",
+      "size": 540,
+      "sha256": "4ecf81f824e9459e61d256fd02f11eddcef0be7a6dad2cbc9535a04ecbe0cfd6"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/mmmu/.checkpoint_validated",
+      "size": 168,
+      "sha256": "9d650cf3544962f2d151ad754baadac545ea826c5b3a50f9bedf826eab051bc9"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/mmmu/checkpoint_validation.json",
+      "size": 1610,
+      "sha256": "4452a53d2fefda31d241f33942b7bd82903420973e6420f5aeaff38c3d23690d"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/mmmu/metadata.json",
+      "size": 687440,
+      "sha256": "246e992aa0a06afedaab80d73482b17a29ee9f6da1ad8eaa1f8c525c906ff850"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/mmmu/state.json",
+      "size": 532,
+      "sha256": "fdda5f51e532e15144d7ac04e38ba9a0b66bcff307e87323af4102e1d0db3b7a"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/okvqa/.checkpoint_validated",
+      "size": 169,
+      "sha256": "26b7464c05d3d07106229463932414f55ffad9f2a5c650b51ad10ab8d00bfa5e"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/okvqa/checkpoint_validation.json",
+      "size": 1614,
+      "sha256": "e8ab2b9aeaf434d39e4c869d6dd142abc0208e719ed7a5af900425035c2e4689"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/okvqa/metadata.json",
+      "size": 687156,
+      "sha256": "e56b52d7a5afee619e636c0f9340413443ab275b8e80e7f8aef06e3d03824469"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/okvqa/state.json",
+      "size": 536,
+      "sha256": "91d6f637d11f6f8e5cc364b0a9b1f327c8abe8558440bd282bc908f24f750898"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/summary/RESULTS.md",
+      "size": 1342,
+      "sha256": "535fcd2754e2ff5ab2f26e5ca2435e9c2d6aaedb9b6c97b71558b634d70af053"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/summary/cosmos_atv_6x3_plus_dense.csv",
+      "size": 5669,
+      "sha256": "757311851ee09f2eec5e2fb0b05cee9be59636ab88b69bb35fc1eaabe6cc224b"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/summary/cosmos_atv_6x3_plus_dense.json",
+      "size": 24749,
+      "sha256": "298ac1eab64225423dc83c45805ff415f64ff225e1c18bb619716a2aea802e82"
+    },
+    {
+      "path": "results/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/summary/publish_summary.json",
+      "size": 1172,
+      "sha256": "464f110da2de4a2f6e556f10e080b47d90e9d7b5722cf98d2a69b28a6b7db881"
+    }
+  ]
+}

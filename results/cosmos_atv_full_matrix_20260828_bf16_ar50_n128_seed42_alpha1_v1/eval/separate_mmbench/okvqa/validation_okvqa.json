@@ -1,0 +1,12 @@
+{
+  "benchmark": "okvqa",
+  "task": "okvqa_val2014_local",
+  "output_dir": "/private/workspace/hycui/Results/mfs/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/okvqa",
+  "results_path": "/private/workspace/hycui/Results/mfs/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/okvqa/mmbench__checkpoint/20260828_184413_results.json",
+  "samples_path": "/private/workspace/hycui/Results/mfs/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/separate_mmbench/okvqa/mmbench__checkpoint/20260828_184413_samples_okvqa_val2014_local.jsonl",
+  "sample_count": 5046,
+  "expected_count": 5046,
+  "metric_key": "exact_match,none",
+  "metric_value": 0.3923900118906064,
+  "validated": true
+}

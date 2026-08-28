@@ -1,0 +1,10 @@
+{
+  "phase": "complete",
+  "protocol": "cosmos_atv_separate_textonly_reasoner",
+  "started_unix": 1787912845.3965256,
+  "completed_unix": 1787912981.1594067,
+  "elapsed_seconds": 135.76288104057312,
+  "metadata_path": "/private/workspace/hycui/Results/mfs/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/okvqa/metadata.json",
+  "checkpoint_path": "/private/workspace/hycui/Results/mfs/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/pruning/separate/okvqa/checkpoint",
+  "pid": 770682
+}

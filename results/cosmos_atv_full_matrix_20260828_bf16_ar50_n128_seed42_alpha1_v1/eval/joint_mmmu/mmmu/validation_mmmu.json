@@ -1,0 +1,12 @@
+{
+  "benchmark": "mmmu",
+  "task": "mmmu_val_local",
+  "output_dir": "/private/workspace/hycui/Results/mfs/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmmu",
+  "results_path": "/private/workspace/hycui/Results/mfs/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmmu/mmmu__checkpoint/20260828_183410_results.json",
+  "samples_path": "/private/workspace/hycui/Results/mfs/cosmos_atv_full_matrix_20260828_bf16_ar50_n128_seed42_alpha1_v1/eval/joint_mmmu/mmmu/mmmu__checkpoint/20260828_183410_samples_mmmu_val_local.jsonl",
+  "sample_count": 900,
+  "expected_count": 900,
+  "metric_key": "exact_match_score,none",
+  "metric_value": 31.89,
+  "validated": true
+}

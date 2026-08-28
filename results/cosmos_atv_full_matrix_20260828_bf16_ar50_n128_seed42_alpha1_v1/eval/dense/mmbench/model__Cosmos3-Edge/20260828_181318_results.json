@@ -1,0 +1,128 @@
+{
+  "results": {
+    "mmbench_en_dev_local": {
+      "alias": "mmbench_en_dev_local",
+      "exact_match_score,none": 74.39862542955326,
+      "exact_match_score_stderr,none": "N/A",
+      "submission,none": null,
+      "submission_stderr,none": "N/A"
+    }
+  },
+  "group_subtasks": {
+    "mmbench_en_dev_local": []
+  },
+  "configs": {
+    "mmbench_en_dev_local": {
+      "task": "mmbench_en_dev_local",
+      "dataset_path": "parquet",
+      "dataset_kwargs": {
+        "data_files": {
+          "dev": "/private/workspace/hycui/project/Tamp/MMBench_eval/en/dev-00000-of-00001.parquet"
+        }
+      },
+      "test_split": "dev",
+      "full_docs": false,
+      "process_results_use_image": false,
+      "doc_to_visual": "<function mmbench_doc_to_visual at 0x7f430c4ca0c0>",
+      "doc_to_text": "<function mmbench_doc_to_text at 0x7f430c4c8cc0>",
+      "doc_to_target": "answer",
+      "process_results": "<function mmbench_process_results at 0x7f430c4c85e0>",
+      "description": "",
+      "target_delimiter": " ",
+      "fewshot_delimiter": "\n\n",
+      "num_fewshot": 0,
+      "metric_list": [
+        {
+          "metric": "exact_match_score",
+          "aggregation": "<function mmbench_aggregate_dev_results_exact at 0x7f430c4caac0>",
+          "higher_is_better": true
+        },
+        {
+          "metric": "submission",
+          "aggregation": "<function mmbench_aggregate_dev_results_submission at 0x7f430c4cb100>",
+          "higher_is_better": true
+        }
+      ],
+      "output_type": "generate_until",
+      "generation_kwargs": {
+        "until": [
+          "ASSISTANT:"
+        ],
+        "max_new_tokens": 32,
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "num_beams": 1,
+        "do_sample": false
+      },
+      "repeats": 1,
+      "should_decontaminate": false,
+      "metadata": {
+        "version": 0.0,
+        "sys_prompt": "There are several options:",
+        "gpt_eval_model_name": "gpt-4o-2024-11-20"
+      },
+      "lmms_eval_specific_kwargs": {
+        "default": {
+          "pre_prompt": "",
+          "post_prompt": "\nAnswer with the option's letter from the given choices directly."
+        },
+        "pre_prompt": "",
+        "post_prompt": "\nAnswer with the option's letter from the given choices directly."
+      },
+      "model_specific_generation_kwargs": {
+        "llava": {
+          "image_aspect_ratio": "original"
+        }
+      }
+    }
+  },
+  "versions": {
+    "mmbench_en_dev_local": 0.0
+  },
+  "n-shot": {
+    "mmbench_en_dev_local": 0
+  },
+  "higher_is_better": {
+    "mmbench_en_dev_local": {
+      "exact_match_score": true,
+      "submission": true
+    }
+  },
+  "n-samples": {
+    "mmbench_en_dev_local": {
+      "original": 4329,
+      "effective": 4329
+    }
+  },
+  "config": {
+    "model": "cosmos3_edge",
+    "model_args": "pretrained=/private/workspace/hycui/model/Cosmos3-Edge,device=cuda:0,dtype=bfloat16,attn_implementation=eager,max_length=4096,min_image_pixels=65536,max_image_pixels=1048576,enable_thinking=false",
+    "batch_size": "1",
+    "batch_sizes": [],
+    "device": null,
+    "use_cache": null,
+    "limit": null,
+    "bootstrap_iters": 100000,
+    "gen_kwargs": "",
+    "random_seed": 0,
+    "numpy_seed": 1234,
+    "torch_seed": 1234,
+    "fewshot_seed": 1234
+  },
+  "git_hash": null,
+  "date": "20260828_181318",
+  "task_hashes": {
+    "mmbench_en_dev_local": "953557a1594339c1b61d4c9ea9144d0b068199e0188376e59d0b3cf8a454f305"
+  },
+  "model_source": "cosmos3_edge",
+  "model_name": "/private/workspace/hycui/model/Cosmos3-Edge",
+  "model_name_sanitized": "model__Cosmos3-Edge",
+  "system_instruction": null,
+  "system_instruction_sha": null,
+  "fewshot_as_multiturn": false,
+  "chat_template": null,
+  "chat_template_sha": null,
+  "start_time": 22232220.763326038,
+  "end_time": 22232521.202952288,
+  "total_evaluation_time_seconds": "300.43962625041604"
+}

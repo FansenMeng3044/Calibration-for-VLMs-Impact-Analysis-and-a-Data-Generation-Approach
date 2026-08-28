@@ -1,0 +1,34 @@
+{
+  "overall_acc": 0.6176975945017182,
+  "category_acc": {
+    "action_recognition": 0.7592592592592593,
+    "attribute_comparison": 0.6363636363636364,
+    "attribute_recognition": 0.8513513513513513,
+    "celebrity_recognition": 0.5656565656565656,
+    "function_reasoning": 0.6455696202531646,
+    "future_prediction": 0.325,
+    "identity_reasoning": 0.9555555555555556,
+    "image_emotion": 0.62,
+    "image_quality": 0.6415094339622641,
+    "image_scene": 0.9519230769230769,
+    "image_style": 0.7169811320754716,
+    "image_topic": 0.8055555555555556,
+    "nature_relation": 0.16666666666666666,
+    "object_localization": 0.5679012345679012,
+    "ocr": 0.6410256410256411,
+    "physical_property_reasoning": 0.49333333333333335,
+    "physical_relation": 0.7083333333333334,
+    "social_relation": 0.813953488372093,
+    "spatial_relationship": 0.15555555555555556,
+    "structuralized_imagetext_understanding": 0.23076923076923078
+  },
+  "l2_category_acc": {
+    "attribute_reasoning": 0.6582914572864321,
+    "coarse_perception": 0.7804054054054054,
+    "finegrained_perception (cross-instance)": 0.5314685314685315,
+    "finegrained_perception (instance-level)": 0.6484641638225256,
+    "logic_reasoning": 0.2627118644067797,
+    "relation_reasoning": 0.5217391304347826
+  },
+  "scoring": "local_exact_choice_no_api"
+}

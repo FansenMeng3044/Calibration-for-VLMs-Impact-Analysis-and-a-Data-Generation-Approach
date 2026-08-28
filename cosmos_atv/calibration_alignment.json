@@ -1,0 +1,43 @@
+{
+  "preset_file": "/private/workspace/hycui/mfs/cosmos_atv/calibration_presets.json",
+  "preset_sha256": "ace673c94eabcd3535d40f368b5d6ec8f49f9be5e1d89cac5b2e8689964eb8da",
+  "nsamples": 128,
+  "datasets": {
+    "mmbench": {
+      "joint_separate_text_matches": 128,
+      "separate_verification_text_matches": 128,
+      "joint_verification_image_path_matches": 128,
+      "separate_ar_has_no_images": true,
+      "source_sha256": {
+        "/private/workspace/hycui/mfs/calibration_sharegpt4v/mmbench_calibration_sharegpt4v.json": "5dee35b5f4e740d4cca1511603e3032ba4db31123079da6e158e65a90021b692",
+        "/private/workspace/hycui/mfs/mmbench_20260626_181458_seed42_text_only.json": "8eff5899eb33aaffe9906214607e90b45c542a6013fd17388abe9bac148a0e64"
+      },
+      "first_joint_sample_id": "mmbench_calibration_sharegpt4v:mmbench_000000",
+      "first_image": "/private/workspace/hycui/mfs/mmbench/images/dev_241.jpg"
+    },
+    "mmmu": {
+      "joint_separate_text_matches": 128,
+      "separate_verification_text_matches": 128,
+      "joint_verification_image_path_matches": 128,
+      "separate_ar_has_no_images": true,
+      "source_sha256": {
+        "/private/workspace/hycui/mfs/calibration_sharegpt4v/mmmu_calibration_sharegpt4v.json": "520b4659cf6db95601f8d04280101e0d5c2ad8a6b548edbacf8f2084087a98b8",
+        "/private/workspace/hycui/mfs/mmmu_20260626_181458_seed42_text_only.json": "a01ca178d2051bd4529476cce4ee334ef91495c1e7e92e6dfab610460e0a9ed8"
+      },
+      "first_joint_sample_id": "mmmu_calibration_sharegpt4v:mmmu_000000",
+      "first_image": "/private/workspace/hycui/mfs/mmmu/images/Accounting_dev_Accounting_1.png"
+    },
+    "okvqa": {
+      "joint_separate_text_matches": 128,
+      "separate_verification_text_matches": 128,
+      "joint_verification_image_path_matches": 128,
+      "separate_ar_has_no_images": true,
+      "source_sha256": {
+        "/private/workspace/hycui/mfs/calibration_sharegpt4v/okvqa_calibration_sharegpt4v.json": "e3ac224d3e4177de875b02dab373da1728919b2716bf3be5691f2aeccabcea8c",
+        "/private/workspace/hycui/mfs/okvqa_20260626_181458_seed42_text_only.json": "50dbfb381c8100159cf47ee937f3ddd17ba6d5947458c109fd35b6b0f7442dc0"
+      },
+      "first_joint_sample_id": "okvqa_calibration_sharegpt4v:516065",
+      "first_image": "/private/workspace/hycui/mfs/okvqa/train2014/COCO_train2014_000000051606.jpg"
+    }
+  }
+}
