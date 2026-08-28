@@ -1,0 +1,49 @@
+{
+  "method": "sparsegpt",
+  "run_root": "/private/workspace/hycui/Results/mfs/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive",
+  "tasks_complete": 29,
+  "eval_validations": 21,
+  "checkpoint_validations": 6,
+  "expected_sample_counts": {
+    "mmbench": 4329,
+    "mmmu": 900,
+    "okvqa": 5046
+  },
+  "scores_percent": {
+    "dense": {
+      "mmbench": 74.39862542955326,
+      "mmmu": 37.56,
+      "okvqa": 47.73285770907649
+    },
+    "joint_mmbench": {
+      "mmbench": 63.05841924398625,
+      "mmmu": 31.56,
+      "okvqa": 38.36305984938564
+    },
+    "joint_mmmu": {
+      "mmbench": 56.70103092783505,
+      "mmmu": 30.56,
+      "okvqa": 33.55132778438367
+    },
+    "joint_okvqa": {
+      "mmbench": 47.508591065292094,
+      "mmmu": 26.11,
+      "okvqa": 39.73840665873959
+    },
+    "separate_mmbench": {
+      "mmbench": 63.144329896907216,
+      "mmmu": 30.89,
+      "okvqa": 36.32976615140706
+    },
+    "separate_mmmu": {
+      "mmbench": 56.529209621993125,
+      "mmmu": 28.22,
+      "okvqa": 31.858898137138326
+    },
+    "separate_okvqa": {
+      "mmbench": 11.597938144329897,
+      "mmmu": 27.33,
+      "okvqa": 20.760998810939356
+    }
+  }
+}

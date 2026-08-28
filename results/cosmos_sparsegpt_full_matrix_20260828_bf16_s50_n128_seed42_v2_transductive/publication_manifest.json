@@ -1,0 +1,901 @@
+{
+  "file_count": 179,
+  "total_bytes": 80051185,
+  "files": [
+    {
+      "path": "cosmos_sparsegpt/MIGRATION_MEMO.md",
+      "size": 30822,
+      "sha256": "e7e593c942bc04759486a012a8d3a663447e58f668651f00311571686f93ca45"
+    },
+    {
+      "path": "cosmos_sparsegpt/README.md",
+      "size": 6398,
+      "sha256": "a64ddca7bb322764c6a37a061af28278b592cace93e70996b7cfd965878b21fc"
+    },
+    {
+      "path": "cosmos_sparsegpt/aggregate_matrix_results.py",
+      "size": 3088,
+      "sha256": "84245e4df1b982f50deed0407947fbd6257636c4ce9672ad335d6d1394a5a284"
+    },
+    {
+      "path": "cosmos_sparsegpt/calibration_presets.json",
+      "size": 1973,
+      "sha256": "8a60c5e6d81649f1135d567b1abb416d93b3fe587ab9d000439081506f2f6c82"
+    },
+    {
+      "path": "cosmos_sparsegpt/cosmos_lmms_plugin/__init__.py",
+      "size": 55,
+      "sha256": "eeddcdcbb35b20b7ccbc048736158f79350b51cf1cd221031d668b8f81aacb91"
+    },
+    {
+      "path": "cosmos_sparsegpt/cosmos_lmms_plugin/models/__init__.py",
+      "size": 114,
+      "sha256": "5a467e4a80a4652403d5671666901299faf587836b9fef3e0e8c24fe44eafb67"
+    },
+    {
+      "path": "cosmos_sparsegpt/cosmos_lmms_plugin/models/cosmos3_edge.py",
+      "size": 10391,
+      "sha256": "51e6a9a5b65a01714897b96b82431ca88e50a69a31d9de4a7ae70cd98a3a1dd8"
+    },
+    {
+      "path": "cosmos_sparsegpt/cosmos_lmms_plugin/tasks/__init__.py",
+      "size": 73,
+      "sha256": "dbf3b65d657cbf0c062daf033dc032ba88781d094509c3b40e711cf1e11e6eac"
+    },
+    {
+      "path": "cosmos_sparsegpt/cosmos_sparsegpt_prune.py",
+      "size": 63675,
+      "sha256": "e6b72224468ba546fbad699bf037b8eda505ca3d9a6cb7cdb6a40a833828117d"
+    },
+    {
+      "path": "cosmos_sparsegpt/install_eval_deps.sh",
+      "size": 979,
+      "sha256": "e1ac7db1509ca4df562d8a03c8b61453aa077ea0c8f81e92193c07abf3dd3594"
+    },
+    {
+      "path": "cosmos_sparsegpt/preflight_three_datasets.sh",
+      "size": 691,
+      "sha256": "c7fffc6cb0fb76927cc9e42ed9061ea00a77c7948ff9b8593b63be4eb68d7c22"
+    },
+    {
+      "path": "cosmos_sparsegpt/prepare_full_matrix.py",
+      "size": 13653,
+      "sha256": "85fa24b22daedf9e15620d36b7af43e56f852e03dac4060996c16531e10a3c96"
+    },
+    {
+      "path": "cosmos_sparsegpt/run_full_matrix_task.py",
+      "size": 10234,
+      "sha256": "0dfb0e6f04ae68a9564352b785e92047c25d271a181f854504cea1514a24b59b"
+    },
+    {
+      "path": "cosmos_sparsegpt/run_full_matrix_worker.sh",
+      "size": 4029,
+      "sha256": "0a0815f7dfe906df5ef12fb166ce5e695dd950125f4400bfeb10bd3499f616e6"
+    },
+    {
+      "path": "cosmos_sparsegpt/run_prune.sh",
+      "size": 1354,
+      "sha256": "b4933fdff6c1006b9f31141733a3ec2b70d6eab7b87349da7d34f42534afb4d2"
+    },
+    {
+      "path": "cosmos_sparsegpt/run_smoke.sh",
+      "size": 1397,
+      "sha256": "d3ea59a242f01a2a5af4ad960a316fc6dbe0212e7ab67fcbf180fab020a5ee95"
+    },
+    {
+      "path": "cosmos_sparsegpt/run_three_dataset_matrix.sh",
+      "size": 2006,
+      "sha256": "2c9fcb62e19cdea107dc45f375666fa5c1c2646f370ce899506ffb565790761b"
+    },
+    {
+      "path": "cosmos_sparsegpt/run_three_eval.sh",
+      "size": 4618,
+      "sha256": "ae3971a47fc5c88d9627c338a10325adb50c30d50f88e57581e86323ba54e796"
+    },
+    {
+      "path": "cosmos_sparsegpt/sparsegpt_core.py",
+      "size": 13814,
+      "sha256": "64d7cee1e6e575387d9752ba43538010ff0449d9c013c49131e0f6e203a3348f"
+    },
+    {
+      "path": "cosmos_sparsegpt/test_sparsegpt_core.py",
+      "size": 1902,
+      "sha256": "175183cc77cffeb273e4aecad0a4fb1cb96894f70bfcfb3b3fd5b409a42f0a6e"
+    },
+    {
+      "path": "cosmos_sparsegpt/validate_calibration_alignment.py",
+      "size": 4120,
+      "sha256": "17c69a7ad126e102cb3c534814a7c2760acd188f3f316337965f67d52e716b50"
+    },
+    {
+      "path": "cosmos_sparsegpt/validate_cosmos_checkpoint.py",
+      "size": 12333,
+      "sha256": "4b0daacda8bc05d91c8badf109ee3ae614e8e7e9bebc87465dbc8809d839ccbe"
+    },
+    {
+      "path": "cosmos_sparsegpt/validate_eval_output.py",
+      "size": 4283,
+      "sha256": "92b423239a5b9c32281e3fdbbc2886a86f9564bb18b8ca320c8a91e5b6560e49"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/controller/calibration_alignment.json",
+      "size": 2706,
+      "sha256": "65cc62173a30ed97939e3578d4a637592ecb398f15e3ea58505a1831702e4e0e"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/controller/experiment.json",
+      "size": 13929,
+      "sha256": "8b5e0c8218741de2f3f7aa89b0295380934384d732cdf496e6033c4726fce481"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmbench/.done_mmbench",
+      "size": 173,
+      "sha256": "638a00466e0c30e571c486f21b40163401c7ee73ec79a66ea26d7bd94bd785e0"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmbench/model__Cosmos3-Edge/20260828_164435_results.json",
+      "size": 3859,
+      "sha256": "add1f915fc0ea55abeebe5d4353c6e8a434d72a14942f112fa34cb8611980275"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmbench/model__Cosmos3-Edge/20260828_164435_samples_mmbench_en_dev_local.jsonl",
+      "size": 6928007,
+      "sha256": "63680ddbeae96b9d89afe1e99e19bcad3b442342ef7dd386bf5fc688ce4a858d"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1295,
+      "sha256": "4965b5ca563f4b040e864585db3ca8ff60dc522c0a43d30386a3da7da4548a10"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 742920,
+      "sha256": "00b634fad9354500cbfa1b15cf20c6213d0107bafab96eb139b5e2a87c69df72"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmbench/validation_mmbench.json",
+      "size": 787,
+      "sha256": "ef401dc7ccd8da88852ea50d0321efccc8d11dce8289adb87a5fb5d8a561dd92"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmmu/.done_mmmu",
+      "size": 167,
+      "sha256": "e61d646ba1328c083d25dbcf26750fc023de342704778a4de581e8c3f74b1852"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmmu/model__Cosmos3-Edge/20260828_164435_results.json",
+      "size": 4022,
+      "sha256": "ee752dc1d54af2403cfbda64de865c85d2869260f9d977fb1c60e56f3bf2e219"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmmu/model__Cosmos3-Edge/20260828_164435_samples_mmmu_val_local.jsonl",
+      "size": 799396,
+      "sha256": "2dd20a3fe79c55dd247b6cc02c6203967d4a816139e598a3c2406c76a16d893b"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 32870,
+      "sha256": "6079374bb72b5a6f4f77e10cbf87b8deca6f910fb14c58211f3ab10899e15441"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 184011,
+      "sha256": "e77223ee26c865c6ad6cdcff5dc0df3d0cc717264f52863004b2f4244d8790c2"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3555,
+      "sha256": "4c6d0afa1e228b9b0c53a86cb110e3f1dee881eb2ceac19dd08f30a8a8111cc8"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/mmmu/validation_mmmu.json",
+      "size": 749,
+      "sha256": "20590f5bbad105e6d9e13bfe9c2a7580a4ff985e71d743863211ec33e6fcc2c3"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/okvqa/.done_okvqa",
+      "size": 169,
+      "sha256": "dad883fc274e9ca04d522649e08d754bcd0108111b069ad6cd46afc7eb7fa06d"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/okvqa/model__Cosmos3-Edge/20260828_164435_results.json",
+      "size": 3511,
+      "sha256": "36719761e7f8305d37eca1cb30961c5318ecc0e21f7c1d27018e961e20364dd7"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/okvqa/model__Cosmos3-Edge/20260828_164435_samples_okvqa_val2014_local.jsonl",
+      "size": 1720579,
+      "sha256": "1fb00f3b7a9267f365bd9691ca9c3fe5fc4ba81fb8537f36d1a6ee3cd2224bd5"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/okvqa/submissions/ok_vqa-test-submission-2026-0828-1654-19.json",
+      "size": 235979,
+      "sha256": "819cdb6682fcb047baec77e2c0010bc00b59a26fbbd666c5eaed8fd7f88f4191"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/dense/okvqa/validation_okvqa.json",
+      "size": 772,
+      "sha256": "abad2f5d7beab457c1bbe4deab6eacd3997500541b6f017914d00caa20eeafd4"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmbench/.done_mmbench",
+      "size": 181,
+      "sha256": "4bc28c4d34e559028b31b9c8f9aaa8205d611fa0fa1681960b253b6b12353f6e"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmbench/mmbench__checkpoint/20260828_165756_results.json",
+      "size": 4061,
+      "sha256": "84142719966bb84343b708f49043610b024e910925a35f00c7f945793b75f8d2"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmbench/mmbench__checkpoint/20260828_165756_samples_mmbench_en_dev_local.jsonl",
+      "size": 6930113,
+      "sha256": "b312ecb7a47e74b646a28d3aaae77b846955272949b75439fb6f4e0d338b693f"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1299,
+      "sha256": "d220eef3bdecca900831436ddcafdf16b87e23c6c7ddd27b8e2d09b14649c574"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 743099,
+      "sha256": "4f00b51c86ecf5a5d9143e960484d8d4e88aef1ec9e1a2242cde1e77094972c0"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmbench/validation_mmbench.json",
+      "size": 811,
+      "sha256": "befc775df45b53aa062698da5d6ce2aeaff410bcc034360d8dce21361171de3f"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmmu/.done_mmmu",
+      "size": 175,
+      "sha256": "c9ae1377380005671d50c26ac48a94527f9513333616c54da7590c926d718c73"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmmu/mmbench__checkpoint/20260828_165756_results.json",
+      "size": 4221,
+      "sha256": "a42f1cb40b24d86d5bf2b289f49fd772f1928d86b8ca639aa67ff24634cef367"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmmu/mmbench__checkpoint/20260828_165756_samples_mmmu_val_local.jsonl",
+      "size": 800431,
+      "sha256": "ed06de665b9a14464b02cbf39a9b43062aef84dac5134dd90ff56de1dc0380aa"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 33143,
+      "sha256": "af853b1abb86f68ae4b1a5c191861a3f073279fff61422eda70e5fcf1c3c5d7d"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 184447,
+      "sha256": "e17c3e3520117e5065000f4b26a20111f7f12a02b0e1737362d83d2420b48361"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3550,
+      "sha256": "5e58f7cecf415e8feac331c527b513ab21b9d09e70cb822062dce3638a5e0c28"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/mmmu/validation_mmmu.json",
+      "size": 773,
+      "sha256": "ee2990f6ba68d727e9a9346c5e5a05392a96beb4a29afd915e69a1b9f22e739e"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/okvqa/.done_okvqa",
+      "size": 177,
+      "sha256": "d3838d7cb9bbb8cee8ef5d611bfb20fab317d0b32097889905aec38e13ad2fc8"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/okvqa/mmbench__checkpoint/20260828_165756_results.json",
+      "size": 3715,
+      "sha256": "a57e356aaa3d0dd3b2f48d8b38d7188fdd7b985f5588be2b6110578ee59c0ad2"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/okvqa/mmbench__checkpoint/20260828_165756_samples_okvqa_val2014_local.jsonl",
+      "size": 1724638,
+      "sha256": "38fc53aa527a6d527a631de1e48dc0220ef82abc60edb076f95ef5baf388eee7"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/okvqa/submissions/ok_vqa-test-submission-2026-0828-1717-54.json",
+      "size": 237335,
+      "sha256": "84bda5155bff5c87b8f253a4c4c61989b592b63e518a286420f3a22c587f0c63"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmbench/okvqa/validation_okvqa.json",
+      "size": 797,
+      "sha256": "d4e3484392e3920cccc70ed872ba78753d1ca82df723326328e374c3864ff99f"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmbench/.done_mmbench",
+      "size": 178,
+      "sha256": "4052b9f7a9116585ce91eaaeccf807d2797fafcadec0125b1f86dae370efe2d6"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmbench/mmmu__checkpoint/20260828_170051_results.json",
+      "size": 4052,
+      "sha256": "87ea067cf79b88eaba1bb6ee4efac28a90821c8a52881537696e2a4b48536cf7"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmbench/mmmu__checkpoint/20260828_170051_samples_mmbench_en_dev_local.jsonl",
+      "size": 6930677,
+      "sha256": "65cb8970d257a59ee2217b7674873b5255954557bda93457f2829f09702fc720"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1301,
+      "sha256": "5e60c42f50d31e22761d2a63470e0d4e27e571c5c75f1fbdbcdd03cddef7bc19"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 743433,
+      "sha256": "e46d12c3c7fca4fed6deb4236a2d006969d94763c41d69b981651e41f9933fd7"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmbench/validation_mmbench.json",
+      "size": 796,
+      "sha256": "b876d0bf33591fff5c36142ba47c058a82507ab8051e25c80ffc452d3fb6fb57"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmmu/.done_mmmu",
+      "size": 172,
+      "sha256": "38eaa44eed59bb98482cd55e414c62e389dccb823b487c466dff6fd85d1ddeff"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmmu/mmmu__checkpoint/20260828_170615_results.json",
+      "size": 4215,
+      "sha256": "ce05658a752c542feb22cade7d19aca1500b3bd61763980b1b6012069b45e476"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmmu/mmmu__checkpoint/20260828_170615_samples_mmmu_val_local.jsonl",
+      "size": 817714,
+      "sha256": "90744882e03b17f48b5364dcc383786e2f0efa168f516cca4d0d16b6bfb02cea"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 33059,
+      "sha256": "d7f9381361510daa0742f63cbc969224551cdce139cce0ced998c94883ed3819"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 190180,
+      "sha256": "6dbed6cbcd37f017a86227a2c09313c64e8511aff47c16ce10b2459ce6f3f282"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3546,
+      "sha256": "020a4a05d52c7d8ac55c3a27a7caee709bebdc215ab8d91c4c6ca3e9ecb69556"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/mmmu/validation_mmmu.json",
+      "size": 758,
+      "sha256": "153433beb7eef6e49c357dbfa5d11f23475f5e2c78800579fb1d63fd5f0001a8"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/okvqa/.done_okvqa",
+      "size": 174,
+      "sha256": "6b7f091390f6334c3e81371d424f5389c0988f48f66a769777f3a90a080876d1"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/okvqa/mmmu__checkpoint/20260828_170615_results.json",
+      "size": 3703,
+      "sha256": "d6ed57ef13e3d24d5dfe291d469f6771ccc76efcc6b7550d0644e1d248cf1008"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/okvqa/mmmu__checkpoint/20260828_170615_samples_okvqa_val2014_local.jsonl",
+      "size": 1728948,
+      "sha256": "9482e3195330ed1e78af5e59c47737e6b4226ed4740eb40a826f984c8cb0e3e9"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/okvqa/submissions/ok_vqa-test-submission-2026-0828-1723-57.json",
+      "size": 239164,
+      "sha256": "23facb0c30b615c4a5b575675f5bc895ec70fe6b4b8fa64af8d480ce28efd265"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_mmmu/okvqa/validation_okvqa.json",
+      "size": 781,
+      "sha256": "4803f52bbec9c3b7d66735d4b0ee365c1fa18e414c1d1b19d5a6c61eeddfd304"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmbench/.done_mmbench",
+      "size": 179,
+      "sha256": "8f288a8cd19788d1fc617319cfeb55f063b9345f90f501533503a38f49ada356"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmbench/okvqa__checkpoint/20260828_165756_results.json",
+      "size": 4055,
+      "sha256": "99d253a3375249c69dbf1ecdbbf425ef3dca30531db351de10b233b22adb52a5"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmbench/okvqa__checkpoint/20260828_165756_samples_mmbench_en_dev_local.jsonl",
+      "size": 6958103,
+      "sha256": "9f3c5ef1f9c7b2a75c2b2831ce06a10fa8cbad3b8c5f635b15b0d0efbf4b4162"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1320,
+      "sha256": "98e5ac79445879ed8e81062f7df0326fe41b3e75da262f0f995d4f3c35118387"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 746573,
+      "sha256": "0556d3b1b90a28cfc86c1a84443e4ae83329addbbd5deb5b950b7bb3a7aa8f6f"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmbench/validation_mmbench.json",
+      "size": 802,
+      "sha256": "01a7996c69184dcd9caf60c471d5af9216fc2fcfd484bf12288548557e06a2ea"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmmu/.done_mmmu",
+      "size": 173,
+      "sha256": "fb14286180e2aa70cf6593efa0c57ed2317b4204fa9641ea224b5603f6c77c48"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmmu/okvqa__checkpoint/20260828_165756_results.json",
+      "size": 4218,
+      "sha256": "9c3b6f6b21446450312cff85f480c999a5f95cbecc73a16d863f90f01ee19905"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmmu/okvqa__checkpoint/20260828_165756_samples_mmmu_val_local.jsonl",
+      "size": 818713,
+      "sha256": "597f833700c1d38da3dd46534f593cfc2032d71423414a52b7f35b22b5d8c003"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 33032,
+      "sha256": "71ea04cd1d0cc2e5b20f112e15c8f157358fe8c1efff268093c64d5883bc56dd"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 190504,
+      "sha256": "85f82154b67b15c010b6b5313557d51d618c84750d65e831fda8a3b8ecc8c662"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3539,
+      "sha256": "35d2c5d1f778de7922e6defb0270be52425f1691f046fb411f37493f800cb2d1"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/mmmu/validation_mmmu.json",
+      "size": 763,
+      "sha256": "230f62d63c34c7ed701efe5a9b7e4b549e36b0662b61f9c2e87fc8de9a362955"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/okvqa/.done_okvqa",
+      "size": 175,
+      "sha256": "9bacfafbb34c743cf85c8303ec8fac14d1055cf77c2078cb04c07b8ee07553d7"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/okvqa/okvqa__checkpoint/20260828_165850_results.json",
+      "size": 3708,
+      "sha256": "ffa753f22c733f1c661c59952519b547e4133ead937f658b58b3d616a04de342"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/okvqa/okvqa__checkpoint/20260828_165850_samples_okvqa_val2014_local.jsonl",
+      "size": 1719555,
+      "sha256": "1201b9e29402c0609d164411bcfeb2f633699777d82fe2324747e2626b6ee783"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/okvqa/submissions/ok_vqa-test-submission-2026-0828-1713-10.json",
+      "size": 234906,
+      "sha256": "33b9814fc334244d53295b58b88cb81ead4950207d0bde6eb2c569a44472fb03"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/joint_okvqa/okvqa/validation_okvqa.json",
+      "size": 787,
+      "sha256": "e093ac6c3708984572638c6c7bcbcc338a0bcdc713fdcdaeccedb86e7a2df0b3"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmbench/.done_mmbench",
+      "size": 184,
+      "sha256": "3109b0b64f6bd7d36599b3371b9aec37add909fa9062ec93a21d808a831f54ea"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmbench/mmbench__checkpoint/20260828_165952_results.json",
+      "size": 4068,
+      "sha256": "f8ab41b692b2452fef0d15b29b18564dc95c6f1842b86c1161c038aab8a7c8f1"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmbench/mmbench__checkpoint/20260828_165952_samples_mmbench_en_dev_local.jsonl",
+      "size": 6928040,
+      "sha256": "9b33dbd6fdf30e0e083464de6cae2ad08bf1eba4c95ea3bba9a3bf97ad351c19"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1310,
+      "sha256": "be06dd7ecf8efb48f7c984142827d61f60c83467b6dcc94c22977a20c8f01f9a"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 743039,
+      "sha256": "8e0d331ab318754afaa31e711c75d00f5ce4490386a2bd9350c6062b2fbe93bf"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmbench/validation_mmbench.json",
+      "size": 821,
+      "sha256": "2ad7a9f940e22d1b2f01b26e1cf946ad76bb9f8ea4bb37fc522df613983239bf"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmmu/.done_mmmu",
+      "size": 178,
+      "sha256": "a51f257a8e86b5a15978d5fcd62e766c891a6c77e59250a39956f6fc2cf99401"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmmu/mmbench__checkpoint/20260828_165952_results.json",
+      "size": 4231,
+      "sha256": "e7b4c0481d3edb94fb9fd1ed9a6dd2ad8cf38c382b11f74f77cd730e0f016847"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmmu/mmbench__checkpoint/20260828_165952_samples_mmmu_val_local.jsonl",
+      "size": 807787,
+      "sha256": "5faedcbba4c6a69caad28a32a7a883e74212fe0b3612762ad3390803c2f12f65"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 33155,
+      "sha256": "fc389eb1eda28fd4e21a474b8e1e353d6f7c5ddb5ba87e1b562e3928e0209ebb"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 186903,
+      "sha256": "968ffa68a27903d497afbcb74d6801fb46bcefa94e24eae32f7a07ef52d169c8"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3546,
+      "sha256": "e3bc86657f32f192b56963232e0a77cfdd60ca25e94eca7bb6b59c68ad07c52d"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/mmmu/validation_mmmu.json",
+      "size": 782,
+      "sha256": "70c29b7b94b945c2220e2098b29b92c95f29b509a20bd2ff5dc242daad0bcd36"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/okvqa/.done_okvqa",
+      "size": 180,
+      "sha256": "41eb02e65fe8e7b87e89dbf3dd4920aebb42885bc051a3a10210febf2930acb2"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/okvqa/mmbench__checkpoint/20260828_170037_results.json",
+      "size": 3721,
+      "sha256": "aa01fc812f0832f5428ffb2864ec6a4d57513b75bc3813d3ab9fcf9a53d3bc17"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/okvqa/mmbench__checkpoint/20260828_170037_samples_okvqa_val2014_local.jsonl",
+      "size": 1727463,
+      "sha256": "585262f482d59ab479744befa2e8111dca3be0bed2fb4378858fb418de672910"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/okvqa/submissions/ok_vqa-test-submission-2026-0828-1714-21.json",
+      "size": 238549,
+      "sha256": "8dbc6a8343b14077f4dd89a26657c7954b8b98bef70dc1713e5ae5acde8fe933"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmbench/okvqa/validation_okvqa.json",
+      "size": 806,
+      "sha256": "24ea461f26b18054036db78f2307ff04a35f0065157a86dfd48b324015c901da"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmbench/.done_mmbench",
+      "size": 181,
+      "sha256": "af076321a57ac9fdcade240c3d641565716425c308530aa455d681c183352f25"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmbench/mmmu__checkpoint/20260828_170816_results.json",
+      "size": 4058,
+      "sha256": "69560d83fa126069f0c3c20e0a29534e1dab907b1ac8d030daadb7c91289c7cf"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmbench/mmmu__checkpoint/20260828_170816_samples_mmbench_en_dev_local.jsonl",
+      "size": 6930671,
+      "sha256": "682bb5ec670831f1dcd550a38c9765586760185c071f54cd833bc71b97449496"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1302,
+      "sha256": "1671c94ecc620de93596f39894203c67f171cc6c095cc3bfb7fec347cbf6fd24"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 743329,
+      "sha256": "c071147ea10a0747531461e5dfc8b5d59d22a54e60bc3071eae21def3ee0ab07"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmbench/validation_mmbench.json",
+      "size": 806,
+      "sha256": "198955f5a613f4fcc10d502e3b18657a9e8f295c8ceea9de57dfaed04b1f21d6"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmmu/.done_mmmu",
+      "size": 175,
+      "sha256": "cf2af228deb32fd9482a0e0b6a87e74a0577b44e5abdce9d36abb36964ffb243"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmmu/mmmu__checkpoint/20260828_171000_results.json",
+      "size": 4221,
+      "sha256": "38d5c21cbb8221b2a08edf5995f02e469ace984f5ff63f4d0234e483044534a9"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmmu/mmmu__checkpoint/20260828_171000_samples_mmmu_val_local.jsonl",
+      "size": 815415,
+      "sha256": "3d288ab8d498306928108c64540d1f9454a56699158ec7a8fd812a004dd7ccf0"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 33099,
+      "sha256": "9d2db4cb9e6111a069c94a875c2a5dbd98314d86985aca56a22a88c03c4f289b"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 189427,
+      "sha256": "09f7b7d13d6c9f60f2151f1e288326a9ae62a39985855bea2fc2fb367c7fe9cc"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3543,
+      "sha256": "48419f9dc002ef48aa97646b34d80c1ef18e2d636df511acfdfb443cd07e51b4"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/mmmu/validation_mmmu.json",
+      "size": 767,
+      "sha256": "8ac8192db601cc60b5d8cee22a9737cacd8d818fd6467ce9ddaaeafd8e8f5f0c"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/okvqa/.done_okvqa",
+      "size": 177,
+      "sha256": "15e636cc8bb0c4630f13aa9309e6e67f7a6087135d88b2e00965d4ba276fd5fb"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/okvqa/mmmu__checkpoint/20260828_171127_results.json",
+      "size": 3710,
+      "sha256": "8889ab0b6ca9970c4b8640606515a57ae45de792073926eb0a4f0504bb1d0bbb"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/okvqa/mmmu__checkpoint/20260828_171127_samples_okvqa_val2014_local.jsonl",
+      "size": 1731507,
+      "sha256": "09d5afa525be554731f4317085f511c51a9bb93a6f43573bdbf306b06b3597f3"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/okvqa/submissions/ok_vqa-test-submission-2026-0828-1726-15.json",
+      "size": 240392,
+      "sha256": "fa9b065696b9b87da06dd475d78b97e88c8b7d6bf19d5dc6a9beb2ca3df75155"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_mmmu/okvqa/validation_okvqa.json",
+      "size": 791,
+      "sha256": "cf37385bc5344362eefc2dea33757196126edea57d106a7998b5102f430e4105"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmbench/.done_mmbench",
+      "size": 182,
+      "sha256": "2514703337082d4daf75284cdd3571260c7d4d3dab940d83cba0b31f36f69f08"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmbench/okvqa__checkpoint/20260828_171151_results.json",
+      "size": 4061,
+      "sha256": "046c73830b871b140e1258ae0c98e82570d03f38b39bf2750f458d6774539aff"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmbench/okvqa__checkpoint/20260828_171151_samples_mmbench_en_dev_local.jsonl",
+      "size": 7652312,
+      "sha256": "3c01fc01c10652c14b96fc0f31b6726084eba421806b5c517da9b2caa482b7f3"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmbench/submissions/mmbench_en_dev_local_results.json",
+      "size": 1317,
+      "sha256": "9b3e86079e82291c9c1bf5328dbc3d0fa79ff354e5a2930ac26dff3e928365fe"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmbench/submissions/mmbench_en_dev_local_results.xlsx",
+      "size": 835379,
+      "sha256": "f0656c86da914375b61e42f6990f70710f00322c95c0498670782f2e80921402"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmbench/validation_mmbench.json",
+      "size": 811,
+      "sha256": "4661857f1436275a09e4af921cfebb324bec13b2f55de3ee5010b1cf7a3d13dd"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmmu/.done_mmmu",
+      "size": 176,
+      "sha256": "e0a6874c27700faa098c397f7ec08dc4f49bd4a999e1a43148afd484a8a5b7e6"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmmu/okvqa__checkpoint/20260828_171235_results.json",
+      "size": 4222,
+      "sha256": "88e9d4a5edb31a474ae3b4609ba7a58aa18d89e87617cd4df6572c5c92c23ea0"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmmu/okvqa__checkpoint/20260828_171235_samples_mmmu_val_local.jsonl",
+      "size": 894801,
+      "sha256": "585f8df37a58d24683c3d22cce5cca5c5584202fd66aa0b0f5aa2d214769e597"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmmu/submissions/mmmu_val_local_predictions.json",
+      "size": 33477,
+      "sha256": "a031283903bdf02b75fc0f154961be5badfd7ac3c8c8b70f649b0e58c2ed6ee5"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmmu/submissions/mmmu_val_local_records.json",
+      "size": 216015,
+      "sha256": "82e32717b3729e424f73d94d115d3253c6315e0f93c6cefdaf1bde385fc52359"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmmu/submissions/mmmu_val_local_scores.json",
+      "size": 3539,
+      "sha256": "7d174f48c7046003d709d2c5dc0fd00e8c553638d4b4b720fe69abaff8c49d18"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/mmmu/validation_mmmu.json",
+      "size": 772,
+      "sha256": "a39f2bd84388189dd1cba4c6507ab25462cfec41cc5da3e548dc1a013e497f59"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/okvqa/.done_okvqa",
+      "size": 178,
+      "sha256": "84cc92954c7ff45fb7bcd35c74a0f0179bc0f55e8389e88f4a8dc2cf35e0dac5"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/okvqa/okvqa__checkpoint/20260828_171339_results.json",
+      "size": 3716,
+      "sha256": "e6ccc62c332a43257e7e04c4fe300f74ae79d67ad48d3eb817e8217124c25452"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/okvqa/okvqa__checkpoint/20260828_171339_samples_okvqa_val2014_local.jsonl",
+      "size": 1842238,
+      "sha256": "1d683b0925758ba4e27d2224a66baa82dc5d95955e895b43e63dae3212b3bbc6"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/okvqa/submissions/ok_vqa-test-submission-2026-0828-1731-50.json",
+      "size": 290392,
+      "sha256": "d4f3e3d5297cea75dfb9c009a3b80ab17ed96e3bebedd77d24016b05fe4b16a5"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/eval/separate_okvqa/okvqa/validation_okvqa.json",
+      "size": 796,
+      "sha256": "27afac82ca0cf1cd6b8b0f1289217385f2eb01c9fe884e2abfee2fa418c0b662"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/mmbench/.checkpoint_validated",
+      "size": 179,
+      "sha256": "8f4452e4600319ffc82c44548e665d596ea850a76cfd3c2861ba8c6429a3ee52"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/mmbench/checkpoint_validation.json",
+      "size": 1187,
+      "sha256": "947bd28f2bd533f2244d14f99575c657a937eca732947b9686d349c11f8818ee"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/mmbench/metadata.json",
+      "size": 649937,
+      "sha256": "d8cb1e3136ba6e521d020f6cbcb3ef356ef616e754e24e09dfdb7632e8834c0d"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/mmbench/state.json",
+      "size": 547,
+      "sha256": "3fcda320a20ec69263bd375b6992d1e043acc06fa23372a60bb233a25657b9d8"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/mmmu/.checkpoint_validated",
+      "size": 176,
+      "sha256": "2eca766a4cbe09ef27f510c8261b8c78b31f14bbbc91917e063398ad9dc12615"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/mmmu/checkpoint_validation.json",
+      "size": 1172,
+      "sha256": "bf5057955e8ecbd2cceb2f0d02d2c30558d10cebb6532dda0d020d4250dee94f"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/mmmu/metadata.json",
+      "size": 648292,
+      "sha256": "7a639cc222f66c28b0d1ecdd2c1e29fcd98e8944159619cf3a39a63369ee7bbb"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/mmmu/state.json",
+      "size": 542,
+      "sha256": "ec4aadfafee2e5bf5d885047fcf1b0a37958ea068387e1553ea3112fb6808810"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/okvqa/.checkpoint_validated",
+      "size": 177,
+      "sha256": "ea859f6b826b85b4c0fdf5253976939ebdafa5f4047fed4440e433bf2e90377c"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/okvqa/checkpoint_validation.json",
+      "size": 1171,
+      "sha256": "1c2c6867e48a6666df1a97f8f46317c4584d45f12ebd0568728c43dde09f795f"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/okvqa/metadata.json",
+      "size": 645678,
+      "sha256": "0450d9e1574c6bb2bef5b57b276135baeecc477abf16eefaee322e811d6b76f9"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/okvqa/state.json",
+      "size": 546,
+      "sha256": "f3012237ff9d0d48f1b90610aa720842f1740f0e332b8775ddf78f108486dc20"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/mmbench/.checkpoint_validated",
+      "size": 182,
+      "sha256": "63c1a9f9a2b868a4bd206c6a3dce73a0c66098684cc0c1c85274c364103f34e9"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/mmbench/checkpoint_validation.json",
+      "size": 1187,
+      "sha256": "b615776000cb016350283efd1f21d9878c10c7f6bab345daf44ab2ce9ffc21a9"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/mmbench/metadata.json",
+      "size": 642356,
+      "sha256": "8b1fa09dbe193d953ff4af5bc2b9b51b1efc18f86c3873565f5a3bf8eb977f5d"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/mmbench/state.json",
+      "size": 560,
+      "sha256": "5fe072a01b7d585e4c2d183db5a6f65a4892b3f62638f538a4c5f21ea158de30"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/mmmu/.checkpoint_validated",
+      "size": 179,
+      "sha256": "b050a5410262f02f843b16978663463d99c735ae05a5e9badeb0f6d22c141b1e"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/mmmu/checkpoint_validation.json",
+      "size": 1175,
+      "sha256": "834f68c4b466e5aee717a9cde3412c5b9ad27de23ae5c87c003c3f9ade22135b"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/mmmu/metadata.json",
+      "size": 642623,
+      "sha256": "7aad8b5b893d5fa22bd5d1e1c84bc1d75503ee39340ad25657838e3d26b60ab9"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/mmmu/state.json",
+      "size": 552,
+      "sha256": "37125c2ce5fedb9bab202bc2b65aaad3bff13a8e996128cdf16d55489570d57c"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/okvqa/.checkpoint_validated",
+      "size": 180,
+      "sha256": "b43cb281ee55f85b24e3cf57b9e534b1047ed0fc3ecd8ed2fe68960b236b81c8"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/okvqa/checkpoint_validation.json",
+      "size": 1179,
+      "sha256": "5af18c6295c2627237d0256d993be03475f42f36bf8a9c0fb39379595b4a82fb"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/okvqa/metadata.json",
+      "size": 643324,
+      "sha256": "8e615315568e56aca65954b531c98093a4c471c5684de1c1ae934ef776f0b89a"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/okvqa/state.json",
+      "size": 555,
+      "sha256": "8c0a71bfb5dd808d7820af069a85619a65070ac74df279e98d94134a0492f7b7"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/summary/RESULTS.md",
+      "size": 1347,
+      "sha256": "529fc52147f7a4bdbeaba0b2c6a964a777942c2d456a7b961fbb493704aaf5ae"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/summary/cosmos_sparsegpt_6x3_plus_dense.csv",
+      "size": 5015,
+      "sha256": "fa812ccbca04fa94dbf09727c7b82d0c4b71b741d2970323cefccf30d515603d"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/summary/cosmos_sparsegpt_6x3_plus_dense.json",
+      "size": 18877,
+      "sha256": "7dc8071238d72d7751b85aa537e18c6298242028011b4f9f5e15bd015504f564"
+    },
+    {
+      "path": "results/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/summary/publish_summary.json",
+      "size": 1192,
+      "sha256": "afb3fd0df58fa8acd8014bd3b80477dcd96fa9885aa72e16139976f49f8dad86"
+    }
+  ]
+}

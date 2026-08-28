@@ -1,0 +1,46 @@
+{
+  "run_dir": "/private/workspace/hycui/Results/mfs/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/okvqa",
+  "checkpoint": "/private/workspace/hycui/Results/mfs/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/joint/okvqa/checkpoint",
+  "protocol": "joint",
+  "preset": "okvqa",
+  "partial_run": false,
+  "reload_zero_report": {
+    "vision": {
+      "parameters": 411070464,
+      "zeros": 205535232,
+      "zero_ratio": 0.5
+    },
+    "ar": {
+      "parameters": 1409286144,
+      "zeros": 704643072,
+      "zero_ratio": 0.5
+    },
+    "combined_target_linears": {
+      "parameters": 1820356608,
+      "zeros": 910178304,
+      "zero_ratio": 0.5
+    }
+  },
+  "reload_multimodal_verification": {
+    "sample_id": "okvqa_calibration_sharegpt4v:516065",
+    "token_counts": {
+      "valid": 330,
+      "language": 30,
+      "image": 300,
+      "video": 0
+    },
+    "forward_calls": {
+      "vision": 1,
+      "projector": 1,
+      "ar": 1
+    },
+    "logits_shape": [
+      1,
+      1,
+      131072
+    ],
+    "logits_finite": true
+  },
+  "checkpoint_bytes": 4888464477,
+  "validated": true
+}

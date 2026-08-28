@@ -1,0 +1,10 @@
+{
+  "phase": "complete",
+  "protocol": "cosmos_sparsegpt_separate_reasoner",
+  "started_unix": 1787907133.482734,
+  "completed_unix": 1787907452.1789992,
+  "elapsed_seconds": 318.6962652206421,
+  "metadata_path": "/private/workspace/hycui/Results/mfs/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/mmmu/metadata.json",
+  "checkpoint_path": "/private/workspace/hycui/Results/mfs/cosmos_sparsegpt_full_matrix_20260828_bf16_s50_n128_seed42_v2_transductive/pruning/separate/mmmu/checkpoint",
+  "pid": 2970512
+}

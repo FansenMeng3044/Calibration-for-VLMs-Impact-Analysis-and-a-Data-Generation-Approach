@@ -1,0 +1,132 @@
+{
+  "results": {
+    "mmmu_val_local": {
+      "alias": "mmmu_val_local",
+      "exact_match_score,none": 37.56,
+      "exact_match_score_stderr,none": "N/A",
+      "submission,none": null,
+      "submission_stderr,none": "N/A"
+    }
+  },
+  "group_subtasks": {
+    "mmmu_val_local": []
+  },
+  "configs": {
+    "mmmu_val_local": {
+      "task": "mmmu_val_local",
+      "dataset_path": "parquet",
+      "dataset_kwargs": {
+        "data_files": {
+          "validation": "/private/workspace/hycui/project/Tamp/MMMU_single_image/*/validation-*.parquet"
+        }
+      },
+      "test_split": "validation",
+      "full_docs": false,
+      "process_results_use_image": false,
+      "doc_to_visual": "<function mmmu_doc_to_visual at 0x7f26147b0b80>",
+      "doc_to_text": "<function mmmu_doc_to_text at 0x7f26147b0a40>",
+      "doc_to_target": "answer",
+      "process_results": "<function mmmu_process_results at 0x7f26147b1ee0>",
+      "description": "",
+      "target_delimiter": " ",
+      "fewshot_delimiter": "\n\n",
+      "num_fewshot": 0,
+      "metric_list": [
+        {
+          "metric": "exact_match_score",
+          "aggregation": "<function mmmu_aggregate_results at 0x7f26147b25c0>",
+          "higher_is_better": true
+        },
+        {
+          "metric": "submission",
+          "aggregation": "<function mmmu_aggregate_predictions at 0x7f26147b2c00>",
+          "higher_is_better": true
+        }
+      ],
+      "output_type": "generate_until",
+      "generation_kwargs": {
+        "until": [
+          "ASSISTANT:"
+        ],
+        "max_new_tokens": 16,
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "num_beams": 1,
+        "do_sample": false
+      },
+      "repeats": 1,
+      "should_decontaminate": false,
+      "metadata": {
+        "version": 0.0,
+        "split": "validation",
+        "expected_subjects": 30,
+        "expected_examples": 900,
+        "scoring": "lmms_eval_official_mmmu_parser_and_evaluator"
+      },
+      "lmms_eval_specific_kwargs": {
+        "default": {
+          "prompt_type": "format",
+          "multiple_choice_prompt": "Answer with the option's letter from the given choices directly.",
+          "open_ended_prompt": "Answer the question using a single word or phrase."
+        },
+        "prompt_type": "format",
+        "multiple_choice_prompt": "Answer with the option's letter from the given choices directly.",
+        "open_ended_prompt": "Answer the question using a single word or phrase."
+      },
+      "model_specific_generation_kwargs": {
+        "llava": {
+          "image_aspect_ratio": "original"
+        }
+      }
+    }
+  },
+  "versions": {
+    "mmmu_val_local": 0.0
+  },
+  "n-shot": {
+    "mmmu_val_local": 0
+  },
+  "higher_is_better": {
+    "mmmu_val_local": {
+      "exact_match_score": true,
+      "submission": true
+    }
+  },
+  "n-samples": {
+    "mmmu_val_local": {
+      "original": 900,
+      "effective": 900
+    }
+  },
+  "config": {
+    "model": "cosmos3_edge",
+    "model_args": "pretrained=/private/workspace/hycui/model/Cosmos3-Edge,device=cuda:0,dtype=bfloat16,attn_implementation=eager,max_length=4096,min_image_pixels=65536,max_image_pixels=1048576,enable_thinking=false",
+    "batch_size": "1",
+    "batch_sizes": [],
+    "device": null,
+    "use_cache": null,
+    "limit": null,
+    "bootstrap_iters": 100000,
+    "gen_kwargs": "",
+    "random_seed": 0,
+    "numpy_seed": 1234,
+    "torch_seed": 1234,
+    "fewshot_seed": 1234
+  },
+  "git_hash": null,
+  "date": "20260828_164435",
+  "task_hashes": {
+    "mmmu_val_local": "614600386b06b53646ff0656be64e14e0f33e49b2e8eb7e528d482ff0ba6e7ae"
+  },
+  "model_source": "cosmos3_edge",
+  "model_name": "/private/workspace/hycui/model/Cosmos3-Edge",
+  "model_name_sanitized": "model__Cosmos3-Edge",
+  "system_instruction": null,
+  "system_instruction_sha": null,
+  "fewshot_as_multiturn": false,
+  "chat_template": null,
+  "chat_template_sha": null,
+  "start_time": 22226897.514559258,
+  "end_time": 22227062.299263015,
+  "total_evaluation_time_seconds": "164.7847037576139"
+}
