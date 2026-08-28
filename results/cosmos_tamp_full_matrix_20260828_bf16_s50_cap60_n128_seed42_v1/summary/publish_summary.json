@@ -1,0 +1,49 @@
+{
+  "method": "tamp",
+  "run_root": "/private/workspace/hycui/Results/mfs/cosmos_tamp_full_matrix_20260828_bf16_s50_cap60_n128_seed42_v1",
+  "tasks_complete": 29,
+  "eval_validations": 21,
+  "checkpoint_validations": 6,
+  "expected_sample_counts": {
+    "mmbench": 4329,
+    "mmmu": 900,
+    "okvqa": 5046
+  },
+  "scores_percent": {
+    "dense": {
+      "mmbench": 74.39862542955326,
+      "mmmu": 37.56,
+      "okvqa": 47.73285770907649
+    },
+    "joint_mmbench": {
+      "mmbench": 55.154639175257735,
+      "mmmu": 31.0,
+      "okvqa": 28.053904082441537
+    },
+    "joint_mmmu": {
+      "mmbench": 52.66323024054983,
+      "mmmu": 30.44,
+      "okvqa": 31.45858105430044
+    },
+    "joint_okvqa": {
+      "mmbench": 49.312714776632305,
+      "mmmu": 28.67,
+      "okvqa": 37.03131193024177
+    },
+    "separate_mmbench": {
+      "mmbench": 0.6013745704467355,
+      "mmmu": 26.11,
+      "okvqa": 1.6726119698771307
+    },
+    "separate_mmmu": {
+      "mmbench": 36.340206185567006,
+      "mmmu": 25.67,
+      "okvqa": 19.686880697582243
+    },
+    "separate_okvqa": {
+      "mmbench": 22.852233676975946,
+      "mmmu": 24.44,
+      "okvqa": 19.960364645263574
+    }
+  }
+}

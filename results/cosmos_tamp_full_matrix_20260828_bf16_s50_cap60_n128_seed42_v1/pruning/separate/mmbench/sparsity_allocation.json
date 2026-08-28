@@ -1,0 +1,1021 @@
+{
+  "granularity": "per_linear_tensor",
+  "target_sparsity": 0.5,
+  "max_sparsity_per_linear": 0.6,
+  "target_linear_count": 168,
+  "target_parameter_count": 1409286144,
+  "target_keep_parameter_count": 704643072,
+  "allocated_keep_parameter_count": 704643072,
+  "allocated_zero_parameter_count": 704643072,
+  "allocated_sparsity": 0.5,
+  "per_linear": {
+    "model.language_model.layers.0.mlp.fc1.weight": {
+      "das_score": 0.8980957344174385,
+      "parameters": 18874368,
+      "keep_parameters": 7987641,
+      "allocated_sparsity": 0.5767995516459148
+    },
+    "model.language_model.layers.0.mlp.fc2.weight": {
+      "das_score": 2.3142931525362656,
+      "parameters": 18874368,
+      "keep_parameters": 8678150,
+      "allocated_sparsity": 0.5402150683932834
+    },
+    "model.language_model.layers.0.self_attn.k_proj.weight": {
+      "das_score": 0.5829181247390807,
+      "parameters": 2097152,
+      "keep_parameters": 1123081,
+      "allocated_sparsity": 0.46447324752807617
+    },
+    "model.language_model.layers.0.self_attn.o_proj.weight": {
+      "das_score": 1.188988500740379,
+      "parameters": 4194304,
+      "keep_parameters": 2257449,
+      "allocated_sparsity": 0.46178221702575684
+    },
+    "model.language_model.layers.0.self_attn.q_proj.weight": {
+      "das_score": 0.35471138544380665,
+      "parameters": 4194304,
+      "keep_parameters": 1850673,
+      "allocated_sparsity": 0.558765172958374
+    },
+    "model.language_model.layers.0.self_attn.v_proj.weight": {
+      "das_score": 2.421826967038214,
+      "parameters": 2097152,
+      "keep_parameters": 2019695,
+      "allocated_sparsity": 0.03693437576293945
+    },
+    "model.language_model.layers.1.mlp.fc1.weight": {
+      "das_score": 0.6545352973043919,
+      "parameters": 18874368,
+      "keep_parameters": 7868887,
+      "allocated_sparsity": 0.5830913649664985
+    },
+    "model.language_model.layers.1.mlp.fc2.weight": {
+      "das_score": 2.341026687878184,
+      "parameters": 18874368,
+      "keep_parameters": 8691185,
+      "allocated_sparsity": 0.5395244492424859
+    },
+    "model.language_model.layers.1.self_attn.k_proj.weight": {
+      "das_score": 0.7129955333657563,
+      "parameters": 2097152,
+      "keep_parameters": 1186504,
+      "allocated_sparsity": 0.4342308044433594
+    },
+    "model.language_model.layers.1.self_attn.o_proj.weight": {
+      "das_score": 1.7184054313693196,
+      "parameters": 4194304,
+      "keep_parameters": 2515582,
+      "allocated_sparsity": 0.4002385139465332
+    },
+    "model.language_model.layers.1.self_attn.q_proj.weight": {
+      "das_score": 0.7608390622772276,
+      "parameters": 4194304,
+      "keep_parameters": 2048692,
+      "allocated_sparsity": 0.5115537643432617
+    },
+    "model.language_model.layers.1.self_attn.v_proj.weight": {
+      "das_score": 2.6174485585070215,
+      "parameters": 2097152,
+      "keep_parameters": 2097152,
+      "allocated_sparsity": 0.0
+    },
+    "model.language_model.layers.10.mlp.fc1.weight": {
+      "das_score": 0.8285327609628439,
+      "parameters": 18874368,
+      "keep_parameters": 7953724,
+      "allocated_sparsity": 0.5785965389675565
+    },
+    "model.language_model.layers.10.mlp.fc2.weight": {
+      "das_score": 2.5230390719370916,
+      "parameters": 18874368,
+      "keep_parameters": 8779930,
+      "allocated_sparsity": 0.5348225699530708
+    },
+    "model.language_model.layers.10.self_attn.k_proj.weight": {
+      "das_score": 1.065681577194482,
+      "parameters": 2097152,
+      "keep_parameters": 1358466,
+      "allocated_sparsity": 0.3522329330444336
+    },
+    "model.language_model.layers.10.self_attn.o_proj.weight": {
+      "das_score": 1.986554451752454,
+      "parameters": 4194304,
+      "keep_parameters": 2646326,
+      "allocated_sparsity": 0.3690667152404785
+    },
+    "model.language_model.layers.10.self_attn.q_proj.weight": {
+      "das_score": 1.0523225921206176,
+      "parameters": 4194304,
+      "keep_parameters": 2190815,
+      "allocated_sparsity": 0.47766900062561035
+    },
+    "model.language_model.layers.10.self_attn.v_proj.weight": {
+      "das_score": 2.4869896232848987,
+      "parameters": 2097152,
+      "keep_parameters": 2051467,
+      "allocated_sparsity": 0.021784305572509766
+    },
+    "model.language_model.layers.11.mlp.fc1.weight": {
+      "das_score": 0.9296748787164688,
+      "parameters": 18874368,
+      "keep_parameters": 8003040,
+      "allocated_sparsity": 0.5759836832682292
+    },
+    "model.language_model.layers.11.mlp.fc2.weight": {
+      "das_score": 2.270612801425159,
+      "parameters": 18874368,
+      "keep_parameters": 8656852,
+      "allocated_sparsity": 0.5413434770372179
+    },
+    "model.language_model.layers.11.self_attn.k_proj.weight": {
+      "das_score": 1.2555971159599721,
+      "parameters": 2097152,
+      "keep_parameters": 1451065,
+      "allocated_sparsity": 0.3080782890319824
+    },
+    "model.language_model.layers.11.self_attn.o_proj.weight": {
+      "das_score": 2.213368769036606,
+      "parameters": 4194304,
+      "keep_parameters": 2756915,
+      "allocated_sparsity": 0.3427002429962158
+    },
+    "model.language_model.layers.11.self_attn.q_proj.weight": {
+      "das_score": 1.3028673282824457,
+      "parameters": 4194304,
+      "keep_parameters": 2312974,
+      "allocated_sparsity": 0.4485440254211426
+    },
+    "model.language_model.layers.11.self_attn.v_proj.weight": {
+      "das_score": 2.5820228717057034,
+      "parameters": 2097152,
+      "keep_parameters": 2097152,
+      "allocated_sparsity": 0.0
+    },
+    "model.language_model.layers.12.mlp.fc1.weight": {
+      "das_score": 1.03506263718009,
+      "parameters": 18874368,
+      "keep_parameters": 8054424,
+      "allocated_sparsity": 0.5732612609863281
+    },
+    "model.language_model.layers.12.mlp.fc2.weight": {
+      "das_score": 2.41002482897602,
+      "parameters": 18874368,
+      "keep_parameters": 8724827,
+      "allocated_sparsity": 0.5377420319451226
+    },
+    "model.language_model.layers.12.self_attn.k_proj.weight": {
+      "das_score": 1.631157936528325,
+      "parameters": 2097152,
+      "keep_parameters": 1634181,
+      "allocated_sparsity": 0.22076177597045898
+    },
+    "model.language_model.layers.12.self_attn.o_proj.weight": {
+      "das_score": 1.8401651163585484,
+      "parameters": 4194304,
+      "keep_parameters": 2574948,
+      "allocated_sparsity": 0.38608455657958984
+    },
+    "model.language_model.layers.12.self_attn.q_proj.weight": {
+      "das_score": 1.2829349390231073,
+      "parameters": 4194304,
+      "keep_parameters": 2303256,
+      "allocated_sparsity": 0.45086097717285156
+    },
+    "model.language_model.layers.12.self_attn.v_proj.weight": {
+      "das_score": 2.5160085016395897,
+      "parameters": 2097152,
+      "keep_parameters": 2065615,
+      "allocated_sparsity": 0.015038013458251953
+    },
+    "model.language_model.layers.13.mlp.fc1.weight": {
+      "das_score": 1.185967463068664,
+      "parameters": 18874368,
+      "keep_parameters": 8128002,
+      "allocated_sparsity": 0.5693629582722981
+    },
+    "model.language_model.layers.13.mlp.fc2.weight": {
+      "das_score": 2.3893793671159074,
+      "parameters": 18874368,
+      "keep_parameters": 8714761,
+      "allocated_sparsity": 0.5382753478156196
+    },
+    "model.language_model.layers.13.self_attn.k_proj.weight": {
+      "das_score": 1.4608098361641169,
+      "parameters": 2097152,
+      "keep_parameters": 1551123,
+      "allocated_sparsity": 0.26036691665649414
+    },
+    "model.language_model.layers.13.self_attn.o_proj.weight": {
+      "das_score": 2.12976947799325,
+      "parameters": 4194304,
+      "keep_parameters": 2716154,
+      "allocated_sparsity": 0.3524184226989746
+    },
+    "model.language_model.layers.13.self_attn.q_proj.weight": {
+      "das_score": 1.578584621893242,
+      "parameters": 4194304,
+      "keep_parameters": 2447409,
+      "allocated_sparsity": 0.416492223739624
+    },
+    "model.language_model.layers.13.self_attn.v_proj.weight": {
+      "das_score": 2.5227489468525164,
+      "parameters": 2097152,
+      "keep_parameters": 2068902,
+      "allocated_sparsity": 0.013470649719238281
+    },
+    "model.language_model.layers.14.mlp.fc1.weight": {
+      "das_score": 1.296449943445623,
+      "parameters": 18874368,
+      "keep_parameters": 8181871,
+      "allocated_sparsity": 0.5665088759528266
+    },
+    "model.language_model.layers.14.mlp.fc2.weight": {
+      "das_score": 2.3629072912735865,
+      "parameters": 18874368,
+      "keep_parameters": 8701853,
+      "allocated_sparsity": 0.5389592382642958
+    },
+    "model.language_model.layers.14.self_attn.k_proj.weight": {
+      "das_score": 1.6925490552093834,
+      "parameters": 2097152,
+      "keep_parameters": 1664113,
+      "allocated_sparsity": 0.20648908615112305
+    },
+    "model.language_model.layers.14.self_attn.o_proj.weight": {
+      "das_score": 1.780002742772922,
+      "parameters": 4194304,
+      "keep_parameters": 2545615,
+      "allocated_sparsity": 0.393078088760376
+    },
+    "model.language_model.layers.14.self_attn.q_proj.weight": {
+      "das_score": 1.6245566988363862,
+      "parameters": 4194304,
+      "keep_parameters": 2469823,
+      "allocated_sparsity": 0.4111483097076416
+    },
+    "model.language_model.layers.14.self_attn.v_proj.weight": {
+      "das_score": 2.498004801222123,
+      "parameters": 2097152,
+      "keep_parameters": 2056837,
+      "allocated_sparsity": 0.019223690032958984
+    },
+    "model.language_model.layers.15.mlp.fc1.weight": {
+      "das_score": 1.3356273067183793,
+      "parameters": 18874368,
+      "keep_parameters": 8200973,
+      "allocated_sparsity": 0.5654968155754937
+    },
+    "model.language_model.layers.15.mlp.fc2.weight": {
+      "das_score": 2.3951495027868077,
+      "parameters": 18874368,
+      "keep_parameters": 8717574,
+      "allocated_sparsity": 0.5381263097127278
+    },
+    "model.language_model.layers.15.self_attn.k_proj.weight": {
+      "das_score": 1.607993576908484,
+      "parameters": 2097152,
+      "keep_parameters": 1622886,
+      "allocated_sparsity": 0.22614765167236328
+    },
+    "model.language_model.layers.15.self_attn.o_proj.weight": {
+      "das_score": 2.084813685156405,
+      "parameters": 4194304,
+      "keep_parameters": 2694235,
+      "allocated_sparsity": 0.35764431953430176
+    },
+    "model.language_model.layers.15.self_attn.q_proj.weight": {
+      "das_score": 1.6306707062758505,
+      "parameters": 4194304,
+      "keep_parameters": 2472804,
+      "allocated_sparsity": 0.41043758392333984
+    },
+    "model.language_model.layers.15.self_attn.v_proj.weight": {
+      "das_score": 2.5351364155649208,
+      "parameters": 2097152,
+      "keep_parameters": 2074942,
+      "allocated_sparsity": 0.010590553283691406
+    },
+    "model.language_model.layers.16.mlp.fc1.weight": {
+      "das_score": 1.3157755276188254,
+      "parameters": 18874368,
+      "keep_parameters": 8191293,
+      "allocated_sparsity": 0.5660096804300945
+    },
+    "model.language_model.layers.16.mlp.fc2.weight": {
+      "das_score": 2.46906939195469,
+      "parameters": 18874368,
+      "keep_parameters": 8753616,
+      "allocated_sparsity": 0.5362167358398438
+    },
+    "model.language_model.layers.16.self_attn.k_proj.weight": {
+      "das_score": 1.521126626059413,
+      "parameters": 2097152,
+      "keep_parameters": 1580532,
+      "allocated_sparsity": 0.24634361267089844
+    },
+    "model.language_model.layers.16.self_attn.o_proj.weight": {
+      "das_score": 1.9014354930259287,
+      "parameters": 4194304,
+      "keep_parameters": 2604824,
+      "allocated_sparsity": 0.37896156311035156
+    },
+    "model.language_model.layers.16.self_attn.q_proj.weight": {
+      "das_score": 1.4374855337664485,
+      "parameters": 4194304,
+      "keep_parameters": 2378611,
+      "allocated_sparsity": 0.4328949451446533
+    },
+    "model.language_model.layers.16.self_attn.v_proj.weight": {
+      "das_score": 2.568333236791659,
+      "parameters": 2097152,
+      "keep_parameters": 2091128,
+      "allocated_sparsity": 0.002872467041015625
+    },
+    "model.language_model.layers.17.mlp.fc1.weight": {
+      "das_score": 1.254514408763498,
+      "parameters": 18874368,
+      "keep_parameters": 8161424,
+      "allocated_sparsity": 0.5675921969943576
+    },
+    "model.language_model.layers.17.mlp.fc2.weight": {
+      "das_score": 2.4011137881316245,
+      "parameters": 18874368,
+      "keep_parameters": 8720482,
+      "allocated_sparsity": 0.5379722383287218
+    },
+    "model.language_model.layers.17.self_attn.k_proj.weight": {
+      "das_score": 1.5333966838661581,
+      "parameters": 2097152,
+      "keep_parameters": 1586514,
+      "allocated_sparsity": 0.24349117279052734
+    },
+    "model.language_model.layers.17.self_attn.o_proj.weight": {
+      "das_score": 1.9075139269698411,
+      "parameters": 4194304,
+      "keep_parameters": 2607788,
+      "allocated_sparsity": 0.37825489044189453
+    },
+    "model.language_model.layers.17.self_attn.q_proj.weight": {
+      "das_score": 1.4877918222919106,
+      "parameters": 4194304,
+      "keep_parameters": 2403139,
+      "allocated_sparsity": 0.4270470142364502
+    },
+    "model.language_model.layers.17.self_attn.v_proj.weight": {
+      "das_score": 2.5767142802942544,
+      "parameters": 2097152,
+      "keep_parameters": 2095214,
+      "allocated_sparsity": 0.0009241104125976562
+    },
+    "model.language_model.layers.18.mlp.fc1.weight": {
+      "das_score": 1.324952658265829,
+      "parameters": 18874368,
+      "keep_parameters": 8195768,
+      "allocated_sparsity": 0.5657725863986545
+    },
+    "model.language_model.layers.18.mlp.fc2.weight": {
+      "das_score": 2.4692616008687764,
+      "parameters": 18874368,
+      "keep_parameters": 8753710,
+      "allocated_sparsity": 0.5362117555406358
+    },
+    "model.language_model.layers.18.self_attn.k_proj.weight": {
+      "das_score": 1.5340262709651142,
+      "parameters": 2097152,
+      "keep_parameters": 1586822,
+      "allocated_sparsity": 0.24334430694580078
+    },
+    "model.language_model.layers.18.self_attn.o_proj.weight": {
+      "das_score": 2.1146870845695958,
+      "parameters": 4194304,
+      "keep_parameters": 2708800,
+      "allocated_sparsity": 0.3541717529296875
+    },
+    "model.language_model.layers.18.self_attn.q_proj.weight": {
+      "das_score": 1.44742276892066,
+      "parameters": 4194304,
+      "keep_parameters": 2383457,
+      "allocated_sparsity": 0.43173956871032715
+    },
+    "model.language_model.layers.18.self_attn.v_proj.weight": {
+      "das_score": 2.5656454124255106,
+      "parameters": 2097152,
+      "keep_parameters": 2089817,
+      "allocated_sparsity": 0.003497600555419922
+    },
+    "model.language_model.layers.19.mlp.fc1.weight": {
+      "das_score": 1.3335291361436248,
+      "parameters": 18874368,
+      "keep_parameters": 8199949,
+      "allocated_sparsity": 0.5655510690477159
+    },
+    "model.language_model.layers.19.mlp.fc2.weight": {
+      "das_score": 2.5511420998955145,
+      "parameters": 18874368,
+      "keep_parameters": 8793632,
+      "allocated_sparsity": 0.5340966118706597
+    },
+    "model.language_model.layers.19.self_attn.k_proj.weight": {
+      "das_score": 1.5769216089975089,
+      "parameters": 2097152,
+      "keep_parameters": 1607737,
+      "allocated_sparsity": 0.23337125778198242
+    },
+    "model.language_model.layers.19.self_attn.o_proj.weight": {
+      "das_score": 2.2446637549437582,
+      "parameters": 4194304,
+      "keep_parameters": 2772174,
+      "allocated_sparsity": 0.3390622138977051
+    },
+    "model.language_model.layers.19.self_attn.q_proj.weight": {
+      "das_score": 1.4852835691999644,
+      "parameters": 4194304,
+      "keep_parameters": 2401917,
+      "allocated_sparsity": 0.4273383617401123
+    },
+    "model.language_model.layers.19.self_attn.v_proj.weight": {
+      "das_score": 2.5453473062370904,
+      "parameters": 2097152,
+      "keep_parameters": 2079921,
+      "allocated_sparsity": 0.008216381072998047
+    },
+    "model.language_model.layers.2.mlp.fc1.weight": {
+      "das_score": 0.7907931203953922,
+      "parameters": 18874368,
+      "keep_parameters": 7935324,
+      "allocated_sparsity": 0.5795714060465496
+    },
+    "model.language_model.layers.2.mlp.fc2.weight": {
+      "das_score": 2.5486912932246923,
+      "parameters": 18874368,
+      "keep_parameters": 8792438,
+      "allocated_sparsity": 0.5341598722669814
+    },
+    "model.language_model.layers.2.self_attn.k_proj.weight": {
+      "das_score": 0.8849914516322315,
+      "parameters": 2097152,
+      "keep_parameters": 1270365,
+      "allocated_sparsity": 0.3942427635192871
+    },
+    "model.language_model.layers.2.self_attn.o_proj.weight": {
+      "das_score": 1.3855837869923562,
+      "parameters": 4194304,
+      "keep_parameters": 2353305,
+      "allocated_sparsity": 0.43892836570739746
+    },
+    "model.language_model.layers.2.self_attn.q_proj.weight": {
+      "das_score": 0.8460376099683344,
+      "parameters": 4194304,
+      "keep_parameters": 2090233,
+      "allocated_sparsity": 0.5016496181488037
+    },
+    "model.language_model.layers.2.self_attn.v_proj.weight": {
+      "das_score": 2.621649355336558,
+      "parameters": 2097152,
+      "keep_parameters": 2097152,
+      "allocated_sparsity": 0.0
+    },
+    "model.language_model.layers.20.mlp.fc1.weight": {
+      "das_score": 1.2603726731613278,
+      "parameters": 18874368,
+      "keep_parameters": 8164280,
+      "allocated_sparsity": 0.5674408806694878
+    },
+    "model.language_model.layers.20.mlp.fc2.weight": {
+      "das_score": 2.574093737115618,
+      "parameters": 18874368,
+      "keep_parameters": 8804824,
+      "allocated_sparsity": 0.5335036383734809
+    },
+    "model.language_model.layers.20.self_attn.k_proj.weight": {
+      "das_score": 1.5972083285450935,
+      "parameters": 2097152,
+      "keep_parameters": 1617628,
+      "allocated_sparsity": 0.2286548614501953
+    },
+    "model.language_model.layers.20.self_attn.o_proj.weight": {
+      "das_score": 1.6989722528960556,
+      "parameters": 4194304,
+      "keep_parameters": 2506107,
+      "allocated_sparsity": 0.4024975299835205
+    },
+    "model.language_model.layers.20.self_attn.q_proj.weight": {
+      "das_score": 1.5187726670410484,
+      "parameters": 4194304,
+      "keep_parameters": 2418245,
+      "allocated_sparsity": 0.423445463180542
+    },
+    "model.language_model.layers.20.self_attn.v_proj.weight": {
+      "das_score": 2.613590632157866,
+      "parameters": 2097152,
+      "keep_parameters": 2097152,
+      "allocated_sparsity": 0.0
+    },
+    "model.language_model.layers.21.mlp.fc1.weight": {
+      "das_score": 1.1757697840221226,
+      "parameters": 18874368,
+      "keep_parameters": 8123030,
+      "allocated_sparsity": 0.5696263843112521
+    },
+    "model.language_model.layers.21.mlp.fc2.weight": {
+      "das_score": 2.6190988953458145,
+      "parameters": 18874368,
+      "keep_parameters": 8826767,
+      "allocated_sparsity": 0.5323410563998752
+    },
+    "model.language_model.layers.21.self_attn.k_proj.weight": {
+      "das_score": 1.5702670190948993,
+      "parameters": 2097152,
+      "keep_parameters": 1604492,
+      "allocated_sparsity": 0.23491859436035156
+    },
+    "model.language_model.layers.21.self_attn.o_proj.weight": {
+      "das_score": 1.7901797890663147,
+      "parameters": 4194304,
+      "keep_parameters": 2550577,
+      "allocated_sparsity": 0.391895055770874
+    },
+    "model.language_model.layers.21.self_attn.q_proj.weight": {
+      "das_score": 1.4420491950586438,
+      "parameters": 4194304,
+      "keep_parameters": 2380836,
+      "allocated_sparsity": 0.43236446380615234
+    },
+    "model.language_model.layers.21.self_attn.v_proj.weight": {
+      "das_score": 2.574870451935567,
+      "parameters": 2097152,
+      "keep_parameters": 2094314,
+      "allocated_sparsity": 0.0013532638549804688
+    },
+    "model.language_model.layers.22.mlp.fc1.weight": {
+      "das_score": 1.1546238488517702,
+      "parameters": 18874368,
+      "keep_parameters": 8112719,
+      "allocated_sparsity": 0.5701726807488335
+    },
+    "model.language_model.layers.22.mlp.fc2.weight": {
+      "das_score": 2.6745241432799958,
+      "parameters": 18874368,
+      "keep_parameters": 8853791,
+      "allocated_sparsity": 0.5309092733595107
+    },
+    "model.language_model.layers.22.self_attn.k_proj.weight": {
+      "das_score": 1.5667892061173916,
+      "parameters": 2097152,
+      "keep_parameters": 1602796,
+      "allocated_sparsity": 0.23572731018066406
+    },
+    "model.language_model.layers.22.self_attn.o_proj.weight": {
+      "das_score": 1.9283487894572318,
+      "parameters": 4194304,
+      "keep_parameters": 2617946,
+      "allocated_sparsity": 0.37583303451538086
+    },
+    "model.language_model.layers.22.self_attn.q_proj.weight": {
+      "das_score": 1.4729080118704587,
+      "parameters": 4194304,
+      "keep_parameters": 2395883,
+      "allocated_sparsity": 0.42877697944641113
+    },
+    "model.language_model.layers.22.self_attn.v_proj.weight": {
+      "das_score": 2.6523256556829438,
+      "parameters": 2097152,
+      "keep_parameters": 2097152,
+      "allocated_sparsity": 0.0
+    },
+    "model.language_model.layers.23.mlp.fc1.weight": {
+      "das_score": 1.0932760834693909,
+      "parameters": 18874368,
+      "keep_parameters": 8082808,
+      "allocated_sparsity": 0.5717574225531684
+    },
+    "model.language_model.layers.23.mlp.fc2.weight": {
+      "das_score": 2.7301687332219444,
+      "parameters": 18874368,
+      "keep_parameters": 8880842,
+      "allocated_sparsity": 0.5294760598076714
+    },
+    "model.language_model.layers.23.self_attn.k_proj.weight": {
+      "das_score": 1.6489327582530677,
+      "parameters": 2097152,
+      "keep_parameters": 1642848,
+      "allocated_sparsity": 0.2166290283203125
+    },
+    "model.language_model.layers.23.self_attn.o_proj.weight": {
+      "das_score": 1.5127362194471061,
+      "parameters": 4194304,
+      "keep_parameters": 2415302,
+      "allocated_sparsity": 0.4241471290588379
+    },
+    "model.language_model.layers.23.self_attn.q_proj.weight": {
+      "das_score": 1.391969715245068,
+      "parameters": 4194304,
+      "keep_parameters": 2356419,
+      "allocated_sparsity": 0.4381859302520752
+    },
+    "model.language_model.layers.23.self_attn.v_proj.weight": {
+      "das_score": 2.683251183014363,
+      "parameters": 2097152,
+      "keep_parameters": 2097152,
+      "allocated_sparsity": 0.0
+    },
+    "model.language_model.layers.24.mlp.fc1.weight": {
+      "das_score": 1.0427400399930775,
+      "parameters": 18874368,
+      "keep_parameters": 8058168,
+      "allocated_sparsity": 0.5730628967285156
+    },
+    "model.language_model.layers.24.mlp.fc2.weight": {
+      "das_score": 2.576662150444463,
+      "parameters": 18874368,
+      "keep_parameters": 8806076,
+      "allocated_sparsity": 0.5334373050265842
+    },
+    "model.language_model.layers.24.self_attn.k_proj.weight": {
+      "das_score": 1.4760122958105057,
+      "parameters": 2097152,
+      "keep_parameters": 1558536,
+      "allocated_sparsity": 0.2568321228027344
+    },
+    "model.language_model.layers.24.self_attn.o_proj.weight": {
+      "das_score": 1.683605109108612,
+      "parameters": 4194304,
+      "keep_parameters": 2498614,
+      "allocated_sparsity": 0.4042840003967285
+    },
+    "model.language_model.layers.24.self_attn.q_proj.weight": {
+      "das_score": 1.3130079405382276,
+      "parameters": 4194304,
+      "keep_parameters": 2317918,
+      "allocated_sparsity": 0.44736528396606445
+    },
+    "model.language_model.layers.24.self_attn.v_proj.weight": {
+      "das_score": 2.6630758254323155,
+      "parameters": 2097152,
+      "keep_parameters": 2097152,
+      "allocated_sparsity": 0.0
+    },
+    "model.language_model.layers.25.mlp.fc1.weight": {
+      "das_score": 0.9493387970142066,
+      "parameters": 18874368,
+      "keep_parameters": 8012628,
+      "allocated_sparsity": 0.5754756927490234
+    },
+    "model.language_model.layers.25.mlp.fc2.weight": {
+      "das_score": 2.554702293360606,
+      "parameters": 18874368,
+      "keep_parameters": 8795369,
+      "allocated_sparsity": 0.5340045822991265
+    },
+    "model.language_model.layers.25.self_attn.k_proj.weight": {
+      "das_score": 1.458647919120267,
+      "parameters": 2097152,
+      "keep_parameters": 1550069,
+      "allocated_sparsity": 0.26086950302124023
+    },
+    "model.language_model.layers.25.self_attn.o_proj.weight": {
+      "das_score": 1.6812427982222289,
+      "parameters": 4194304,
+      "keep_parameters": 2497462,
+      "allocated_sparsity": 0.4045586585998535
+    },
+    "model.language_model.layers.25.self_attn.q_proj.weight": {
+      "das_score": 1.245890909805894,
+      "parameters": 4194304,
+      "keep_parameters": 2285193,
+      "allocated_sparsity": 0.4551675319671631
+    },
+    "model.language_model.layers.25.self_attn.v_proj.weight": {
+      "das_score": 2.7138795793871395,
+      "parameters": 2097152,
+      "keep_parameters": 2097152,
+      "allocated_sparsity": 0.0
+    },
+    "model.language_model.layers.26.mlp.fc1.weight": {
+      "das_score": 0.9161312305368483,
+      "parameters": 18874368,
+      "keep_parameters": 7996436,
+      "allocated_sparsity": 0.5763335757785373
+    },
+    "model.language_model.layers.26.mlp.fc2.weight": {
+      "das_score": 2.5735119764576666,
+      "parameters": 18874368,
+      "keep_parameters": 8804540,
+      "allocated_sparsity": 0.5335186852349175
+    },
+    "model.language_model.layers.26.self_attn.k_proj.weight": {
+      "das_score": 1.5997422952204943,
+      "parameters": 2097152,
+      "keep_parameters": 1618864,
+      "allocated_sparsity": 0.22806549072265625
+    },
+    "model.language_model.layers.26.self_attn.o_proj.weight": {
+      "das_score": 1.9079290784429759,
+      "parameters": 4194304,
+      "keep_parameters": 2607990,
+      "allocated_sparsity": 0.378206729888916
+    },
+    "model.language_model.layers.26.self_attn.q_proj.weight": {
+      "das_score": 1.3901755849365145,
+      "parameters": 4194304,
+      "keep_parameters": 2355543,
+      "allocated_sparsity": 0.43839478492736816
+    },
+    "model.language_model.layers.26.self_attn.v_proj.weight": {
+      "das_score": 2.7067232000408694,
+      "parameters": 2097152,
+      "keep_parameters": 2097152,
+      "allocated_sparsity": 0.0
+    },
+    "model.language_model.layers.27.mlp.fc1.weight": {
+      "das_score": 0.5612753885798156,
+      "parameters": 18874368,
+      "keep_parameters": 7823416,
+      "allocated_sparsity": 0.58550050523546
+    },
+    "model.language_model.layers.27.mlp.fc2.weight": {
+      "das_score": 0.556916618719697,
+      "parameters": 18874368,
+      "keep_parameters": 7821291,
+      "allocated_sparsity": 0.5856130917867024
+    },
+    "model.language_model.layers.27.self_attn.k_proj.weight": {
+      "das_score": 1.5052921967580914,
+      "parameters": 2097152,
+      "keep_parameters": 1572811,
+      "allocated_sparsity": 0.25002527236938477
+    },
+    "model.language_model.layers.27.self_attn.o_proj.weight": {
+      "das_score": 1.52870227326639,
+      "parameters": 4194304,
+      "keep_parameters": 2423087,
+      "allocated_sparsity": 0.4222910404205322
+    },
+    "model.language_model.layers.27.self_attn.q_proj.weight": {
+      "das_score": 1.429486354580149,
+      "parameters": 4194304,
+      "keep_parameters": 2374712,
+      "allocated_sparsity": 0.4338245391845703
+    },
+    "model.language_model.layers.27.self_attn.v_proj.weight": {
+      "das_score": 2.546772634901572,
+      "parameters": 2097152,
+      "keep_parameters": 2080615,
+      "allocated_sparsity": 0.007885456085205078
+    },
+    "model.language_model.layers.3.mlp.fc1.weight": {
+      "das_score": 0.682872542180121,
+      "parameters": 18874368,
+      "keep_parameters": 7882703,
+      "allocated_sparsity": 0.5823593669467502
+    },
+    "model.language_model.layers.3.mlp.fc2.weight": {
+      "das_score": 2.5692964947083965,
+      "parameters": 18874368,
+      "keep_parameters": 8802484,
+      "allocated_sparsity": 0.5336276160346137
+    },
+    "model.language_model.layers.3.self_attn.k_proj.weight": {
+      "das_score": 0.885644587688148,
+      "parameters": 2097152,
+      "keep_parameters": 1270684,
+      "allocated_sparsity": 0.3940906524658203
+    },
+    "model.language_model.layers.3.self_attn.o_proj.weight": {
+      "das_score": 1.487721775425598,
+      "parameters": 4194304,
+      "keep_parameters": 2403105,
+      "allocated_sparsity": 0.42705512046813965
+    },
+    "model.language_model.layers.3.self_attn.q_proj.weight": {
+      "das_score": 0.7329630274325609,
+      "parameters": 4194304,
+      "keep_parameters": 2035101,
+      "allocated_sparsity": 0.514794111251831
+    },
+    "model.language_model.layers.3.self_attn.v_proj.weight": {
+      "das_score": 2.6148569755023345,
+      "parameters": 2097152,
+      "keep_parameters": 2097152,
+      "allocated_sparsity": 0.0
+    },
+    "model.language_model.layers.4.mlp.fc1.weight": {
+      "das_score": 0.6793399583548307,
+      "parameters": 18874368,
+      "keep_parameters": 7880981,
+      "allocated_sparsity": 0.5824506017896864
+    },
+    "model.language_model.layers.4.mlp.fc2.weight": {
+      "das_score": 2.5711960934568197,
+      "parameters": 18874368,
+      "keep_parameters": 8803410,
+      "allocated_sparsity": 0.5335785547892253
+    },
+    "model.language_model.layers.4.self_attn.k_proj.weight": {
+      "das_score": 0.8710245816037059,
+      "parameters": 2097152,
+      "keep_parameters": 1263556,
+      "allocated_sparsity": 0.3974895477294922
+    },
+    "model.language_model.layers.4.self_attn.o_proj.weight": {
+      "das_score": 1.7779459152370691,
+      "parameters": 4194304,
+      "keep_parameters": 2544612,
+      "allocated_sparsity": 0.39331722259521484
+    },
+    "model.language_model.layers.4.self_attn.q_proj.weight": {
+      "das_score": 0.949004381429404,
+      "parameters": 4194304,
+      "keep_parameters": 2140439,
+      "allocated_sparsity": 0.48967957496643066
+    },
+    "model.language_model.layers.4.self_attn.v_proj.weight": {
+      "das_score": 2.6217589130974375,
+      "parameters": 2097152,
+      "keep_parameters": 2097152,
+      "allocated_sparsity": 0.0
+    },
+    "model.language_model.layers.5.mlp.fc1.weight": {
+      "das_score": 0.7597188809886575,
+      "parameters": 18874368,
+      "keep_parameters": 7920172,
+      "allocated_sparsity": 0.5803741878933377
+    },
+    "model.language_model.layers.5.mlp.fc2.weight": {
+      "das_score": 2.5384975510532968,
+      "parameters": 18874368,
+      "keep_parameters": 8787468,
+      "allocated_sparsity": 0.5344231923421223
+    },
+    "model.language_model.layers.5.self_attn.k_proj.weight": {
+      "das_score": 0.9136595791205764,
+      "parameters": 2097152,
+      "keep_parameters": 1284343,
+      "allocated_sparsity": 0.38757753372192383
+    },
+    "model.language_model.layers.5.self_attn.o_proj.weight": {
+      "das_score": 1.6412572574336082,
+      "parameters": 4194304,
+      "keep_parameters": 2477966,
+      "allocated_sparsity": 0.4092068672180176
+    },
+    "model.language_model.layers.5.self_attn.q_proj.weight": {
+      "das_score": 0.8429870666004717,
+      "parameters": 4194304,
+      "keep_parameters": 2088745,
+      "allocated_sparsity": 0.5020043849945068
+    },
+    "model.language_model.layers.5.self_attn.v_proj.weight": {
+      "das_score": 2.574944682768546,
+      "parameters": 2097152,
+      "keep_parameters": 2094352,
+      "allocated_sparsity": 0.00133514404296875
+    },
+    "model.language_model.layers.6.mlp.fc1.weight": {
+      "das_score": 0.7363403714261949,
+      "parameters": 18874368,
+      "keep_parameters": 7908774,
+      "allocated_sparsity": 0.5809780756632488
+    },
+    "model.language_model.layers.6.mlp.fc2.weight": {
+      "das_score": 2.484250626177527,
+      "parameters": 18874368,
+      "keep_parameters": 8761018,
+      "allocated_sparsity": 0.5358245637681749
+    },
+    "model.language_model.layers.6.self_attn.k_proj.weight": {
+      "das_score": 1.0777305043302476,
+      "parameters": 2097152,
+      "keep_parameters": 1364341,
+      "allocated_sparsity": 0.34943151473999023
+    },
+    "model.language_model.layers.6.self_attn.o_proj.weight": {
+      "das_score": 1.856470086146146,
+      "parameters": 4194304,
+      "keep_parameters": 2582900,
+      "allocated_sparsity": 0.3841886520385742
+    },
+    "model.language_model.layers.6.self_attn.q_proj.weight": {
+      "das_score": 1.0340998051688075,
+      "parameters": 4194304,
+      "keep_parameters": 2181929,
+      "allocated_sparsity": 0.47978758811950684
+    },
+    "model.language_model.layers.6.self_attn.v_proj.weight": {
+      "das_score": 2.5569603583426215,
+      "parameters": 2097152,
+      "keep_parameters": 2085582,
+      "allocated_sparsity": 0.005517005920410156
+    },
+    "model.language_model.layers.7.mlp.fc1.weight": {
+      "das_score": 0.7725153313949704,
+      "parameters": 18874368,
+      "keep_parameters": 7926411,
+      "allocated_sparsity": 0.5800436337788899
+    },
+    "model.language_model.layers.7.mlp.fc2.weight": {
+      "das_score": 2.4244181698886678,
+      "parameters": 18874368,
+      "keep_parameters": 8731845,
+      "allocated_sparsity": 0.5373702049255371
+    },
+    "model.language_model.layers.7.self_attn.k_proj.weight": {
+      "das_score": 1.3007000726647675,
+      "parameters": 2097152,
+      "keep_parameters": 1473056,
+      "allocated_sparsity": 0.2975921630859375
+    },
+    "model.language_model.layers.7.self_attn.o_proj.weight": {
+      "das_score": 1.7993703559041023,
+      "parameters": 4194304,
+      "keep_parameters": 2555058,
+      "allocated_sparsity": 0.3908267021179199
+    },
+    "model.language_model.layers.7.self_attn.q_proj.weight": {
+      "das_score": 1.0973887438885868,
+      "parameters": 4194304,
+      "keep_parameters": 2212788,
+      "allocated_sparsity": 0.4724302291870117
+    },
+    "model.language_model.layers.7.self_attn.v_proj.weight": {
+      "das_score": 2.5090812512207776,
+      "parameters": 2097152,
+      "keep_parameters": 2062238,
+      "allocated_sparsity": 0.016648292541503906
+    },
+    "model.language_model.layers.8.mlp.fc1.weight": {
+      "das_score": 0.7944435621611774,
+      "parameters": 18874368,
+      "keep_parameters": 7937103,
+      "allocated_sparsity": 0.5794771512349446
+    },
+    "model.language_model.layers.8.mlp.fc2.weight": {
+      "das_score": 2.5137226291699335,
+      "parameters": 18874368,
+      "keep_parameters": 8775387,
+      "allocated_sparsity": 0.5350632667541504
+    },
+    "model.language_model.layers.8.self_attn.k_proj.weight": {
+      "das_score": 1.3189708851277828,
+      "parameters": 2097152,
+      "keep_parameters": 1481964,
+      "allocated_sparsity": 0.29334449768066406
+    },
+    "model.language_model.layers.8.self_attn.o_proj.weight": {
+      "das_score": 1.7795667888130993,
+      "parameters": 4194304,
+      "keep_parameters": 2545403,
+      "allocated_sparsity": 0.3931286334991455
+    },
+    "model.language_model.layers.8.self_attn.q_proj.weight": {
+      "das_score": 1.0833581518381834,
+      "parameters": 4194304,
+      "keep_parameters": 2205946,
+      "allocated_sparsity": 0.4740614891052246
+    },
+    "model.language_model.layers.8.self_attn.v_proj.weight": {
+      "das_score": 2.4688268046593294,
+      "parameters": 2097152,
+      "keep_parameters": 2042610,
+      "allocated_sparsity": 0.026007652282714844
+    },
+    "model.language_model.layers.9.mlp.fc1.weight": {
+      "das_score": 0.7468866677954793,
+      "parameters": 18874368,
+      "keep_parameters": 7913916,
+      "allocated_sparsity": 0.5807056427001953
+    },
+    "model.language_model.layers.9.mlp.fc2.weight": {
+      "das_score": 2.5017219252185896,
+      "parameters": 18874368,
+      "keep_parameters": 8769536,
+      "allocated_sparsity": 0.5353732638888888
+    },
+    "model.language_model.layers.9.self_attn.k_proj.weight": {
+      "das_score": 1.4268713858909905,
+      "parameters": 2097152,
+      "keep_parameters": 1534576,
+      "allocated_sparsity": 0.26825714111328125
+    },
+    "model.language_model.layers.9.self_attn.o_proj.weight": {
+      "das_score": 1.944783073849976,
+      "parameters": 4194304,
+      "keep_parameters": 2625959,
+      "allocated_sparsity": 0.37392258644104004
+    },
+    "model.language_model.layers.9.self_attn.q_proj.weight": {
+      "das_score": 1.241480887401849,
+      "parameters": 4194304,
+      "keep_parameters": 2283043,
+      "allocated_sparsity": 0.45568013191223145
+    },
+    "model.language_model.layers.9.self_attn.v_proj.weight": {
+      "das_score": 2.494091586966533,
+      "parameters": 2097152,
+      "keep_parameters": 2054929,
+      "allocated_sparsity": 0.020133495330810547
+    }
+  }
+}

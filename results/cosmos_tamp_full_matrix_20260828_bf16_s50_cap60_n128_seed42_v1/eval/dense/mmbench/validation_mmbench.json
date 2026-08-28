@@ -1,0 +1,12 @@
+{
+  "benchmark": "mmbench",
+  "task": "mmbench_en_dev_local",
+  "output_dir": "/private/workspace/hycui/Results/mfs/cosmos_tamp_full_matrix_20260828_bf16_s50_cap60_n128_seed42_v1/eval/dense/mmbench",
+  "results_path": "/private/workspace/hycui/Results/mfs/cosmos_tamp_full_matrix_20260828_bf16_s50_cap60_n128_seed42_v1/eval/dense/mmbench/model__Cosmos3-Edge/20260828_192758_results.json",
+  "samples_path": "/private/workspace/hycui/Results/mfs/cosmos_tamp_full_matrix_20260828_bf16_s50_cap60_n128_seed42_v1/eval/dense/mmbench/model__Cosmos3-Edge/20260828_192758_samples_mmbench_en_dev_local.jsonl",
+  "sample_count": 4329,
+  "expected_count": 4329,
+  "metric_key": "exact_match_score,none",
+  "metric_value": 74.39862542955326,
+  "validated": true
+}

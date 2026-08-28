@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "created_iso": "2026-08-28T11:25:24.805072+00:00",
+  "run_root": "/private/workspace/hycui/Results/mfs/cosmos_tamp_full_matrix_20260828_bf16_s50_cap60_n128_seed42_v1",
+  "model_path": "/private/workspace/hycui/model/Cosmos3-Edge",
+  "protocols": [
+    "joint",
+    "separate"
+  ],
+  "calibration_sources": [
+    "mmbench",
+    "mmmu",
+    "okvqa"
+  ],
+  "evaluation_benchmarks": [
+    "mmbench",
+    "mmmu",
+    "okvqa"
+  ],
+  "nsamples": 128,
+  "seed": 42,
+  "algorithm": "TAMP",
+  "algorithm_components": [
+    "DAS",
+    "AMIA",
+    "WANDA"
+  ],
+  "joint_variant": "joint_multimodal_reasoner_ar",
+  "separate_variant": "separate_text_only_reasoner_ar",
+  "vision_sparsity": 0.0,
+  "ar_sparsity": 0.5,
+  "max_sparsity_per_linear": 0.6,
+  "dtype": "bfloat16",
+  "attention_implementation": "eager",
+  "enable_thinking": false,
+  "max_length": 4096,
+  "min_image_pixels": 65536,
+  "max_image_pixels": 1048576,
+  "precision_label": "dense/pruned unquantized bfloat16",
+  "expected_eval_samples": {
+    "mmbench": 4329,
+    "mmmu": 900,
+    "okvqa": 5046
+  },
+  "calibration_alignment": "/private/workspace/hycui/Results/mfs/cosmos_tamp_full_matrix_20260828_bf16_s50_cap60_n128_seed42_v1/controller/calibration_alignment.json",
+  "code_sha256": {
+    "cosmos_tamp_prune.py": "f880608d697405b41f6fb5aa75d30465a59bba351f094fc7ac59b899dc71b3ef",
+    "calibration_presets.json": "ace673c94eabcd3535d40f368b5d6ec8f49f9be5e1d89cac5b2e8689964eb8da",
+    "cosmos_lmms_plugin/models/cosmos3_edge.py": "51e6a9a5b65a01714897b96b82431ca88e50a69a31d9de4a7ae70cd98a3a1dd8",
+    "run_three_eval.sh": "a59cde8fb36268a7256fe52dc4fd8275210290f7712c57d394962e33d49804cf",
+    "validate_calibration_alignment.py": "5f861df2fc8b865c395ecb0ba7866042e0e56697f81717bee542af75679e5fa6",
+    "validate_cosmos_checkpoint.py": "f7d03ac9de48ddfda8d00ef13704e7172902906b7219e9439528589104deab5d",
+    "validate_eval_output.py": "92b423239a5b9c32281e3fdbbc2886a86f9564bb18b8ca320c8a91e5b6560e49",
+    "validate_tamp_migration.py": "ee2d00f971289e1a8c75e61a10ab288436ddc842c66cc1781c692b47cdceca9e",
+    "test_tamp_core.py": "1b2d430f8d50dcf82803d29b435220173a06478ce7a939e75810d3dae7482aae",
+    "prepare_full_matrix.py": "32156724f20a14f71881959571423b69396f8c00d97c2c3e7a0263d259d6ac37",
+    "run_full_matrix_task.py": "ec2bc94c5c7cb5d41059732b57912d195b4c6556523d4bef14ee67e7e167b2ba",
+    "run_full_matrix_worker.sh": "555b5aceb422330431f14935cbdf34e72c335d7692563ca1deac482cdc36b8f4",
+    "aggregate_matrix_results.py": "10d0782856cf6fd6434131680075df3830b424b4013acc174d75c2ffca89d2ec"
+  },
+  "eval_data_files": {
+    "/private/workspace/hycui/project/Tamp/MMBench_eval/en/dev-00000-of-00001.parquet": {
+      "bytes": 96595184,
+      "mtime_ns": 1785071203647681784,
+      "sha256": "765dc6a1a800831e89645d87bdae9ed47f4c8c5fb082bbd58121cd729f34eeb8"
+    },
+    "/private/workspace/hycui/mfs/okvqa/okvqa_val2014_local.jsonl": {
+      "bytes": 1917026,
+      "mtime_ns": 1785087218130011792,
+      "sha256": "de76848e90a2905f8db8840b2f5f741d6bbbde23264d7cbf871d4aed1fe198d8"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Accounting/validation-00000-of-00001.parquet": {
+      "bytes": 1535386,
+      "mtime_ns": 1785080453701594000,
+      "sha256": "f1bedfc8ad70d24f8c1daa50a309d9b3b88ea14caea60299b648c69049fa870f"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Agriculture/validation-00000-of-00001.parquet": {
+      "bytes": 119223107,
+      "mtime_ns": 1785080492504642000,
+      "sha256": "f95765c549ebaeedd89c14bfe39d1deefcb9ec6b8b082f5945ffc547f2c4e20c"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Architecture_and_Engineering/validation-00000-of-00001.parquet": {
+      "bytes": 726950,
+      "mtime_ns": 1785080453905589000,
+      "sha256": "09792c72c949565ba9378366562818d9687eba5b4f6fc3e84482a8862cf4dd9c"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Art/validation-00000-of-00001.parquet": {
+      "bytes": 29939738,
+      "mtime_ns": 1785080474969072000,
+      "sha256": "d86be1080d7a33a76e9b98f0df0d7ebacbd37b1c29927bbf592489cc4b996c57"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Art_Theory/validation-00000-of-00001.parquet": {
+      "bytes": 29783856,
+      "mtime_ns": 1785080530835703000,
+      "sha256": "ba4e709ace78695df3b2ed8859e7cfb36e3cd9c60abd5a0fade9800653b695d6"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Basic_Medical_Science/validation-00000-of-00001.parquet": {
+      "bytes": 4131430,
+      "mtime_ns": 1785080521119941000,
+      "sha256": "577102f6f742471a947a82579df0ffa8b7bfd1b10dc2eadbf90f9ea5ff0cddd4"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Biology/validation-00000-of-00001.parquet": {
+      "bytes": 8494798,
+      "mtime_ns": 1785080539575489000,
+      "sha256": "644e5b10eb90689a0e41a7c738526113551f59ab5e66c44a870e6bca52d39e08"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Chemistry/validation-00000-of-00001.parquet": {
+      "bytes": 1522870,
+      "mtime_ns": 1785080542115427000,
+      "sha256": "ff62af1b99c6f60d2b2228bf438152d9e44c06e42455d5eb5e229954aa95b00b"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Clinical_Medicine/validation-00000-of-00001.parquet": {
+      "bytes": 10888251,
+      "mtime_ns": 1785080578838529000,
+      "sha256": "2c3d29a6c838e279974731ea92fa459e15107f9213970a9a4f9312c1f102bd58"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Computer_Science/validation-00000-of-00001.parquet": {
+      "bytes": 2078701,
+      "mtime_ns": 1785080580970477000,
+      "sha256": "73c8ef8ba23a050b85c524363614801cdc73db36ad7a7348643006766da037f5"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Design/validation-00000-of-00001.parquet": {
+      "bytes": 16227878,
+      "mtime_ns": 1785080590522244000,
+      "sha256": "c69b48ecde9ad80bb8b530dec4da99ae051b17f90abefd2b98230313580c5b7f"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Diagnostics_and_Laboratory_Medicine/validation-00000-of-00001.parquet": {
+      "bytes": 37089865,
+      "mtime_ns": 1785080623189446000,
+      "sha256": "cefb7363510a05284dd8a0b12cb7cc7f20843c65d6b7101eefe3929d4061a592"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Economics/validation-00000-of-00001.parquet": {
+      "bytes": 1424097,
+      "mtime_ns": 1785080629281298000,
+      "sha256": "1a6b0ef6edf3eb76f2fae37cbff28d6723eec4bd94d4b3d6e676aa4ea924d95b"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Electronics/validation-00000-of-00001.parquet": {
+      "bytes": 644538,
+      "mtime_ns": 1785080633741189000,
+      "sha256": "558d6970c95c9961c63da8b1ebd7a885524059a83838fa67e6be8c6522a536ba"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Energy_and_Power/validation-00000-of-00001.parquet": {
+      "bytes": 1646107,
+      "mtime_ns": 1785080642528974000,
+      "sha256": "46f8d320be746b990145c4e2bf6b88fc493f0e8e322759ee2a9e2fcc8ee404b5"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Finance/validation-00000-of-00001.parquet": {
+      "bytes": 1002833,
+      "mtime_ns": 1785080646244883000,
+      "sha256": "194f838578ac4fe08c0784b833bfbd89087a0bd2e83dc02c89e7d4e9d5b6d326"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Geography/validation-00000-of-00001.parquet": {
+      "bytes": 6677774,
+      "mtime_ns": 1785080649308808000,
+      "sha256": "536505f8dc6199713effcd7cf9b8ae2da2325e51ec17d0fcfabc75956965701c"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/History/validation-00000-of-00001.parquet": {
+      "bytes": 8430352,
+      "mtime_ns": 1785080653480706000,
+      "sha256": "fe6ba5fa13133d43afbd63abfe75b49ac45c5de566ac896fbc370cb1492c8f82"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Literature/validation-00000-of-00001.parquet": {
+      "bytes": 14246788,
+      "mtime_ns": 1785080659424561000,
+      "sha256": "3ad02815b3af320c574b254c7a2134f31288a360c0168035ee051c8946cb8b1b"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Manage/validation-00000-of-00001.parquet": {
+      "bytes": 3139783,
+      "mtime_ns": 1785080678988082000,
+      "sha256": "838ecee5c3c9708b3fb70e414b83bfee35725814290908a853b24d06bbd832fe"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Marketing/validation-00000-of-00001.parquet": {
+      "bytes": 1361340,
+      "mtime_ns": 1785080682224003000,
+      "sha256": "0b4854d8a509e8e0f401255d5788fd83e489e4d5d5207826856dcffa1157feb2"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Materials/validation-00000-of-00001.parquet": {
+      "bytes": 2309857,
+      "mtime_ns": 1785080685959912000,
+      "sha256": "6881364f70c6911f0610005ad5aaf10f4394a7f578ead566e528b574da534e54"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Math/validation-00000-of-00001.parquet": {
+      "bytes": 1447995,
+      "mtime_ns": 1785080690895791000,
+      "sha256": "ebe73665a3b1db2bfd33ae67a00efcf86b6d817463a12d995e30716d69aae8e7"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Mechanical_Engineering/validation-00000-of-00001.parquet": {
+      "bytes": 876772,
+      "mtime_ns": 1785080695875669000,
+      "sha256": "8381e04c04dc8e0b3a21404e251a1fc2deb52d3f5b2485e5e8bc99e4907d21d7"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Music/validation-00000-of-00001.parquet": {
+      "bytes": 9363650,
+      "mtime_ns": 1785080702199514000,
+      "sha256": "132f8e3965276788f1b5388c39565d5475b8eb61af3142522be446e9a131af8f"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Pharmacy/validation-00000-of-00001.parquet": {
+      "bytes": 1551086,
+      "mtime_ns": 1785080704195465000,
+      "sha256": "93bc3de041d8f69b9e7cd29886ad68f26ac5b11bdf221cabb5f84b8b8d8ca6a9"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Physics/validation-00000-of-00001.parquet": {
+      "bytes": 1117086,
+      "mtime_ns": 1785080712095272000,
+      "sha256": "649a7c85ae9f1aa0762059eca0c082e3862f669f07a1283c36ada31def2c391d"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Psychology/validation-00000-of-00001.parquet": {
+      "bytes": 4311520,
+      "mtime_ns": 1785080715683184000,
+      "sha256": "16101fe448e07ce654d95b5ef5793988fb6e7f5fe42b94575c33c9ffbd4ad919"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Public_Health/validation-00000-of-00001.parquet": {
+      "bytes": 1510182,
+      "mtime_ns": 1785080720883057000,
+      "sha256": "c8525f7af4a47ffd3c2959816147911203782c8e1116267f4e6e54026ef0f923"
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Sociology/validation-00000-of-00001.parquet": {
+      "bytes": 18459557,
+      "mtime_ns": 1785080733250754000,
+      "sha256": "a38e31036b6cfb6df82c069f2715b8df0158969405e86a08c1732c334638ac32"
+    }
+  },
+  "eval_task_sha256": {
+    "/private/workspace/hycui/project/Tamp/lmms_tasks/mmbench_en_dev_local.yaml": "bdbb3ee5e06a9059a75ea32071895b01db9627763a427a60bd20d9208c218ff5",
+    "/private/workspace/hycui/project/Tamp/lmms_tasks/mmbench_local_utils.py": "c352f5f2c39726b117d82727c258722f0acd3e9457396b4e6439621a0a36d047",
+    "/private/workspace/hycui/project/Tamp/lmms_tasks/mmmu_local/mmmu_val_local.yaml": "4b8b283c97d62636dbdb115999e9a045f3ce963abadb09518c2daae2a6524638",
+    "/private/workspace/hycui/project/Tamp/lmms_tasks/mmmu_local/mmmu_local_utils.py": "60f204252839d30d07bab58ee1c52b7ef461d89b2c299d78ee96a1b9cb389fe8",
+    "/private/workspace/hycui/project/Tamp/lmms_tasks/okvqa_local/okvqa_val2014_local.yaml": "4fdac1c7c50f7c790e1d0a24325a33a60cef790d6b241d7c5554324a86f026f5",
+    "/private/workspace/hycui/project/Tamp/lmms_tasks/okvqa_local/okvqa_local_utils.py": "642f92951f373bf7668167bc01082ac62c025e4074c709d0211d0d64e0badd0e"
+  },
+  "model_manifest_sha256": {
+    "/private/workspace/hycui/model/Cosmos3-Edge/config.json": "ffb75b654e65d10e337ea07f20ac4eadc3775dd22c9a8194c87c3b68df5c8f5f",
+    "/private/workspace/hycui/model/Cosmos3-Edge/model.safetensors.index.json": "ee48f9da9fbab206b6d2902eb109a842dde7b1347f5716a177f0be00968acf33",
+    "/private/workspace/hycui/model/Cosmos3-Edge/processor_config.json": "7444d3780a8ed0b11d850292fa54407cfd1f389c101d111090289da354b13333"
+  },
+  "calibration_policy_note": "Input-only calibration; named calibration sources may overlap their same-name eval split. No labels are consumed during TAMP importance statistics."
+}

@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "datasets": {
+    "mmbench": {
+      "joint": {
+        "calibration_json": [
+          "/private/workspace/hycui/mfs/calibration_sharegpt4v/mmbench_calibration_sharegpt4v.json"
+        ],
+        "image_roots": [
+          "/private/workspace/hycui/mfs"
+        ]
+      },
+      "separate": {
+        "ar_calibration_json": [
+          "/private/workspace/hycui/mfs/mmbench_20260626_181458_seed42_text_only.json"
+        ],
+        "verification_json": [
+          "/private/workspace/hycui/mfs/calibration_sharegpt4v/mmbench_calibration_sharegpt4v.json"
+        ],
+        "image_roots": [
+          "/private/workspace/hycui/mfs"
+        ]
+      }
+    },
+    "mmmu": {
+      "joint": {
+        "calibration_json": [
+          "/private/workspace/hycui/mfs/calibration_sharegpt4v/mmmu_calibration_sharegpt4v.json"
+        ],
+        "image_roots": [
+          "/private/workspace/hycui/mfs"
+        ]
+      },
+      "separate": {
+        "ar_calibration_json": [
+          "/private/workspace/hycui/mfs/mmmu_20260626_181458_seed42_text_only.json"
+        ],
+        "verification_json": [
+          "/private/workspace/hycui/mfs/calibration_sharegpt4v/mmmu_calibration_sharegpt4v.json"
+        ],
+        "image_roots": [
+          "/private/workspace/hycui/mfs"
+        ]
+      }
+    },
+    "okvqa": {
+      "joint": {
+        "calibration_json": [
+          "/private/workspace/hycui/mfs/calibration_sharegpt4v/okvqa_calibration_sharegpt4v.json"
+        ],
+        "image_roots": [
+          "/private/workspace/hycui/mfs"
+        ]
+      },
+      "separate": {
+        "ar_calibration_json": [
+          "/private/workspace/hycui/mfs/okvqa_20260626_181458_seed42_text_only.json"
+        ],
+        "verification_json": [
+          "/private/workspace/hycui/mfs/calibration_sharegpt4v/okvqa_calibration_sharegpt4v.json"
+        ],
+        "image_roots": [
+          "/private/workspace/hycui/mfs"
+        ]
+      }
+    }
+  }
+}

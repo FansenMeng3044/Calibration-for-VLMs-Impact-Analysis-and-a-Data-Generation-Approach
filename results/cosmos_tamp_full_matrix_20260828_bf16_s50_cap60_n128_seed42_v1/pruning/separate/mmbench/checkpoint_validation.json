@@ -1,0 +1,63 @@
+{
+  "run_dir": "/private/workspace/hycui/Results/mfs/cosmos_tamp_full_matrix_20260828_bf16_s50_cap60_n128_seed42_v1/pruning/separate/mmbench",
+  "checkpoint": "/private/workspace/hycui/Results/mfs/cosmos_tamp_full_matrix_20260828_bf16_s50_cap60_n128_seed42_v1/pruning/separate/mmbench/checkpoint",
+  "protocol": "separate",
+  "preset": "mmbench",
+  "protocol_expectations": {
+    "nsamples": 128,
+    "seed": 42,
+    "ar_sparsity": 0.5,
+    "max_sparsity_per_linear": 0.6,
+    "dtype": "bfloat16",
+    "attention_implementation": "eager",
+    "min_image_pixels": 65536,
+    "max_image_pixels": 1048576
+  },
+  "partial_run": false,
+  "reload_zero_report": {
+    "vision": {
+      "parameters": 411070464,
+      "zeros": 0,
+      "zero_ratio": 0.0
+    },
+    "ar": {
+      "parameters": 1409286144,
+      "zeros": 704406528,
+      "zero_ratio": 0.4998321533203125
+    },
+    "combined_target_linears": {
+      "parameters": 1409286144,
+      "zeros": 704406528,
+      "zero_ratio": 0.4998321533203125,
+      "scope": "model.language_model.layers"
+    }
+  },
+  "non_target_tensor_validation": {
+    "target_tensor_count": 168,
+    "non_target_tensor_count": 504,
+    "non_target_bitwise_equal": 504,
+    "non_target_mismatches": 0
+  },
+  "reload_multimodal_verification": {
+    "sample_id": "mmbench:tamp_text_pair:0:37ccea84706a",
+    "token_counts": {
+      "valid": 317,
+      "language": 237,
+      "image": 80,
+      "video": 0
+    },
+    "forward_calls": {
+      "vision": 1,
+      "projector": 1,
+      "ar": 1
+    },
+    "logits_shape": [
+      1,
+      1,
+      131072
+    ],
+    "logits_finite": true
+  },
+  "checkpoint_bytes": 4888464477,
+  "validated": true
+}

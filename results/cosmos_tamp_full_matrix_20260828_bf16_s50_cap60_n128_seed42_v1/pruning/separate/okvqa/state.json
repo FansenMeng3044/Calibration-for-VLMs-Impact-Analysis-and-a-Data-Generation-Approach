@@ -1,0 +1,10 @@
+{
+  "phase": "complete",
+  "protocol": "cosmos_tamp_separate_textonly_reasoner",
+  "started_unix": 1787916978.1098974,
+  "completed_unix": 1787917168.6865754,
+  "elapsed_seconds": 190.57667803764343,
+  "metadata_path": "/private/workspace/hycui/Results/mfs/cosmos_tamp_full_matrix_20260828_bf16_s50_cap60_n128_seed42_v1/pruning/separate/okvqa/metadata.json",
+  "checkpoint_path": "/private/workspace/hycui/Results/mfs/cosmos_tamp_full_matrix_20260828_bf16_s50_cap60_n128_seed42_v1/pruning/separate/okvqa/checkpoint",
+  "pid": 833528
+}

@@ -1,0 +1,193 @@
+{
+  "overall": {
+    "accuracy": 30.44,
+    "correct": 274,
+    "total": 900
+  },
+  "domains": {
+    "Art and Design": {
+      "accuracy": 39.17,
+      "correct": 47,
+      "total": 120
+    },
+    "Business": {
+      "accuracy": 24.0,
+      "correct": 36,
+      "total": 150
+    },
+    "Science": {
+      "accuracy": 28.0,
+      "correct": 42,
+      "total": 150
+    },
+    "Health and Medicine": {
+      "accuracy": 32.0,
+      "correct": 48,
+      "total": 150
+    },
+    "Humanities and Social Science": {
+      "accuracy": 41.67,
+      "correct": 50,
+      "total": 120
+    },
+    "Tech and Engineering": {
+      "accuracy": 24.29,
+      "correct": 51,
+      "total": 210
+    }
+  },
+  "subjects": {
+    "Accounting": {
+      "accuracy": 43.33,
+      "correct": 13,
+      "total": 30
+    },
+    "Agriculture": {
+      "accuracy": 40.0,
+      "correct": 12,
+      "total": 30
+    },
+    "Architecture_and_Engineering": {
+      "accuracy": 16.67,
+      "correct": 5,
+      "total": 30
+    },
+    "Art": {
+      "accuracy": 40.0,
+      "correct": 12,
+      "total": 30
+    },
+    "Art_Theory": {
+      "accuracy": 33.33,
+      "correct": 10,
+      "total": 30
+    },
+    "Basic_Medical_Science": {
+      "accuracy": 43.33,
+      "correct": 13,
+      "total": 30
+    },
+    "Biology": {
+      "accuracy": 33.33,
+      "correct": 10,
+      "total": 30
+    },
+    "Chemistry": {
+      "accuracy": 20.0,
+      "correct": 6,
+      "total": 30
+    },
+    "Clinical_Medicine": {
+      "accuracy": 36.67,
+      "correct": 11,
+      "total": 30
+    },
+    "Computer_Science": {
+      "accuracy": 16.67,
+      "correct": 5,
+      "total": 30
+    },
+    "Design": {
+      "accuracy": 53.33,
+      "correct": 16,
+      "total": 30
+    },
+    "Diagnostics_and_Laboratory_Medicine": {
+      "accuracy": 26.67,
+      "correct": 8,
+      "total": 30
+    },
+    "Economics": {
+      "accuracy": 20.0,
+      "correct": 6,
+      "total": 30
+    },
+    "Electronics": {
+      "accuracy": 13.33,
+      "correct": 4,
+      "total": 30
+    },
+    "Energy_and_Power": {
+      "accuracy": 23.33,
+      "correct": 7,
+      "total": 30
+    },
+    "Finance": {
+      "accuracy": 10.0,
+      "correct": 3,
+      "total": 30
+    },
+    "Geography": {
+      "accuracy": 40.0,
+      "correct": 12,
+      "total": 30
+    },
+    "History": {
+      "accuracy": 36.67,
+      "correct": 11,
+      "total": 30
+    },
+    "Literature": {
+      "accuracy": 60.0,
+      "correct": 18,
+      "total": 30
+    },
+    "Manage": {
+      "accuracy": 16.67,
+      "correct": 5,
+      "total": 30
+    },
+    "Marketing": {
+      "accuracy": 30.0,
+      "correct": 9,
+      "total": 30
+    },
+    "Materials": {
+      "accuracy": 36.67,
+      "correct": 11,
+      "total": 30
+    },
+    "Math": {
+      "accuracy": 33.33,
+      "correct": 10,
+      "total": 30
+    },
+    "Mechanical_Engineering": {
+      "accuracy": 23.33,
+      "correct": 7,
+      "total": 30
+    },
+    "Music": {
+      "accuracy": 30.0,
+      "correct": 9,
+      "total": 30
+    },
+    "Pharmacy": {
+      "accuracy": 36.67,
+      "correct": 11,
+      "total": 30
+    },
+    "Physics": {
+      "accuracy": 13.33,
+      "correct": 4,
+      "total": 30
+    },
+    "Psychology": {
+      "accuracy": 30.0,
+      "correct": 9,
+      "total": 30
+    },
+    "Public_Health": {
+      "accuracy": 16.67,
+      "correct": 5,
+      "total": 30
+    },
+    "Sociology": {
+      "accuracy": 40.0,
+      "correct": 12,
+      "total": 30
+    }
+  },
+  "scoring": "lmms_eval_official_mmmu_parser_and_evaluator",
+  "accuracy_unit": "percent"
+}
