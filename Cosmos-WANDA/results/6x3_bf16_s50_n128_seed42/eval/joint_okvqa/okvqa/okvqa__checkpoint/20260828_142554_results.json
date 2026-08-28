@@ -1,0 +1,121 @@
+{
+  "results": {
+    "okvqa_val2014_local": {
+      "alias": "okvqa_val2014_local",
+      "exact_match,none": 0.3593737613951645,
+      "exact_match_stderr,none": 0.0064307074237105535,
+      "submission,none": null,
+      "submission_stderr,none": "N/A"
+    }
+  },
+  "group_subtasks": {
+    "okvqa_val2014_local": []
+  },
+  "configs": {
+    "okvqa_val2014_local": {
+      "task": "okvqa_val2014_local",
+      "dataset_path": "json",
+      "dataset_kwargs": {
+        "data_files": {
+          "val2014": "/private/workspace/hycui/mfs/okvqa/okvqa_val2014_local.jsonl"
+        }
+      },
+      "test_split": "val2014",
+      "full_docs": false,
+      "process_results_use_image": false,
+      "doc_to_visual": "<function ok_vqa_local_doc_to_visual at 0x7fc7200f5e40>",
+      "doc_to_text": "<function ok_vqa_doc_to_text at 0x7fc7200f6b60>",
+      "doc_to_target": "answer",
+      "process_results": "<function ok_vqa_process_results at 0x7fc7200f68e0>",
+      "description": "",
+      "target_delimiter": " ",
+      "fewshot_delimiter": "\n\n",
+      "num_fewshot": 0,
+      "metric_list": [
+        {
+          "metric": "exact_match",
+          "aggregation": "mean",
+          "higher_is_better": true
+        },
+        {
+          "metric": "submission",
+          "aggregation": "<function ok_vqa_aggregate_submissions at 0x7fc7200f6700>",
+          "higher_is_better": true
+        }
+      ],
+      "output_type": "generate_until",
+      "generation_kwargs": {
+        "until": [
+          "ASSISTANT:"
+        ],
+        "max_new_tokens": 32,
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "num_beams": 1,
+        "do_sample": false
+      },
+      "repeats": 1,
+      "should_decontaminate": false,
+      "metadata": {
+        "version": 0.0
+      },
+      "lmms_eval_specific_kwargs": {
+        "default": {
+          "pre_prompt": "",
+          "post_prompt": "\nAnswer the question using a single word or short phrase."
+        },
+        "pre_prompt": "",
+        "post_prompt": "\nAnswer the question using a single word or short phrase."
+      }
+    }
+  },
+  "versions": {
+    "okvqa_val2014_local": 0.0
+  },
+  "n-shot": {
+    "okvqa_val2014_local": 0
+  },
+  "higher_is_better": {
+    "okvqa_val2014_local": {
+      "exact_match": true,
+      "submission": true
+    }
+  },
+  "n-samples": {
+    "okvqa_val2014_local": {
+      "original": 5046,
+      "effective": 5046
+    }
+  },
+  "config": {
+    "model": "cosmos3_edge",
+    "model_args": "pretrained=/private/workspace/hycui/Results/mfs/cosmos_wanda_full_matrix_20260828_bf16_s50_n128_seed42_v2_imagecap1m/pruning/joint/okvqa/checkpoint,device=cuda:0,dtype=bfloat16,attn_implementation=eager,max_length=4096,min_image_pixels=65536,max_image_pixels=1048576,enable_thinking=false",
+    "batch_size": "1",
+    "batch_sizes": [],
+    "device": null,
+    "use_cache": null,
+    "limit": null,
+    "bootstrap_iters": 100000,
+    "gen_kwargs": "",
+    "random_seed": 0,
+    "numpy_seed": 1234,
+    "torch_seed": 1234,
+    "fewshot_seed": 1234
+  },
+  "git_hash": null,
+  "date": "20260828_142554",
+  "task_hashes": {
+    "okvqa_val2014_local": "729c9462d18bc187ab8472a25494215c5d4ab01b31797faa1d0438073c1fd2a9"
+  },
+  "model_source": "cosmos3_edge",
+  "model_name": "/private/workspace/hycui/Results/mfs/cosmos_wanda_full_matrix_20260828_bf16_s50_n128_seed42_v2_imagecap1m/pruning/joint/okvqa/checkpoint",
+  "model_name_sanitized": "okvqa__checkpoint",
+  "system_instruction": null,
+  "system_instruction_sha": null,
+  "fewshot_as_multiturn": false,
+  "chat_template": null,
+  "chat_template_sha": null,
+  "start_time": 22218576.401362944,
+  "end_time": 22219386.89805889,
+  "total_evaluation_time_seconds": "810.496695946902"
+}

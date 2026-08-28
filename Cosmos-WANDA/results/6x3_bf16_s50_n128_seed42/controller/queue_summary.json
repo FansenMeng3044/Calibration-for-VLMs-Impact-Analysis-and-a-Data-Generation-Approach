@@ -1,0 +1,9 @@
+{
+  "run_root": "/private/workspace/hycui/Results/mfs/cosmos_wanda_full_matrix_20260828_bf16_s50_n128_seed42_v2_imagecap1m",
+  "task_count": 29,
+  "gate_tasks": 1,
+  "prune_tasks": 6,
+  "dense_eval_tasks": 3,
+  "pruned_eval_tasks": 18,
+  "aggregate_tasks": 1
+}

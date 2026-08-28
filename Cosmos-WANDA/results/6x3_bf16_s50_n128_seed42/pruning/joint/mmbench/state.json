@@ -1,0 +1,10 @@
+{
+  "phase": "complete",
+  "protocol": "cosmos_wanda_joint_reasoner",
+  "started_unix": 1787897900.752767,
+  "completed_unix": 1787897954.0060494,
+  "elapsed_seconds": 53.25328230857849,
+  "metadata_path": "/private/workspace/hycui/Results/mfs/cosmos_wanda_full_matrix_20260828_bf16_s50_n128_seed42_v2_imagecap1m/pruning/joint/mmbench/metadata.json",
+  "checkpoint_path": "/private/workspace/hycui/Results/mfs/cosmos_wanda_full_matrix_20260828_bf16_s50_n128_seed42_v2_imagecap1m/pruning/joint/mmbench/checkpoint",
+  "pid": 574467
+}

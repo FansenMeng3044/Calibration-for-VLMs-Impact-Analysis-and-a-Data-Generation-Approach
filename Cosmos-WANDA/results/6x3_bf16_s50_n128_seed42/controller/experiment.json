@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "created_iso": "2026-08-28T06:14:44.325146+00:00",
+  "run_root": "/private/workspace/hycui/Results/mfs/cosmos_wanda_full_matrix_20260828_bf16_s50_n128_seed42_v2_imagecap1m",
+  "model_path": "/private/workspace/hycui/model/Cosmos3-Edge",
+  "protocols": [
+    "joint",
+    "separate"
+  ],
+  "calibration_sources": [
+    "mmbench",
+    "mmmu",
+    "okvqa"
+  ],
+  "evaluation_benchmarks": [
+    "mmbench",
+    "mmmu",
+    "okvqa"
+  ],
+  "nsamples": 128,
+  "seed": 42,
+  "vision_sparsity": 0.5,
+  "ar_sparsity": 0.5,
+  "dtype": "bfloat16",
+  "attention_implementation": "eager",
+  "enable_thinking": false,
+  "max_length": 4096,
+  "min_image_pixels": 65536,
+  "max_image_pixels": 1048576,
+  "precision_label": "dense/pruned unquantized bfloat16",
+  "expected_eval_samples": {
+    "mmbench": 4329,
+    "mmmu": 900,
+    "okvqa": 5046
+  },
+  "calibration_alignment": "/private/workspace/hycui/Results/mfs/cosmos_wanda_full_matrix_20260828_bf16_s50_n128_seed42_v2_imagecap1m/controller/calibration_alignment.json",
+  "code_sha256": {
+    "cosmos_wanda_prune.py": "bc1ebdaa2cb1796902b92046e656c3a7730ea6f08270e5e8491f709f79c85bd0",
+    "calibration_presets.json": "8a60c5e6d81649f1135d567b1abb416d93b3fe587ab9d000439081506f2f6c82",
+    "cosmos_lmms_plugin/models/cosmos3_edge.py": "51e6a9a5b65a01714897b96b82431ca88e50a69a31d9de4a7ae70cd98a3a1dd8",
+    "run_three_eval.sh": "c7916ee7ca06b907bde64e50f9e76f1bd4e3ac485ed7883eeb7971475c99f295",
+    "validate_calibration_alignment.py": "dbbcec0356d695c412e550ed4df4dd040ebf933dfb12e35ccbf83a25b3eb0ba3",
+    "validate_cosmos_checkpoint.py": "dfff8328123af84f318bcddb056c026fd1b48736c23fd50194774ac271b8d494",
+    "validate_eval_output.py": "92b423239a5b9c32281e3fdbbc2886a86f9564bb18b8ca320c8a91e5b6560e49",
+    "prepare_full_matrix.py": "42be0ef829116a26030a3d85d63fff5f56a4020125568359d15c489616fa279a",
+    "run_full_matrix_task.py": "c0eeabc55b6b4e033d6b0fb081970f22298ba9dc83773b3312e7408031b156bb",
+    "run_full_matrix_worker.sh": "442e5298440165deddb85933f0cce8b31ac6743bd919c25e377a9a43080b6ed3",
+    "aggregate_matrix_results.py": "24d755e8ffc80ebf489fa8dc6b3b341bc07947d38ef73508747e3e7e1a96aa74"
+  },
+  "eval_data_files": {
+    "/private/workspace/hycui/project/Tamp/MMBench_eval/en/dev-00000-of-00001.parquet": {
+      "bytes": 96595184,
+      "mtime_ns": 1785071203647681784
+    },
+    "/private/workspace/hycui/mfs/okvqa/okvqa_val2014_local.jsonl": {
+      "bytes": 1917026,
+      "mtime_ns": 1785087218130011792
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Accounting/validation-00000-of-00001.parquet": {
+      "bytes": 1535386,
+      "mtime_ns": 1785080453701594000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Agriculture/validation-00000-of-00001.parquet": {
+      "bytes": 119223107,
+      "mtime_ns": 1785080492504642000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Architecture_and_Engineering/validation-00000-of-00001.parquet": {
+      "bytes": 726950,
+      "mtime_ns": 1785080453905589000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Art/validation-00000-of-00001.parquet": {
+      "bytes": 29939738,
+      "mtime_ns": 1785080474969072000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Art_Theory/validation-00000-of-00001.parquet": {
+      "bytes": 29783856,
+      "mtime_ns": 1785080530835703000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Basic_Medical_Science/validation-00000-of-00001.parquet": {
+      "bytes": 4131430,
+      "mtime_ns": 1785080521119941000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Biology/validation-00000-of-00001.parquet": {
+      "bytes": 8494798,
+      "mtime_ns": 1785080539575489000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Chemistry/validation-00000-of-00001.parquet": {
+      "bytes": 1522870,
+      "mtime_ns": 1785080542115427000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Clinical_Medicine/validation-00000-of-00001.parquet": {
+      "bytes": 10888251,
+      "mtime_ns": 1785080578838529000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Computer_Science/validation-00000-of-00001.parquet": {
+      "bytes": 2078701,
+      "mtime_ns": 1785080580970477000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Design/validation-00000-of-00001.parquet": {
+      "bytes": 16227878,
+      "mtime_ns": 1785080590522244000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Diagnostics_and_Laboratory_Medicine/validation-00000-of-00001.parquet": {
+      "bytes": 37089865,
+      "mtime_ns": 1785080623189446000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Economics/validation-00000-of-00001.parquet": {
+      "bytes": 1424097,
+      "mtime_ns": 1785080629281298000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Electronics/validation-00000-of-00001.parquet": {
+      "bytes": 644538,
+      "mtime_ns": 1785080633741189000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Energy_and_Power/validation-00000-of-00001.parquet": {
+      "bytes": 1646107,
+      "mtime_ns": 1785080642528974000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Finance/validation-00000-of-00001.parquet": {
+      "bytes": 1002833,
+      "mtime_ns": 1785080646244883000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Geography/validation-00000-of-00001.parquet": {
+      "bytes": 6677774,
+      "mtime_ns": 1785080649308808000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/History/validation-00000-of-00001.parquet": {
+      "bytes": 8430352,
+      "mtime_ns": 1785080653480706000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Literature/validation-00000-of-00001.parquet": {
+      "bytes": 14246788,
+      "mtime_ns": 1785080659424561000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Manage/validation-00000-of-00001.parquet": {
+      "bytes": 3139783,
+      "mtime_ns": 1785080678988082000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Marketing/validation-00000-of-00001.parquet": {
+      "bytes": 1361340,
+      "mtime_ns": 1785080682224003000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Materials/validation-00000-of-00001.parquet": {
+      "bytes": 2309857,
+      "mtime_ns": 1785080685959912000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Math/validation-00000-of-00001.parquet": {
+      "bytes": 1447995,
+      "mtime_ns": 1785080690895791000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Mechanical_Engineering/validation-00000-of-00001.parquet": {
+      "bytes": 876772,
+      "mtime_ns": 1785080695875669000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Music/validation-00000-of-00001.parquet": {
+      "bytes": 9363650,
+      "mtime_ns": 1785080702199514000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Pharmacy/validation-00000-of-00001.parquet": {
+      "bytes": 1551086,
+      "mtime_ns": 1785080704195465000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Physics/validation-00000-of-00001.parquet": {
+      "bytes": 1117086,
+      "mtime_ns": 1785080712095272000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Psychology/validation-00000-of-00001.parquet": {
+      "bytes": 4311520,
+      "mtime_ns": 1785080715683184000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Public_Health/validation-00000-of-00001.parquet": {
+      "bytes": 1510182,
+      "mtime_ns": 1785080720883057000
+    },
+    "/private/workspace/hycui/project/Tamp/MMMU_single_image/Sociology/validation-00000-of-00001.parquet": {
+      "bytes": 18459557,
+      "mtime_ns": 1785080733250754000
+    }
+  },
+  "calibration_policy_note": "Input-only calibration; named calibration sources may overlap their same-name eval split. No labels are consumed during WANDA statistics."
+}
